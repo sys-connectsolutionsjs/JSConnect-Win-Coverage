@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build PyInstaller
+build/
+dist/
+*.spec
+
+# Captura: datos sensibles (redactados, pero mejor no subir)
+tools/captura.json
+captura.json
+tools/captura_inicio.png
+tools/js/
+
+# Activacion: la llave privada NUNCA se sube
+generator/private_key.pem
+*.pem
+
+# Entorno / config local
+.env
+*.local
+
+# Windows
+Thumbs.db
+Desktop.ini
