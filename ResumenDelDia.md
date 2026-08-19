@@ -2,6 +2,9 @@
 
 Fecha: 2026-08-19
 
+Nota: el resumen de cierre que se presenta al usuario es CONCISO (puntos clave),
+sin repetir todo lo documentado aquí.
+
 ## Qué se hizo hoy
 
 ### 2026-08-19 — Sesión (tarde)

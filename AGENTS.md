@@ -112,6 +112,9 @@ SQLite ya viene en Python; no añade dependencias.
 - **`ResumenDelDia.md`** = historial del DÍA. Lleva la fecha dentro y se va
   actualizando a medida que se trabaja (lo que se hizo, lo que se pospuso, lo que
   queda pendiente al volver). Sirve de base para el resumen de cierre de sesión.
+  El resumen de cierre (presentado al usuario) debe ser CONCISO: puntos clave
+  (qué se hizo, commits, pendiente), sin redactar de nuevo lo ya documentado en
+  los MD.
 - **`PlanesAprobados.md`** es una **COLA de trabajo, NO un historial**: cada vez que
   se implementa algo que estaba en la cola, se **saca** de ahí (se marca como hecho o
   se elimina). El historial de lo hecho vive en AGENTS.md (bitácora) y en
