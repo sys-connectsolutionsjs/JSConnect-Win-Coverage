@@ -24,6 +24,11 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── requirements-dev.txt      # dependencias de desarrollo
 ├── build.ps1                 # embebe commit SHA + empaqueta con PyInstaller
 ├── publish-release.ps1       # prepara el Release en GitHub (asset .exe + SHA-256)
+├── AGENTS.md                 # reglas del proyecto, contexto, historial y pendientes
+├── PlanesAprobados.md        # COLA de planes aprobados (lo implementado se saca)
+├── TestingLog.md             # metodología TDD + bitácora de pruebas
+├── README.md                 # documentación pública (español + inglés)
+├── ResumenDelDia.md          # historial del día en curso (resumen de cierre)
 ├── tools/
 │   └── captura.py            # herramienta Playwright para descubrir la API interna
 ├── generator/
@@ -102,20 +107,38 @@ entre validaciones para no saturar la API ni levantar sospechas de automatizaci�
 Guardar validaciones pasadas (local, SQLite) para consulta rápida sin re-validar.
 SQLite ya viene en Python; no añade dependencias.
 
+## Reglas de trabajo (flujo del día)
+- **`ResumenDelDia.md`** = historial del DÍA. Lleva la fecha dentro y se va
+  actualizando a medida que se trabaja (lo que se hizo, lo que se pospuso, lo que
+  queda pendiente al volver). Sirve de base para el resumen de cierre de sesión.
+- **`PlanesAprobados.md`** es una **COLA de trabajo, NO un historial**: cada vez que
+  se implementa algo que estaba en la cola, se **saca** de ahí (se marca como hecho o
+  se elimina). El historial de lo hecho vive en AGENTS.md (bitácora) y en
+  ResumenDelDia.md.
+- **`README.md`** se actualiza con los avances cuando el plan implementado lo amerite
+  (seguridad, funciones nuevas, estructura, comandos, etc.).
+- **Cierre de sesión**: al terminar una sesión se actualiza AGENTS.md (Historial) con
+  el resumen de lo hecho en el día. Después, al confirmar el usuario que ya terminó la
+  sesión, se le pregunta si desea presentar el resumen del día desde
+  `ResumenDelDia.md`.
+
 ## Archivos de documentación (mapa de conocimiento)
 Estos archivos son el punto de partida de cualquier persona (o IA) que retome el
 proyecto. Leerlos en este orden ANTES de tocar código:
 1. **AGENTS.md** (este archivo): reglas del proyecto, contexto, historial y tareas
    pendientes. Es la puerta de entrada.
-2. **PlanesAprobados.md**: planes de trabajo YA aprobados, con el razonamiento y las
-   decisiones tomadas (ej: decisión de autenticación). Contiene además diseños listos
-   para implementar (ej: el Paso 1 con el código de `tools/probar_concurrencia.py`).
-   Leer antes de empezar una fase para no repetir análisis ni ignorar decisiones.
+2. **PlanesAprobados.md**: **cola** de trabajo con los planes YA aprobados, el
+   razonamiento y las decisiones tomadas (ej: decisión de autenticación). Contiene
+   además diseños listos para implementar (ej: el Paso 1 con el código de
+   `tools/probar_concurrencia.py`). Leer antes de empezar una fase para no repetir
+   análisis ni ignorar decisiones. Se actualiza SACANDO de la cola lo implementado.
 3. **TestingLog.md**: metodología TDD del proyecto (test rojo -> verde), inventario de
    tests y bitácora de problemas -> causa -> solución. Leer antes de escribir o
    modificar tests.
 4. **README.md**: documentación pública del proyecto (español primero, luego inglés).
    Mantenerla actualizada ANTES de subir a GitHub.
+5. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
+   trabajar). Fuente del resumen de cierre de sesión.
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
 DecisionesArquitectura.md, ManualOperador.md), se registra AQUÍ su existencia, propósito
@@ -135,6 +158,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
    la vez con la misma cuenta de Win para comprobar si la ISP bloquea; decidir entre
    proxy local (B) y credenciales por máquina (A). El diseño de la herramienta
    `tools/probar_concurrencia.py` está aprobado en PlanesAprobados.md (Paso 1).
+   (2026-08-19: se pospuso crear la herramienta; sigue en cola y se retomará hoy.)
    Actualizar este punto con los resultados en cuanto se haga la prueba.
 2. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura →
    score con un cliente de prueba. Decidir aquí si `score_cliente` acepta payload mínimo

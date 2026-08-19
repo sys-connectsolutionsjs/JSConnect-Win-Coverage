@@ -74,6 +74,8 @@ D) Sesión en caché por máquina: DESCARTADA (expiraciones + misma cuenta).
   hoy + dato de rotación de credenciales.
 
 ### Paso 1 — Herramienta de prueba de concurrencia
+- **Estado 2026-08-19**: SIGUE EN COLA (no implementado). El arranque del día se
+  pospuso esta tarea; se retomará hoy al volver a trabajar.
 - tools/probar_concurrencia.py: bucle login -> cobertura -> score (N veces),
   con marcas de tiempo; registra errores/bloqueos para detectar el límite de Win.
 - Alternativa manual previa: abrir appwinforce.win.pe en 5 navegadores con el
