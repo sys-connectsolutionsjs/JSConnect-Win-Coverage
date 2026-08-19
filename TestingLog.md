@@ -15,10 +15,29 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/test_fields.py | varios | parseo de coordenadas y detección DNI/RUC/CE |
-| tests/test_captura_guard.py | varios | guard de instancia única de captura.py |
+| tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
 | tests/test_api.py | 14 | núcleo: login, cobertura, score y su parser |
 
+Nota: `tools/probar_concurrencia.py` NO tiene tests automáticos a propósito (pide
+credenciales y hace peticiones reales); se valida con `ruff` e import.
+
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-08-19 (tarde) — Retoma desde otra máquina
+- [Entorno] Python 3.14.7 instalado (winget) y añadido al PATH de usuario; tras la
+  instalación los comandos `python`/`pip` seguían sin resolver hasta abrir una
+  terminal nueva o usar la ruta completa
+  (`C:\Users\<user>\AppData\Local\Programs\Python\Python314\python.exe`).
+- [Entorno] `pip install -e .` fallaba: "Multiple top-level packages discovered in
+  a flat-layout: ['generator', 'validator_app']". → Añadir `[project]` +
+  `[tool.setuptools.packages.find]` (`include = ["validator_app*"]`) a
+  `pyproject.toml`.
+- [Problema] `tests/test_captura_guard.py` no colectaba: `ModuleNotFoundError:
+  No module named 'playwright'`. → Instalar dependencias dev (`playwright`,
+  `pytest`, `ruff`, `pyinstaller`) + `python -m playwright install chromium`.
+- [Problema] `W292` (sin newline al final) en `tools/probar_concurrencia.py`.
+  → `ruff check . --fix`.
+- [Verificación] 25 tests pasando y ruff limpio en la máquina nueva.
 
 ### tests/test_api.py — núcleo (nuevo, 14 casos)
 Proceso seguido para cada caso:

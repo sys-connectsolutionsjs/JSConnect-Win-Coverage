@@ -29,6 +29,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── TestingLog.md             # metodología TDD + bitácora de pruebas
 ├── README.md                 # documentación pública (español + inglés)
 ├── ResumenDelDia.md          # historial del día en curso (resumen de cierre)
+├── SkillsPropuestas.md       # COLA/HISTORIAL de skills a crear (se borra lo usado)
 ├── tools/
 │   └── captura.py            # herramienta Playwright para descubrir la API interna
 ├── generator/
@@ -117,6 +118,13 @@ SQLite ya viene en Python; no añade dependencias.
   ResumenDelDia.md.
 - **`README.md`** se actualiza con los avances cuando el plan implementado lo amerite
   (seguridad, funciones nuevas, estructura, comandos, etc.).
+- **`SkillsPropuestas.md`** es una **COLA/HISTORIAL de skills a crear**: registra las
+  tareas repetitivas y errores típicos del proyecto (tests por TDD, problemas de
+  entorno Windows/Python, comandos estándar). Sirve de historial hasta que se cree una
+  skill con esa información; al crearla, se **borra** de este archivo lo ya usado.
+- **AGENTS.md se automantiene**: este archivo se actualiza DURANTE el trabajo (no solo
+  al cierre de sesión) con el contexto, los errores → soluciones y los pendientes,
+  para que cualquier persona o IA retome el proyecto sin pérdida de contexto.
 - **Cierre de sesión**: al terminar una sesión se actualiza AGENTS.md (Historial) con
   el resumen de lo hecho en el día. Después, al confirmar el usuario que ya terminó la
   sesión, se le pregunta si desea presentar el resumen del día desde
@@ -139,10 +147,19 @@ proyecto. Leerlos en este orden ANTES de tocar código:
    Mantenerla actualizada ANTES de subir a GitHub.
 5. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
    trabajar). Fuente del resumen de cierre de sesión.
+6. **SkillsPropuestas.md**: **COLA/HISTORIAL de skills a crear** (tareas repetitivas
+   y errores típicos del proyecto). Se borra lo usado al crear cada skill.
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
 DecisionesArquitectura.md, ManualOperador.md), se registra AQUÍ su existencia, propósito
 e importancia, para que el mapa de conocimiento nunca quede incompleto.
+
+## Proyectos relacionados (fuera de este repo)
+- **Captura de API** (herramienta independiente de captura HTTP, Playwright):
+  `C:\Users\Connect Solutions 10\Documents\JS-REPOS\Captura de API`. Nació como la
+  Fase 0 de este proyecto; `tools/captura.py` aquí es una copia. Tiene su PROPIO
+  ecosistema de documentación (AGENTS.md, PlanesAprobados.md, ResumenDelDia.md,
+  TestingLog.md, README.md, SkillsPropuestas.md) en esa carpeta.
 
 ## Notas de seguridad
 - No subir a GitHub: llave privada de activación, credenciales reales, archivos de
@@ -156,10 +173,10 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 ## Tareas pendientes
 1. **PRUEBA DE CONCURRENCIA** (pendiente de ejecutar): validar desde 4-5 máquinas a
    la vez con la misma cuenta de Win para comprobar si la ISP bloquea; decidir entre
-   proxy local (B) y credenciales por máquina (A). El diseño de la herramienta
-   `tools/probar_concurrencia.py` está aprobado en PlanesAprobados.md (Paso 1).
-   (2026-08-19: se pospuso crear la herramienta; sigue en cola y se retomará hoy.)
-   Actualizar este punto con los resultados en cuanto se haga la prueba.
+   proxy local (B) y credenciales por máquina (A). La herramienta
+   `tools/probar_concurrencia.py` ya está CREADA con el diseño aprobado (Fase 1.5,
+   Paso 1, 2026-08-19). Solo falta EJECUTARLA en 4-5 máquinas (Paso 2) y registrar
+   resultados aquí. (2026-08-19: la prueba se pospuso para otro día.)
 2. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura →
    score con un cliente de prueba. Decidir aquí si `score_cliente` acepta payload mínimo
    (opción C) o si hace falta la geodata.
@@ -280,3 +297,25 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   Paso 1 de PlanesAprobados.md, ejecutarlo en 4-5 máquinas y decidir A/B.
 - Estado general: Fase 0 completa, Fase 1 construida (25 tests, ruff limpio),
   Fase 1.5 en curso (decisión de autenticación pendiente de la prueba).
+
+### Sesión 2026-08-19 (tarde) — Retoma desde otra máquina
+- [Entorno] Repositorio clonado en una máquina nueva; Python 3.14.7 instalado
+  (winget) + PATH de usuario; dependencias instaladas; Playwright Chromium bajado.
+- [Entorno] `pyproject.toml`: añadido `[project]` + `[tool.setuptools.packages.find]`
+  (solo `validator_app*`) para permitir `pip install -e .` (antes fallaba por
+  flat-layout con "Multiple top-level packages discovered").
+- [Verificación] En la máquina nueva: 25 tests pasando y ruff limpio.
+- [Seguridad] Escaneo del repo e historial git por credenciales: sin secretos
+  (solo variable de runtime en api.py). Confirmado que `private_key.pem`, `tools/js/`
+  y `captura.json` nunca estuvieron en el repo.
+- [Plan] Aprobada y registrada la **Fase 2 — Gestión visual de activación**
+  (`GeneradorActividad.exe` portable para gerente/sistemas; `private_key.pem` junto
+  al .exe; se implementa después de la prueba de concurrencia).
+- [Avance] **Fase 1.5 Paso 1 implementado**: creado `tools/probar_concurrencia.py`
+  con el diseño aprobado (login→cobertura→score en N ciclos, log TSV). Ruff limpio,
+  import OK, 25 tests. Pendiente solo de ejecutarse (Paso 2).
+- [Herramienta] Creado proyecto independiente **Captura de API** (Playwright) en
+  `C:\Users\Connect Solutions 10\Documents\JS-REPOS\Captura de API`, con su propio
+  ecosistema de docs. `tools/captura.py` aquí queda como copia.
+- [Reglas] AGENTS.md ahora incluye la regla de automantenimiento, `SkillsPropuestas.md`
+  (cola/historial de skills) y la sección "Proyectos relacionados".

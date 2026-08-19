@@ -74,8 +74,9 @@ D) Sesión en caché por máquina: DESCARTADA (expiraciones + misma cuenta).
   hoy + dato de rotación de credenciales.
 
 ### Paso 1 — Herramienta de prueba de concurrencia
-- **Estado 2026-08-19**: SIGUE EN COLA (no implementado). El arranque del día se
-  pospuso esta tarea; se retomará hoy al volver a trabajar.
+- **Estado 2026-08-19 (tarde)**: IMPLEMENTADO. `tools/probar_concurrencia.py` creado
+  con el diseño aprobado; ruff limpio, import OK, 25 tests pasando. Pendiente solo
+  de EJECUTARSE en 4-5 máquinas (Paso 2).
 - tools/probar_concurrencia.py: bucle login -> cobertura -> score (N veces),
   con marcas de tiempo; registra errores/bloqueos para detectar el límite de Win.
 - Alternativa manual previa: abrir appwinforce.win.pe en 5 navegadores con el
@@ -217,6 +218,45 @@ if __name__ == "__main__":
 3. Coordinar la prueba en 4-5 máquinas.
 4. Registrar resultados en AGENTS.md y decidir arquitectura.
 5. Implementar lo elegido (Paso 4) + pendientes adicionales.
+
+## Fase 2 — Gestión visual de activación (APROBADO 2026-08-19)
+Se implementa DESPUÉS de cerrar la prueba de concurrencia (Fase 1.5, Paso 1).
+
+### Objetivo
+Que ni el gerente/área de sistemas ni los agentes toquen consola ni código para
+gestionar la activación. El generador de llaves/códigos debe ser un .exe portable
+"tan fácil de mandar como un WhatsApp".
+
+### Flujo de trabajo (aprobado)
+1. El agente ejecuta la app/instalador -> obtiene su CODIGO DE MAQUINA (huella).
+2. El agente envía la huella al gerente o al área de sistemas (chat/correo; la
+   huella por sí sola no compromete nada).
+3. Gerente/sistemas abren `GeneradorActividad.exe` (portable, recibido por
+   WhatsApp) -> pegan la huella -> "Generar código".
+4. El agente copia el código en la app que se lo pide -> se valida -> instalación
+   completa.
+
+### Componentes
+- `generator/generar_gui.py` (nuevo, tkinter) -> se empaqueta a
+  `GeneradorActividad.exe` (PyInstaller onefile). Cero consola, cero Python en la
+  PC del gerente.
+  - Botón "Generar llaves" (primera vez, crea `private_key.pem`).
+  - Campo para pegar la huella -> botón "Generar código" -> muestra el código +
+    botón "Copiar".
+- Llave privada: `private_key.pem` VIVE JUNTO AL .exe (modo portable, decisión
+  aprobada). Respaldo/mudanza = copiar la carpeta completa o reenviar el zip.
+- App del agente: ya pide el código de forma visual (`main_window.py`); se
+  mantiene y se afina UX al implementar esta fase.
+
+### Seguridad
+- `GeneradorActividad.exe` es SOLO para gerente/sistemas; nunca se distribuye a
+  agentes.
+- La llave privada nunca va al repo ni a la app.
+- Al viajar por WhatsApp, idealmente en zip protegido (decisión de gerencia).
+
+### Empaquetado
+- `build.ps1` gana una opción para generar `GeneradorActividad.exe` (onefile)
+  junto al .exe de la app.
 
 ## Notas de seguridad
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en B solo viven
