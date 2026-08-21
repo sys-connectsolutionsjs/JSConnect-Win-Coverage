@@ -34,6 +34,11 @@ archivo lo ya usado.
 - `W292` (sin newline al final) → `ruff check . --fix`.
 - Después de instalar dependencias nuevas, verificar que el intérprete las vea
   (`pip list` o import directo) antes de correr tests.
+- **Pegar credenciales desde el portapapeles** puede traer espacios o saltos de
+  línea invisibles (el navegador los recorta, un script no) → SIEMPRE `.strip()`
+  en usuario/contraseña/documento/coordenadas antes de enviarlos.
+- `dict.get("header")` es case-sensitive; requests usa CaseInsensitiveDict pero
+  los fakes de test no → recorrer headers comparando `.lower()` para robustez.
 
 ## Entrada: Comandos estándar del proyecto
 - Instalar: `pip install -r requirements.txt -r requirements-dev.txt`.

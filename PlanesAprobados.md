@@ -79,6 +79,31 @@ D) Sesión en caché por máquina: DESCARTADA (expiraciones + misma cuenta).
    replica ese modelo probado sin terceros ni costo por PC; la prueba de
    concurrencia decide solo si la opción A (directa) también es viable.
 
+### DECISIÓN FINAL (2026-08-21): ARQUITECTURA B — PROXY LOCAL
+Motivos acumulados:
+- Los agentes NO tendrán credenciales Win en el día a día (solo gerente/sistemas)
+  → la opción A (credenciales por máquina) es IMPOSIBLE. La prueba de concurrencia
+  deja de ser crítica para decidir (queda como herramienta opcional si algún día
+  se quisiera evaluar A).
+- El login de Win es FEDERADO (appwinforce -> accesoventas.win.pe -> SSO Microsoft):
+  `requests` no puede completarlo; el proxy hará login vía navegador (Playwright)
+  y reutilizará esa cookie.
+- Infraestructura: PC fija de oficina encendida SOLO en jornada laboral = host del
+  proxy; PC gamer = backup frío (costo eléctrico). Fuera de jornada los agentes no
+  operan (aceptado por el negocio).
+
+### Paso 4 (ACTUALIZADO 2026-08-21) — Implementar el proxy local
+1. **Login vía navegador**: módulo que abre Playwright (como tools/captura.py),
+   deja al responsable completar el SSO federado y extrae las cookies
+   (PHPSESSID y las de accesoventas.win.pe) a un archivo local seguro.
+2. **Servidor proxy** (FastAPI o http.server): reuse `validator_app/core/api.py`
+   inyectando esas cookies; auto-relogin (reabrir navegador ~cada 2 min de inactividad);
+   endpoints `/cobertura` y `/score` con token simple compartido (LAN).
+3. **App agente** (`main_window.py`): sin login; llama al proxy por LAN.
+4. **Auto-start** del proxy en la PC fija al iniciar jornada (tarea de sistemas).
+5. **Backup frío**: instrucciones para levantar el mismo proxy en la PC gamer
+   si la fija falla.
+
 ## Pasos del plan aprobado
 ### Paso 0 — Continuidad
 - Crear este archivo (PlanesAprobados.md).

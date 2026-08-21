@@ -31,7 +31,9 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── ResumenDelDia.md          # historial del día en curso (resumen de cierre)
 ├── SkillsPropuestas.md       # COLA/HISTORIAL de skills a crear (se borra lo usado)
 ├── tools/
-│   └── captura.py            # herramienta Playwright para descubrir la API interna
+│   ├── captura.py            # herramienta Playwright para descubrir la API interna
+│   ├── probar_core.py        # arnés de prueba en consola (login->cobertura->score)
+│   └── probar_core_gui.py    # arnés de prueba gráfico (Tkinter)
 ├── generator/
 │   ├── generar.py            # generador de códigos de activación (SOLO encargado)
 │   └── private_key.pem       # NUNCA se sube al repositorio (ver .gitignore)
@@ -42,7 +44,7 @@ JS-Win-Coverage/              (raíz del proyecto)
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
     ├── core/                 # api.py (login, score, cobertura) + session.py
-    ├── gui/                  # main_window.py, fields.py
+    ├── gui/                  # main_window.py, fields.py, prueba_core.py
     ├── activation/           # fingerprint.py, signer.py, state.py
     └── updater/              # check.py, download.py
 ```
@@ -52,6 +54,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 - Instalar desarrollo: `pip install -r requirements-dev.txt`
 - Navegador de captura: `python -m playwright install chromium`
 - Ejecutar la app: `python main.py`
+- Probar el core (gráfico): `python tools/probar_core_gui.py`
 - Build: `powershell -ExecutionPolicy Bypass -File build.ps1`
 - Publicar Release: `powershell -ExecutionPolicy Bypass -File publish-release.ps1`
 - Tests: `pytest`
@@ -183,23 +186,28 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes
-1. **PRUEBA DE CONCURRENCIA** (pendiente de ejecutar): validar desde 4-5 máquinas a
-   la vez con la misma cuenta de Win para comprobar si la ISP bloquea; decidir entre
-   proxy local (B) y credenciales por máquina (A). La herramienta
-   `tools/probar_concurrencia.py` ya está CREADA con el diseño aprobado (Fase 1.5,
-   Paso 1, 2026-08-19). Solo falta EJECUTARLA en 4-5 máquinas (Paso 2) y registrar
-   resultados aquí. (2026-08-19: la prueba se pospuso para otro día.)
-2. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura →
-   score con un cliente de prueba. Decidir aquí si `score_cliente` acepta payload mínimo
-   (opción C) o si hace falta la geodata.
-3. (Si la prueba exige geodata) extraer las credenciales de cliente de Equifax con
-   `python tools/captura.py --guardar-js` (JS en `tools/js/`) y replicar el geocoding.
-4. Decidir si la app debe llamar a `actualizar_score_cliente` (registra el score en el
-   sistema) o si basta con leerlo.
-5. Conectar la GUI (keyring para credenciales, resultados del core) y ajustar
-   `main_window.py` al resultado real del score.
-6. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart).
-7. Actualizar README.md con el estado de Fase 1 antes de subir a GitHub.
+1. **PROXY LOCAL** (Fase 1.5 Paso 4 — ARQUITECTURA DECIDIDA B): servidor HTTP en la
+   PC fija de la oficina que reuse `validator_app/core/api.py`, mantenga la sesión
+   Win viva (auto-relogin ~2 min) y exponga `/cobertura` y `/score` por LAN con
+   token simple. Incluye resolver el **login vía navegador (Playwright)** para el
+   SSO federado (ver descubrimiento en Historial 2026-08-21): requests solo no
+   puede completar accesoventas.win.pe (Microsoft/Google).
+2. **App agente**: quitar login de `main_window.py`; apuntar al proxy local.
+3. **Auto-start del proxy** en la PC fija (solo jornada laboral). PC gamer queda
+   como BACKUP FRÍO (encender solo si la fija falla).
+4. **Prueba real del score** (tarea 2 original): una vez resuelto el login del
+   proxy, validar cobertura -> score con cliente de prueba y decidir payload
+   mínimo (opción C) vs geodata.
+5. (Si la prueba exige geodata) extraer credenciales de Equifax con
+   `python tools/captura.py --guardar-js` (JS en `tools/js/`) y replicar geocoding.
+6. Decidir si el proxy llama a `actualizar_score_cliente` o basta con leerlo.
+7. Evaluar si se crea el lead final (`POST controllers/newsearch.php`, multipart).
+8. Actualizar README.md con el estado de Fase 1 antes de subir a GitHub.
+9. Fase 2 (activación visual) en cola tras el proxy; ver PlanesAprobados.md.
+
+Nota: la PRUEBA DE CONCURRENCIA (`tools/probar_concurrencia.py`) ya NO es crítica:
+con el modelo proxy Win siempre ve 1 IP/1 cuenta (riesgo nulo). La herramienta
+queda disponible por si algún día se quiere evaluar la opción A.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -304,6 +312,29 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   costos; refuerza la recomendación B. La app directa (A: N IPs, 1 cuenta) sigue
   siendo territorio SIN probar -> la prueba de concurrencia (Paso 2) sigue valiendo
   para saber si A también es viable.
+
+**2026-08-21 (decisión B consolidada + SSO federado + infraestructura)**
+- [Prueba real #2] Con el diagnóstico nuevo, la GUI mostró: login responde
+  `{"response":"success","comment":"Redireccionar"}` (JSON con content-type text/html)
+  y `operador.php` devuelve PÁGINA HTML completa → no hay sesión.
+- [Descubrimiento CRÍTICO] El login es FEDERADO: `appwinforce.win.pe/login` (creds)
+  -> "Redireccionar" -> `accesoventas.win.pe` (elegir Microsoft/Google; Google va a
+  vacío, se usa Microsoft) -> login Microsoft con LAS MISMAS credenciales -> recién
+  ahí se establece la sesión real. `requests` no puede completar ese SSO interactivo
+  → para el proxy hará falta login vía navegador (Playwright) que establezca la
+  sesión y luego reutilizar esa cookie en las llamadas API.
+- [Dato del negocio] Los agentes NO tendrán credenciales Win en el día a día →
+  opción A descartada definitivamente. **ARQUITECTURA DECIDIDA: B (proxy local)**.
+- [Dato del negocio] Infraestructura disponible: UNA PC de oficina siempre encendida
+  SOLO en jornada laboral → host ideal del proxy. La PC gamer NO como host permanente
+  (costo eléctrico > ahorro): BACKUP FRÍO (encender solo si la fija falla). Fuera de
+  jornada el proxy está apagado = agentes no operan (aceptable para el negocio).
+- [Flujo consolidado] Proxy (PC fija, jornada laboral) mantiene 1 sesión Win viva con
+  auto-relogin, expone `/cobertura` y `/score` por LAN con token simple; app agente
+  SIN login llama al proxy. Win ve siempre 1 IP/1 cuenta → riesgo de bloqueo nulo;
+  la prueba de concurrencia deja de ser crítica (queda como herramienta opcional).
+- [Tareas pendientes reorganizadas] Ver sección Tareas pendientes (proxy primero,
+  luego conectar app agente, prueba real del score tras el login del proxy).
 
 ### Decisión pendiente (geodata del score)
   - A) Replicar Equifax: oauth `client_credentials` + reverse-geocoding (igual que el
