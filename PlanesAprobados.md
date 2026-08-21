@@ -44,6 +44,14 @@ https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 - Win ROTA las credenciales cada 1-2 meses (desactiva la cuenta anterior y
   entrega usuario/contraseña nuevos al responsable).
 - Hay una PC fija disponible en la oficina (encendida en horario laboral).
+- **La app anterior de los terceros** (2026-08-21): el jefe pagaba a terceros que
+  HOSTEABAN la aplicación; enviaban un link y tras iniciar sesión se usaba.
+  Cobraban EXTRA por PC. Win nunca dio cuenta extra: usaban UNA SOLA cuenta.
+  Si los terceros no prendían su servidor, la app no funcionaba aunque se
+  iniciara sesión. → Arquitectura real: PC (solo interfaz) -> SERVIDOR del
+  tercero (toda la lógica) -> Win (veía UNA IP con UNA cuenta). NO era
+  concurrencia real: era el modelo proxy (B) alquilado, con costo por PC y
+  dependencia del servidor ajeno. La lentitud venía de su infraestructura.
 
 ### Opciones analizadas
 A) Credenciales por máquina (keyring) + auto-relogin.
@@ -66,6 +74,10 @@ D) Sesión en caché por máquina: DESCARTADA (expiraciones + misma cuenta).
    - Pasa limpia con 5+ simultáneas -> evaluar A.
 3. Recomendación técnica del plan: B (proxy local), incluso si la prueba pasa,
    por la rotación mensual y el límite de 2-3 sesiones.
+4. **Refuerzo (2026-08-21)**: la app anterior de los terceros YA usaba el modelo
+   proxy (B) durante años (Win veía 1 IP/1 cuenta desde su servidor). B propia
+   replica ese modelo probado sin terceros ni costo por PC; la prueba de
+   concurrencia decide solo si la opción A (directa) también es viable.
 
 ## Pasos del plan aprobado
 ### Paso 0 — Continuidad

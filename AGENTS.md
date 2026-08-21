@@ -115,6 +115,10 @@ SQLite ya viene en Python; no añade dependencias.
   El resumen de cierre (presentado al usuario) debe ser CONCISO: puntos clave
   (qué se hizo, commits, pendiente), sin redactar de nuevo lo ya documentado en
   los MD.
+- **Rotación de resúmenes**: `ResumenDelDia.md` SOLO guarda la sesión del día en
+  curso. Al iniciar sesión de un día nuevo, lo que quede ahí se MUEVE a
+  `HistorialResumenes.md` (cronológico, lo más nuevo arriba; nunca se borra) para
+  mantener el archivo diario ligero.
 - **`PlanesAprobados.md`** es una **COLA de trabajo, NO un historial**: cada vez que
   se implementa algo que estaba en la cola, se **saca** de ahí (se marca como hecho o
   se elimina). El historial de lo hecho vive en AGENTS.md (bitácora) y en
@@ -149,8 +153,13 @@ proyecto. Leerlos en este orden ANTES de tocar código:
 4. **README.md**: documentación pública del proyecto (español primero, luego inglés).
    Mantenerla actualizada ANTES de subir a GitHub.
 5. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
-   trabajar). Fuente del resumen de cierre de sesión.
-6. **SkillsPropuestas.md**: **COLA/HISTORIAL de skills a crear** (tareas repetitivas
+   trabajar). Fuente del resumen de cierre de sesión. SOLO guarda la sesión del
+   día en curso.
+6. **HistorialResumenes.md**: archivo histórico completo de resúmenes de días
+   pasados. Al iniciar sesión de un día nuevo, lo que quede en ResumenDelDia.md
+   se MUEVE aquí (cronológico, lo más nuevo arriba). Nunca se borra; solo crece.
+   Existe para mantener ResumenDelDia.md ligero.
+7. **SkillsPropuestas.md**: **COLA/HISTORIAL de skills a crear** (tareas repetitivas
    y errores típicos del proyecto). Se borra lo usado al crear cada skill.
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
@@ -277,6 +286,24 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   - D) Sesión en caché por máquina: descartada (expiraciones + misma cuenta).
 - [Plan aprobado] Prueba de concurrencia en 4-5 máquinas primero; luego decidir A/B.
   Detalle completo en `PlanesAprobados.md`.
+
+**2026-08-21 (nuevo dato del negocio: la app anterior de los terceros)**
+- [Dato del negocio] Antes de esta app, el jefe pagaba a programadores terceros que
+  HOSTEABAN y desarrollaban la aplicación anterior. Enviaban un link; tras iniciar
+  sesión se usaba el servicio. Cobraban EXTRA por cada computadora con el sistema.
+  Win NUNCA dio una cuenta extra: la app anterior usaba UNA SOLA cuenta para todo.
+- [Descubrimiento] Si los terceros no prendían su servidor, la app no funcionaba
+  aunque se iniciara sesión; había que pedirles que la habiliten. → La arquitectura
+  real era: PC del agente (SOLO interfaz) -> SERVIDOR del tercero (toda la lógica)
+  -> Win. Es decir, Win siempre vio UNA IP con UNA cuenta: NO era concurrencia real,
+  era el modelo proxy (opción B) alquilado a terceros, con costo por PC y dependencia
+  de que ellos mantuvieran el servidor encendido.
+- [Conclusión] La lentitud percibida venía de la infraestructura de los terceros
+  (servidor compartido/débil/apagable), no del salto extra en sí. La opción B propia
+  (proxy en LAN, ~1 ms) replica el modelo YA PROBADO durante años sin terceros ni
+  costos; refuerza la recomendación B. La app directa (A: N IPs, 1 cuenta) sigue
+  siendo territorio SIN probar -> la prueba de concurrencia (Paso 2) sigue valiendo
+  para saber si A también es viable.
 
 ### Decisión pendiente (geodata del score)
   - A) Replicar Equifax: oauth `client_credentials` + reverse-geocoding (igual que el
