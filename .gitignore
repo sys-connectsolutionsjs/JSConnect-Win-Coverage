@@ -27,3 +27,7 @@ generator/private_key.pem
 # Windows
 Thumbs.db
 Desktop.ini
+
+# Documentación privada interna
+Contexto_Proyecto_JSConnect.docx
+*.docx
