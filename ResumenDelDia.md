@@ -98,3 +98,22 @@ Fecha: 2026-08-25
 - Token proxy = secreto LAN (binding IP `192.168/16`, `10/8`, `172.16/12`); si se filtra, atacante ya está en la red
 - Admin key = solo owner conoce; protege `/admin/*` (rotación credenciales WinForce)
 - Keyring: Agentes guardan `proxy_token` en `JSWinClient`/`proxy_token`; Proxy guarda credenciales WinForce en `JSWinProxy`/`credentials`
+
+### 2026-08-25 — Sesión (noche) — Avance visual y códigos de error
+
+#### Prueba visual de la app (modo standalone)
+- Ejecutado `python main.py` → GUI abre correctamente
+- Menú **⚙️ Configuración** visible con items: "Configurar Proxy", "Buscar actualizaciones"
+- Diálogo "Configurar Proxy" funciona: campos IP:puerto, token (oculto/mostrar), botón "Probar conexión"
+- Modo standalone: al validar sin proxy → error esperado "Primero debes iniciar sesion" (SessionError code ERR_SESSION)
+- Para prueba real se necesitan credenciales WinForce (keyring) o proxy instalado
+
+#### Sistema de códigos de error implementado
+- Nuevas excepciones tipadas en `validator_app/core/api.py`:
+  - `APIError`, `LoginError`, `ScoreError`, `CoberturaError`, `SessionError`, `NetworkError`, `ConfigError`
+  - Todas aceptan parámetro `code` (ej: `LoginError("msg", "ERR_LOGIN_CREDENTIALS")`)
+- Diccionario `ERROR_CODES` (32 códigos) con estructura:
+  - Categoría: Autenticación, Sesión, Cobertura, Score, Red, Configuración, Proxy, Validación, Activación, Actualización
+  - Descripción legible para logging/monitoreo futuro
+- Tests actualizados: 35 passing, ruff clean
+- Tarea añadida a `AGENTS.md` (#11)

@@ -21,15 +21,155 @@ TEXTOS_DOCUMENTO = {"DNI": "DNI", "RUC": "RUC", "CE": "Carnet de extranjeria"}
 
 
 class APIError(Exception):
-    pass
+    def __init__(self, message: str, code: str = "ERR_UNKNOWN"):
+        super().__init__(message)
+        self.code = code
 
 
 class LoginError(APIError):
-    pass
+    def __init__(self, message: str, code: str = "ERR_LOGIN"):
+        super().__init__(message, code)
 
 
 class ScoreError(APIError):
-    pass
+    def __init__(self, message: str, code: str = "ERR_SCORE"):
+        super().__init__(message, code)
+
+
+class CoberturaError(APIError):
+    def __init__(self, message: str, code: str = "ERR_COBERTURA"):
+        super().__init__(message, code)
+
+
+class SessionError(APIError):
+    def __init__(self, message: str, code: str = "ERR_SESSION"):
+        super().__init__(message, code)
+
+
+class NetworkError(APIError):
+    def __init__(self, message: str, code: str = "ERR_NETWORK"):
+        super().__init__(message, code)
+
+
+class ConfigError(APIError):
+    def __init__(self, message: str, code: str = "ERR_CONFIG"):
+        super().__init__(message, code)
+
+
+ERROR_CODES: dict[str, dict[str, str]] = {
+    "ERR_UNKNOWN": {
+        "category": "General",
+        "description": "Error desconocido no clasificado",
+    },
+    "ERR_LOGIN": {
+        "category": "Autenticacion",
+        "description": "Error en login contra WinForce",
+    },
+    "ERR_LOGIN_CREDENTIALS": {
+        "category": "Autenticacion",
+        "description": "Credenciales incorrectas",
+    },
+    "ERR_LOGIN_SESSION": {
+        "category": "Autenticacion",
+        "description": "Login OK pero sesion no quedo activa",
+    },
+    "ERR_LOGIN_2FA": {
+        "category": "Autenticacion",
+        "description": "Login requiere 2FA Microsoft (no automatizable)",
+    },
+    "ERR_SESSION": {
+        "category": "Sesion",
+        "description": "Error de sesion (expirada, invalida, no iniciada)",
+    },
+    "ERR_SESSION_EXPIRED": {
+        "category": "Sesion",
+        "description": "Sesion expirada por inactividad (>120s)",
+    },
+    "ERR_SESSION_COOKIES": {
+        "category": "Sesion",
+        "description": "Error guardando/restaurando cookies de sesion",
+    },
+    "ERR_COBERTURA": {
+        "category": "Cobertura",
+        "description": "Error consultando cobertura",
+    },
+    "ERR_COBERTURA_INVALID": {
+        "category": "Cobertura",
+        "description": "Respuesta invalida del servidor de cobertura",
+    },
+    "ERR_SCORE": {
+        "category": "Score",
+        "description": "Error consultando score crediticio",
+    },
+    "ERR_SCORE_PARSE": {
+        "category": "Score",
+        "description": "Error parseando reporte SOAP de Equifax",
+    },
+    "ERR_SCORE_MISSING": {
+        "category": "Score",
+        "description": "Reporte sin puntaje valido",
+    },
+    "ERR_NETWORK": {
+        "category": "Red",
+        "description": "Error de conexion/timeout de red",
+    },
+    "ERR_NETWORK_TIMEOUT": {
+        "category": "Red",
+        "description": "Timeout en peticion HTTP",
+    },
+    "ERR_NETWORK_DNS": {
+        "category": "Red",
+        "description": "Error resolviendo DNS",
+    },
+    "ERR_CONFIG": {
+        "category": "Configuracion",
+        "description": "Error de configuracion (token, URL, keyring)",
+    },
+    "ERR_CONFIG_KEYRING": {
+        "category": "Configuracion",
+        "description": "Error accediendo a Windows Keyring",
+    },
+    "ERR_CONFIG_PROXY": {
+        "category": "Configuracion",
+        "description": "Proxy no configurado o invalido",
+    },
+    "ERR_PROXY_AUTH": {
+        "category": "Proxy",
+        "description": "Token de proxy invalido o IP no permitida",
+    },
+    "ERR_PROXY_SERVER": {
+        "category": "Proxy",
+        "description": "Error interno del servidor proxy",
+    },
+    "ERR_PROXY_UNAVAILABLE": {
+        "category": "Proxy",
+        "description": "Proxy no disponible (caido, firewall)",
+    },
+    "ERR_VALIDATION": {
+        "category": "Validacion",
+        "description": "Error validando entrada (coordenadas, documento)",
+    },
+    "ERR_VALIDATION_COORDS": {
+        "category": "Validacion",
+        "description": "Formato de coordenadas invalido",
+    },
+    "ERR_VALIDATION_DOC": {
+        "category": "Validacion",
+        "description": "Tipo/documento invalido",
+    },
+    "ERR_ACTIVATION": {
+        "category": "Activacion",
+        "description": "Error de activacion/licencia",
+    },
+    "ERR_ACTIVATION_INVALID": {
+        "category": "Activacion",
+        "description": "Codigo de activacion invalido o de otra maquina",
+    },
+    "ERR_UPDATER": {
+        "category": "Actualizacion",
+        "description": "Error buscando/aplicando actualizaciones",
+    },
+}
 
 
 def _diagnostico(resp) -> str:
@@ -76,7 +216,7 @@ class ValidatorAPI:
     @staticmethod
     def _verificar_login(resp) -> None:
         if resp.status_code >= 400:
-            raise LoginError(f"Error HTTP {resp.status_code} al iniciar sesion.")
+            raise LoginError(f"Error HTTP {resp.status_code} al iniciar sesion.", "ERR_LOGIN")
         try:
             datos = resp.json()
         except ValueError:
@@ -88,7 +228,7 @@ class ValidatorAPI:
         comentario = "Credenciales incorrectas"
         if lista and isinstance(lista[0], dict):
             comentario = str(lista[0].get("comment", comentario))
-        raise LoginError(comentario)
+        raise LoginError(comentario, "ERR_LOGIN_CREDENTIALS")
 
     @staticmethod
     def _verificar_sesion_activa(sesion, diagnostico_login: str = "?") -> None:
@@ -103,7 +243,8 @@ class ValidatorAPI:
         except ValueError:
             raise LoginError(
                 "No se pudo iniciar sesion (la sesion no quedo activa). "
-                f"[{diagnostico_login}; operador: {detalle_operador}]"
+                f"[{diagnostico_login}; operador: {detalle_operador}]",
+                "ERR_LOGIN_SESSION",
             ) from None
         lista = datos if isinstance(datos, list) else [datos]
         ok = any(
@@ -115,12 +256,13 @@ class ValidatorAPI:
                 comentario = f" ({lista[0].get('comment', '')})"
             raise LoginError(
                 "No se pudo iniciar sesion (la sesion no quedo activa). "
-                f"[{diagnostico_login}; operador: {detalle_operador}]{comentario}"
+                f"[{diagnostico_login}; operador: {detalle_operador}]{comentario}",
+                "ERR_LOGIN_SESSION",
             )
 
     def _requerir_sesion(self) -> None:
         if self._sesion is None:
-            raise APIError("Primero debes iniciar sesion.")
+            raise SessionError("Primero debes iniciar sesion.", "ERR_SESSION")
 
     def auto_relogin_if_needed(self, credentials: tuple[str, str] | None = None) -> None:
         """Re-login silencioso si sesión >120s idle o expirada."""
@@ -132,7 +274,10 @@ class ValidatorAPI:
             if credentials:
                 self.login(*credentials)
             else:
-                raise APIError("Sesión expirada y no hay credenciales para re-login automático")
+                raise SessionError(
+                    "Sesion expirada y no hay credenciales para re-login automatico",
+                    "ERR_SESSION_EXPIRED",
+                )
 
     def get_session_cookies(self) -> dict[str, str]:
         """Exporta cookies de sesión para persistencia (keyring)."""
@@ -166,7 +311,10 @@ class ValidatorAPI:
         datos = _json(resp, "cobertura")
         if not isinstance(datos, dict) or datos.get("response") != "success":
             comentario = datos.get("comment", "") if isinstance(datos, dict) else ""
-            raise APIError(str(comentario) or "El servidor rechazo la consulta de cobertura.")
+            raise CoberturaError(
+                str(comentario) or "El servidor rechazo la consulta de cobertura.",
+                "ERR_COBERTURA_INVALID",
+            )
         valor = str(datos.get("cobertura", "")).upper()
         return {
             "hay_cobertura": valor == "SI",
@@ -224,14 +372,17 @@ class ValidatorAPI:
             capa = capa[0] if capa else {}
         if not isinstance(capa, dict) or capa.get("response") != "success":
             comentario = capa.get("comment", "") if isinstance(capa, dict) else ""
-            raise ScoreError(str(comentario) or "El sistema rechazo la consulta de score.")
+            raise ScoreError(
+                str(comentario) or "El sistema rechazo la consulta de score.",
+                "ERR_SCORE",
+            )
         dato = capa.get("data")
         if not dato:
-            raise ScoreError("El sistema no devolvio el reporte de score.")
+            raise ScoreError("El sistema no devolvio el reporte de score.", "ERR_SCORE_MISSING")
         try:
             reporte = json.loads(dato)
         except (TypeError, ValueError):
-            raise ScoreError("Reporte de score en formato inesperado.") from None
+            raise ScoreError("Reporte de score en formato inesperado.", "ERR_SCORE_PARSE") from None
         return self._extraer_score(reporte)
 
     @staticmethod
@@ -303,7 +454,9 @@ def _json(resp, contexto: str):
     try:
         return resp.json()
     except ValueError:
-        raise APIError(f"Respuesta inesperada del servidor al consultar {contexto}.") from None
+        raise APIError(
+            f"Respuesta inesperada del servidor al consultar {contexto}.", "ERR_NETWORK"
+        ) from None
 
 
 _cliente = None

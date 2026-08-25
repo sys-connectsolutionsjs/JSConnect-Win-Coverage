@@ -191,6 +191,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo
 9. Conectar GUI a core (keyring para credenciales, resultados del core) y ajustar `main_window.py`
 10. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart)
+11. **Sistema de códigos de error**: Incorporar `code` a todas las excepciones (`APIError`, `LoginError`, `ScoreError`, `CoberturaError`, `SessionError`, `NetworkError`, `ConfigError`, etc.) + diccionario `ERROR_CODES` en `api.py` con categoría y descripción para logging/monitoreo futuro
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
