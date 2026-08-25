@@ -1,0 +1,43 @@
+# Configuración del Proxy Local JSConnect Win Coverage
+# ========================================================
+# COPIA ESTE ARCHIVO COMO config.yaml EN LA MISMA CARPETA
+# config.yaml ESTÁ EN .gitignore - NUNCA SUBIRLO AL REPO
+#
+# Generación automática: install_service.bat crea este archivo
+# con tokens seguros. Edita manualmente solo si necesitas cambiar puertos/timeouts.
+#
+# Variables de entorno tienen precedencia sobre este archivo:
+# PROXY_PROXY_PORT=9000 PROXY_PROXY_TOKEN=xxx python -m validator_app.proxy.server
+
+# Servidor
+proxy_host: "0.0.0.0"      # Escuchar en todas las interfaces
+proxy_port: 8080           # Puerto HTTP (cambiar si ocupado)
+
+# Autenticación - GENERADOS AUTOMÁTICAMENTE (secrets.token_hex(32))
+# proxy_token: compartido entre proxy y 20 agentes (header X-Proxy-Token)
+# admin_key: solo owner, para endpoints /admin/* (header X-Admin-Key)
+proxy_token: "TU_PROXY_TOKEN_AQUI_64_CHARS_HEX"
+admin_key: "TU_ADMIN_KEY_AQUI_64_CHARS_HEX"
+
+# Keyring Windows para credenciales WinForce (cookies sesión + user/pass)
+win_keyring_service: "JSWinProxy"
+win_keyring_user: "credentials"
+
+# Timeouts (segundos)
+session_max_idle_seconds: 120      # Auto-relogin si sesión inactiva > 120s
+request_timeout: 30                # Timeout general requests salientes
+winforce_login_timeout: 30         # Login WinForce
+winforce_cobertura_timeout: 30     # Consulta cobertura
+winforce_score_timeout: 90         # Consulta score (más lento, SOAP Equifax)
+
+# Redes permitidas para agentes (CIDR)
+# LAN estándar + Tailscale CGNAT (100.64.0.0/10)
+allowed_networks:
+  - "192.168.0.0/16"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "100.64.0.0/10"
+
+# URLs WinForce (no tocar salvo que cambien)
+winforce_base_url: "https://appwinforce.win.pe"
+winforce_controllers: "https://appwinforce.win.pe/controllers"

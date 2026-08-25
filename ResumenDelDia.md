@@ -1,30 +1,100 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: 2026-08-19
+Fecha: 2026-08-25
 
 ## Qué se hizo hoy
 
-### 2026-08-19 — Sesión (mañana)
-- [Push] Primer commit del proyecto subido a GitHub (commit `e837681`, rama `main`)
-  en https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage (32 archivos).
-- [Contexto] Revisión de los .md de conocimiento (AGENTS.md, PlanesAprobados.md,
-  TestingLog.md, README.md) para retomar dónde se quedó la sesión anterior.
-- [Reglas] Definidas las reglas de trabajo del proyecto y reflejadas en `AGENTS.md`:
-  - `ResumenDelDia.md` = historial del día (este archivo), se actualiza a medida
-    que se trabaja y sirve de base para el resumen de cierre de sesión.
-  - `PlanesAprobados.md` = COLA de trabajo (no historial): lo implementado se saca
-    de ahí.
-  - `README.md` se actualiza con avances cuando el plan lo amerita (seguridad,
-    funciones nuevas, etc.).
-  - Al terminar la sesión se actualiza `AGENTS.md` con el resumen del día; luego se
-    pregunta al usuario si quiere ver el resumen del día desde este archivo.
-- [Docs] Creado `ResumenDelDia.md` (este archivo) y actualizados `AGENTS.md` y
-  `PlanesAprobados.md` con las reglas y el estado de la cola.
-- [Git] Commit + push de los cambios de la mañana a GitHub (rama `main`).
-- [Pospuesto] Prueba de concurrencia (Fase 1.5, Paso 1 — `tools/probar_concurrencia.py`)
-  se pospone; queda agendado para retomarse en cuanto se vuelva (probablemente hoy).
+### 2026-08-25 — Sesión (tarde)
 
-## Pendiente al volver
-- Crear `tools/probar_concurrencia.py` con el diseño aprobado en PlanesAprobados.md
-  (Paso 1) y coordinar la prueba en 4-5 máquinas.
-- Ver PlanesAprobados.md y AGENTS.md para el resto de pendientes.
+#### Contexto de inicio
+- Repositorio en `origin/main` commit `c0d2f2a` (rama `main`, working tree clean)
+- Fase 0 (Descubrimiento API): COMPLETA — `tools/captura.py` funcional, `captura.json` con 44 registros
+- Fase 1 (Core): COMPLETA — `validator_app/core/api.py` + `session.py`, 25 tests passing, ruff clean
+- Fase 1.5 (Decisión autenticación): EN CURSO — Plan aprobado en `PlanesAprobados.md` para prueba de concurrencia en 4-5 máquinas
+
+#### Hallazgo crítico: Login redirige a Microsoft 2FA
+- Al investigar el flujo de login real, se descubrió que `appwinforce.win.pe` redirige primero a `login.microsoftonline.com` para una segunda autenticación (2FA) con la misma cuenta
+- Esto hace **inviable la prueba de concurrencia** planificada (Paso 1 de `PlanesAprobados.md`): no se pueden simular 4-5 máquinas simultáneas porque cada una requeriría intervención manual de 2FA
+- La arquitectura de "credenciales por máquina" (Opción A) queda descartada por este motivo
+
+#### Decisión arquitectónica: Opción B — Proxy Local (APROBADA)
+- **Arquitectura**: 20 agentes LAN → Proxy único (PC oficina fija) → WinForce/Equifax
+- **Ventajas**:
+  - 1-2 sesiones concurrentes desde UNA sola IP → sin riesgo de bloqueo por WinForce
+  - Credenciales WinForce SOLO en la PC del proxy (keyring) → rotación cada 1-2 meses = actualizar 1 sola PC
+  - Offline (solo LAN), costo ~$0
+  - Escalable a agentes remotos futuros vía VPN (Tailscale/WireGuard)
+- **Punto único de falla**: Mitigable con 2ª PC de respaldo documentada
+
+#### Stack del Proxy confirmado
+| Componente | Decisión | Justificación |
+|------------|----------|---------------|
+| Framework | **FastAPI + uvicorn** | Concurrencia nativa async, validación Pydantic automática, Swagger UI, fácil de extender |
+| Auth proxy↔agentes | **Token compartido + validación IP LAN** | Simple, seguro en LAN de confianza, cero gestión de claves por máquina |
+| Auth admin | **API Key admin separada (`X-Admin-Key`)** | Endpoints `/admin/*` protegidos; owner rota credenciales via RDP (v1), preparado para VPN (v2) |
+| Ejecución | **winsw service** (descarga automática `winsw.exe`) | Corre sin usuario logueado, auto-restart, logs en Visor de Eventos, gestionable remoto con `sc` |
+| Configuración | **`config.yaml` (gitignored) + `config.yaml.example`** | Cero secretos en repo público; `install_service.bat` genera tokens auto |
+| Requirements | **`requirements-proxy.txt` separado** | .exe agentes no arrastra fastapi/uvicorn; comentario en archivo explica tradeoff |
+| GUI config | **Diálogo modal (`Toplevel`) desde menú "⚙️ Configuración"** | Simple, no rompe layout actual; mueve "Buscar actualizaciones" ahí |
+| Docs técnicas | **Carpeta `docs/` (permanente) ≠ `AGENTS.md/PlanesAprobados.md` (volátiles)** | Aspectos técnicos inmutables vs decisiones de proceso |
+
+#### Plan de implementación fusionado (5 fases)
+
+**FASE 0: Documentación (1.5 h) — EN CURSO**
+1. Crear `docs/` + 5 archivos técnicos permanentes
+2. Crear `resumenes/` + migrar `ResumenDelDia.md` → `resumenes/2026-08-19.md` ✓
+3. Crear `ResumenDelDia.md` nuevo (este archivo) con contexto completo
+4. Crear `Escalabilidad.md` (raíz) — guía para futuros programadores
+5. Crear `anotaciones.md` (raíz) — glosario de términos técnicos
+6. Actualizar `AGENTS.md` (tareas + historial decisión B + nota 2FA)
+7. Actualizar `PlanesAprobados.md` (Paso 1 "NO APLICA - 2FA bloquea", añadir plan proxy)
+8. Actualizar `README.md` (estado Fase 1.5, arquitectura proxy, comandos nuevos)
+
+**FASE 1: Proxy Server (5 h)**
+- `validator_app/proxy/config.py` (Pydantic Settings + config.yaml)
+- `validator_app/proxy/config.yaml.example` (placeholders + comentarios)
+- `validator_app/proxy/server.py` (FastAPI + 6 endpoints + middleware auth)
+- `validator_app/proxy/winsw.xml` (template servicio `JSWinProxy`)
+- `validator_app/proxy/install_service.bat` (verifica Python, pip, descarga winsw, genera tokens, escribe config.yaml, instala servicio, prueba /health, permite cambiar puerto si 8080 ocupado)
+- `validator_app/proxy/uninstall_service.bat`
+- `validator_app/proxy/__init__.py`
+- Tests unitarios proxy (`tests/test_proxy.py`)
+
+**FASE 2: Core Adaptado (2 h)**
+- `validator_app/core/api.py` + `auto_relogin_if_needed()` + persistencia cookies
+- `validator_app/core/session.py` + export/import cookies
+
+**FASE 3: Cliente Proxy (3 h)**
+- `validator_app/proxy/client.py` (ProxyClient + from_discovery + retries + errores tipados)
+- Tests cliente proxy
+
+**FASE 4: GUI Config Proxy (3.5 h)**
+- `validator_app/gui/main_window.py` → menú "⚙️ Configuración" + diálogo modal + keyring local (`JSWinClient`/`proxy_token`)
+
+**FASE 5: Deploy & Docs (3 h)**
+- `validator_app/proxy/rotate_creds.py` (CLI owner para rotar credenciales via RDP)
+- `README_PROXY.md` (deploy completo: prerrequisitos, pasos, verificación, rotación, logs)
+- `requirements-proxy.txt` + actualizar `requirements-dev.txt` (incluye `-r requirements-proxy.txt`)
+- `build.ps1` → incluye `proxy/client.py`, excluye `proxy/server.py`
+- `docs/proxy-deploy.md`, `docs/proxy-config.md`, `docs/rotacion-credenciales.md`, `docs/escalabilidad-remota.md`, `docs/arquitectura.md`
+
+#### Acuerdos explícitos de hoy (para registro inmutable)
+1. **Token del proxy**: Auto-generado en `install_service.bat` (`secrets.token_hex(32)`), mostrado al final en consola, guardado en `proxy_token.txt` (gitignored) para que owner lo distribuya a agentes
+2. **Admin key**: Igual, auto-generado + mostrado + guardado en `config.yaml`
+3. **Servicio Windows**: Nombre `JSWinProxy`, Display "JSConnect Win Proxy"
+4. **Puerto**: 8080 por defecto; `install_service.bat` verifica y permite cambiar si ocupado
+5. **Menú GUI**: Nuevo menú "⚙️ Configuración" → items: "Configurar Proxy", "Buscar actualizaciones"
+6. **Escalabilidad remota**: VPN (Tailscale/WireGuard) + mismo proxy + mismo token; endpoint `/admin/config` preparado para auto-discovery futuros agentes
+7. **Documentación técnica**: En `docs/` (permanente), no en `AGENTS.md/PlanesAprobados.md` (volátiles)
+8. **Glosario**: `anotaciones.md` en raíz para términos que futuros devs desconozcan
+
+#### Pendiente al volver (próxima sesión)
+- Completar FASE 0: crear todos los archivos `docs/`, `Escalabilidad.md`, `anotaciones.md`, actualizar `AGENTS.md`, `PlanesAprobados.md`, `README.md`
+- Iniciar FASE 1: implementar `validator_app/proxy/` completo
+- Ejecutar `pytest` y `ruff check .` tras cada fase
+
+#### Notas de seguridad recordadas
+- **NUNCA** en repo: `config.yaml`, `proxy_token.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, credenciales reales
+- Token proxy = secreto LAN (binding IP `192.168/16`, `10/8`, `172.16/12`); si se filtra, atacante ya está en la red
+- Admin key = solo owner conoce; protege `/admin/*` (rotación credenciales WinForce)
+- Keyring: Agentes guardan `proxy_token` en `JSWinClient`/`proxy_token`; Proxy guarda credenciales WinForce en `JSWinProxy`/`credentials`

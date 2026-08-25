@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from typing import Any
 
 from validator_app.core import session
@@ -38,6 +39,8 @@ def _formato_coordenada(valor: float) -> str:
 class ValidatorAPI:
     def __init__(self):
         self._sesion: Any | None = None
+        self._last_activity: float = 0
+        self._session_max_idle: int = 120
 
     def login(self, usuario: str, contrasena: str) -> ValidatorAPI:
         sesion = session.crear_sesion()
@@ -53,6 +56,7 @@ class ValidatorAPI:
         self._verificar_login(resp)
         self._verificar_sesion_activa(sesion)
         self._sesion = sesion
+        self._last_activity = time.time()
         return self
 
     @staticmethod
@@ -94,8 +98,37 @@ class ValidatorAPI:
         if self._sesion is None:
             raise APIError("Primero debes iniciar sesion.")
 
+    def auto_relogin_if_needed(self, credentials: tuple[str, str] | None = None) -> None:
+        """Re-login silencioso si sesión >120s idle o expirada."""
+        if self._sesion is None:
+            return
+        if self._last_activity == 0:
+            return
+        if time.time() - self._last_activity > self._session_max_idle:
+            if credentials:
+                self.login(*credentials)
+            else:
+                raise APIError("Sesión expirada y no hay credenciales para re-login automático")
+
+    def get_session_cookies(self) -> dict[str, str]:
+        """Exporta cookies de sesión para persistencia (keyring)."""
+        if self._sesion is None:
+            return {}
+        return dict(self._sesion.cookies)
+
+    def set_session_cookies(self, cookies: dict[str, str]) -> None:
+        """Restaura cookies de sesión desde persistencia."""
+        if self._sesion is None:
+            self._sesion = session.crear_sesion()
+        for name, value in cookies.items():
+            self._sesion.cookies.set(name, value, domain="appwinforce.win.pe")
+
+    def _update_activity(self) -> None:
+        self._last_activity = time.time()
+
     def validar_cobertura(self, lat: float, lon: float) -> dict[str, Any]:
         self._requerir_sesion()
+        self.auto_relogin_if_needed()
         resp = self._sesion.get(
             f"{session.CONTROLLERS}/coordenada.php",
             params={
@@ -105,6 +138,7 @@ class ValidatorAPI:
             },
             timeout=session.TIEMPO_COBERTURA,
         )
+        self._update_activity()
         datos = _json(resp, "cobertura")
         if not isinstance(datos, dict) or datos.get("response") != "success":
             comentario = datos.get("comment", "") if isinstance(datos, dict) else ""
@@ -128,6 +162,7 @@ class ValidatorAPI:
         geodata: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         self._requerir_sesion()
+        self.auto_relogin_if_needed()
         data = {
             "tipo_doc": TIPOS_DOCUMENTO[tipo_documento],
             "documento_identidad": numero,
@@ -156,6 +191,7 @@ class ValidatorAPI:
             data=payload,
             timeout=session.TIEMPO_SCORE,
         )
+        self._update_activity()
         return self._parsear_score(resp)
 
     def _parsear_score(self, resp) -> dict[str, Any]:

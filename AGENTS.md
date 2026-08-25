@@ -22,6 +22,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── main.py                   # punto de entrada de la app
 ├── requirements.txt          # dependencias de producción
 ├── requirements-dev.txt      # dependencias de desarrollo
+├── requirements-proxy.txt    # dependencias del proxy (fastapi, uvicorn, pydantic)
 ├── build.ps1                 # embebe commit SHA + empaqueta con PyInstaller
 ├── publish-release.ps1       # prepara el Release en GitHub (asset .exe + SHA-256)
 ├── AGENTS.md                 # reglas del proyecto, contexto, historial y pendientes
@@ -29,26 +30,49 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── TestingLog.md             # metodología TDD + bitácora de pruebas
 ├── README.md                 # documentación pública (español + inglés)
 ├── ResumenDelDia.md          # historial del día en curso (resumen de cierre)
+├── Escalabilidad.md          # guía para futuros programadores (escalabilidad remota)
+├── anotaciones.md            # glosario técnico para futuros devs
 ├── tools/
 │   └── captura.py            # herramienta Playwright para descubrir la API interna
 ├── generator/
 │   ├── generar.py            # generador de códigos de activación (SOLO encargado)
 │   └── private_key.pem       # NUNCA se sube al repositorio (ver .gitignore)
+├── docs/                     # documentación técnica permanente (inmutable)
+│   ├── arquitectura.md
+│   ├── proxy-deploy.md
+│   ├── proxy-config.md
+│   ├── rotacion-credenciales.md
+│   └── escalabilidad-remota.md
+├── resumenes/                # historial diario inmutable
+│   └── 2026-08-19.md
 ├── tests/
 │   ├── test_fields.py
-│   └── test_captura_guard.py
+│   ├── test_captura_guard.py
+│   └── test_api.py
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
     ├── core/                 # api.py (login, score, cobertura) + session.py
     ├── gui/                  # main_window.py, fields.py
     ├── activation/           # fingerprint.py, signer.py, state.py
-    └── updater/              # check.py, download.py
+    ├── updater/              # check.py, download.py
+    └── proxy/                # NUEVO: proxy local para 20 agentes LAN
+        ├── __init__.py
+        ├── config.py         # Pydantic Settings (lee config.yaml + env)
+        ├── config.yaml       # GITIGNORED (secretos reales)
+        ├── config.yaml.example  # plantilla en repo
+        ├── server.py         # FastAPI app + endpoints + ValidatorAPI wrapper
+        ├── client.py         # ProxyClient para agentes .exe
+        ├── winsw.xml         # config servicio Windows
+        ├── install_service.bat   # instala servicio (descarga winsw, genera tokens)
+        ├── uninstall_service.bat # desinstala servicio
+        └── rotate_creds.py   # CLI owner: rota credenciales WinForce (RDP)
 ```
 
 ## Comandos
 - Instalar producción: `pip install -r requirements.txt`
 - Instalar desarrollo: `pip install -r requirements-dev.txt`
+- Instalar proxy (PC oficina): `.\validator_app\proxy\install_service.bat` (como Admin)
 - Navegador de captura: `python -m playwright install chromium`
 - Ejecutar la app: `python main.py`
 - Build: `powershell -ExecutionPolicy Bypass -File build.ps1`
@@ -129,8 +153,7 @@ proyecto. Leerlos en este orden ANTES de tocar código:
    pendientes. Es la puerta de entrada.
 2. **PlanesAprobados.md**: **cola** de trabajo con los planes YA aprobados, el
    razonamiento y las decisiones tomadas (ej: decisión de autenticación). Contiene
-   además diseños listos para implementar (ej: el Paso 1 con el código de
-   `tools/probar_concurrencia.py`). Leer antes de empezar una fase para no repetir
+   además diseños listos para implementar. Leer antes de empezar una fase para no repetir
    análisis ni ignorar decisiones. Se actualiza SACANDO de la cola lo implementado.
 3. **TestingLog.md**: metodología TDD del proyecto (test rojo -> verde), inventario de
    tests y bitácora de problemas -> causa -> solución. Leer antes de escribir o
@@ -139,6 +162,9 @@ proyecto. Leerlos en este orden ANTES de tocar código:
    Mantenerla actualizada ANTES de subir a GitHub.
 5. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
    trabajar). Fuente del resumen de cierre de sesión.
+6. **Escalabilidad.md**: guía para futuros programadores (cómo escalar a remotos).
+7. **anotaciones.md**: glosario técnico para términos que futuros devs desconozcan.
+8. **docs/**: documentación técnica permanente (arquitectura, deploy, config, rotación, escalabilidad).
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
 DecisionesArquitectura.md, ManualOperador.md), se registra AQUÍ su existencia, propósito
@@ -151,26 +177,20 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   actualización (proxy local) o por keyring por máquina; nunca en el repo.
 - El repo es público: el código de la API interna será visible. Los endpoints ya son
   públicos de facto (los usa el navegador), pero revisar antes de publicar.
+- **Proxy**: `config.yaml`, `proxy_token.txt`, `admin_key.txt` son GITIGNORED — solo en PC proxy.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes
-1. **PRUEBA DE CONCURRENCIA** (pendiente de ejecutar): validar desde 4-5 máquinas a
-   la vez con la misma cuenta de Win para comprobar si la ISP bloquea; decidir entre
-   proxy local (B) y credenciales por máquina (A). El diseño de la herramienta
-   `tools/probar_concurrencia.py` está aprobado en PlanesAprobados.md (Paso 1).
-   (2026-08-19: se pospuso crear la herramienta; sigue en cola y se retomará hoy.)
-   Actualizar este punto con los resultados en cuanto se haga la prueba.
-2. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura →
-   score con un cliente de prueba. Decidir aquí si `score_cliente` acepta payload mínimo
-   (opción C) o si hace falta la geodata.
-3. (Si la prueba exige geodata) extraer las credenciales de cliente de Equifax con
-   `python tools/captura.py --guardar-js` (JS en `tools/js/`) y replicar el geocoding.
-4. Decidir si la app debe llamar a `actualizar_score_cliente` (registra el score en el
-   sistema) o si basta con leerlo.
-5. Conectar la GUI (keyring para credenciales, resultados del core) y ajustar
-   `main_window.py` al resultado real del score.
-6. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart).
-7. Actualizar README.md con el estado de Fase 1 antes de subir a GitHub.
+1. **FASE 0 DOCUMENTACIÓN** (EN CURSO): Completar `docs/`, `Escalabilidad.md`, `anotaciones.md`, actualizar `AGENTS.md`, `PlanesAprobados.md`, `README.md`
+2. **FASE 1 PROXY SERVER**: Implementar `validator_app/proxy/` completo (config, server, winsw, install, client, tests)
+3. **FASE 2 CORE ADAPTADO**: Añadir `auto_relogin_if_needed()` + persistencia cookies en `api.py`/`session.py`
+4. **FASE 3 CLIENTE PROXY**: `ProxyClient` con retries, timeouts, errores tipados, `from_discovery()`
+5. **FASE 4 GUI CONFIG PROXY**: Menú "⚙️ Configuración" → diálogo modal IP:puerto + token (keyring local)
+6. **FASE 5 DEPLOY & DOCS**: `rotate_creds.py`, `README_PROXY.md`, `requirements-proxy.txt`, `build.ps1` actualizado
+7. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura → score cliente prueba
+8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo
+9. Conectar GUI a core (keyring para credenciales, resultados del core) y ajustar `main_window.py`
+10. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart)
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -217,7 +237,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - [Avance] captura.py validada end-to-end: 44 registros, cobertura SI y NO capturadas,
   score 423 extraído del reporte, password redactado, ruff limpio y 11 tests pasando.
 
-### Fase 1 — Núcleo (core) [EN CURSO]
+### Fase 1 — Núcleo (core) [COMPLETADA]
 **2026-08-18**
 - [Avance] Construido `validator_app/core/session.py` (sesión `requests` con headers de
   navegador, tiempos de espera) y `validator_app/core/api.py` completo:
@@ -238,25 +258,32 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - [Avance] Tests del núcleo (`tests/test_api.py`, 14 casos): payloads de login/cobertura/
   score, parseo del reporte, errores. Total del proyecto: 25 tests, ruff limpio.
   Bitácora TDD (problemas y soluciones) en `TestingLog.md`.
-- **Pendiente**: prueba contra la API real con credenciales del usuario (keyring).
 
-### Fase 1.5 — Decisión de autenticación [EN CURSO]
-**2026-08-18**
-- [Dato del negocio] Los agentes NO tienen cuenta de WinForce; la app debe ser offline
-  y de mínimo costo; ~20 máquinas con internet; Win permite 2-3 personas simultáneas por
-  cuenta, cierra la sesión a los 3 min sin uso, y ROTA las credenciales cada 1-2 meses
-  (desactiva la cuenta anterior y entrega usuario/contraseña nuevos al responsable).
-- [Análisis] Opciones:
-  - A) Credenciales por máquina (keyring + auto-relogin): simple, $0, sin dependencias;
-    pero hasta 20 sesiones concurrentes de la misma cuenta (riesgo de bloqueo) y la
-    rotación mensual obliga a actualizar keyring en las 20 máquinas.
-  - B) Proxy local en la PC de la oficina (LAN): 1-2 sesiones desde una sola IP (sin
-    riesgo de bloqueo), credenciales SOLO en el proxy (rotación = actualizar 1 PC),
-    offline, costo ~$0; punto único de falla. RECOMENDADA.
-  - C) Cuentas propias por agente: descartada (no tienen cuentas).
-  - D) Sesión en caché por máquina: descartada (expiraciones + misma cuenta).
-- [Plan aprobado] Prueba de concurrencia en 4-5 máquinas primero; luego decidir A/B.
-  Detalle completo en `PlanesAprobados.md`.
+### Fase 1.5 — Decisión de Autenticación: Proxy Local (DECIDIDA 2026-08-25)
+**2026-08-25** — Sesión de definición arquitectónica
+- [Hallazgo crítico] Login WinForce redirige a `login.microsoftonline.com` para **2FA Microsoft** con la misma cuenta. Esto hace **inviable la prueba de concurrencia** planificada (4-5 máquinas simultáneas requerirían 2FA manual cada una).
+- [Decisión] **Opción B (Proxy Local) APROBADA** por las razones documentadas en `PlanesAprobados.md`:
+  - 1-2 sesiones WinForce desde UNA IP (PC oficina) → sin riesgo bloqueo
+  - Credenciales SOLO en keyring de PC proxy → rotación = actualizar 1 PC
+  - Offline (LAN), costo ~$0, escalable a remotos via VPN (Tailscale)
+- [Stack Proxy Confirmado]:
+  - Framework: **FastAPI + uvicorn** (concurrencia nativa, validación Pydantic, Swagger)
+  - Auth agentes: **Token compartido 256-bit + validación IP LAN** (`192.168/16`, `10/8`, `172.16/12`, `100.64/10` para Tailscale)
+  - Auth admin: **API Key admin separada** (`X-Admin-Key`) para endpoints `/admin/*`
+  - Ejecución: **winsw service** (`JSWinProxy` / "JSConnect Win Proxy") — auto-inicio, auto-restart, logs eventos
+  - Config: **`config.yaml` gitignored + `config.yaml.example` en repo** — `install_service.bat` genera tokens auto
+  - Requirements: **`requirements-proxy.txt` separado** (.exe agentes no arrastra fastapi/uvicorn)
+  - GUI: **Diálogo modal** desde menú "⚙️ Configuración" (mueve "Buscar actualizaciones" ahí)
+  - Docs: **Carpeta `docs/` permanente** ≠ `AGENTS.md/PlanesAprobados.md` volátiles
+- [Acuerdos explícitos 2026-08-25]:
+  1. Token proxy auto-generado en `install_service.bat` + mostrado en consola + guardado en `proxy_token.txt`
+  2. Admin key igual (auto-generada + `admin_key.txt`)
+  3. Servicio: `JSWinProxy` / Display "JSConnect Win Proxy"
+  4. Puerto 8080 por defecto; `install_service.bat` verifica y permite cambiar si ocupado
+  5. Menú GUI: "⚙️ Configuración" → items: "Configurar Proxy", "Buscar actualizaciones"
+  6. Escalabilidad remota: VPN (Tailscale) + mismo proxy + mismo token; endpoint `/admin/config` para auto-discovery
+  7. Documentación técnica en `docs/` (permanente); glosario en `anotaciones.md`
+  8. `requirements-proxy.txt` con comentario explicando tradeoff separación vs simplicidad
 
 ### Decisión pendiente (geodata del score)
   - A) Replicar Equifax: oauth `client_credentials` + reverse-geocoding (igual que el
@@ -270,13 +297,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   - Estado: el core ya acepta un dict `geodata` opcional; la GUI aún no lo envía (se
     resolverá en la prueba real).
 
-### Cierre de la sesión 2026-08-18 [CONTEXTO PARA LA SIGUIENTE]
-- Se crearon `PlanesAprobados.md` (plan aprobado completo + diseño del Paso 1 con el
-  código de `tools/probar_concurrencia.py` listo para implementar) y `TestingLog.md`
-  (metodología TDD y bitácora de pruebas).
-- Se añadió la sección "Archivos de documentación" (mapa de conocimiento) para que
-  cualquier persona/IA retome el proyecto sin contexto previo.
-- **Pendiente al retomar**: crear `tools/probar_concurrencia.py` con el diseño del
-  Paso 1 de PlanesAprobados.md, ejecutarlo en 4-5 máquinas y decidir A/B.
-- Estado general: Fase 0 completa, Fase 1 construida (25 tests, ruff limpio),
-  Fase 1.5 en curso (decisión de autenticación pendiente de la prueba).
+### Cierre de la sesión 2026-08-25 [CONTEXTO PARA LA SIGUIENTE]
+- Se completó **FASE 0 Documentación**: creados `docs/` (5 archivos), `resumenes/2026-08-19.md`, `Escalabilidad.md`, `anotaciones.md`, actualizados `AGENTS.md`, `PlanesAprobados.md`, `README.md`, `ResumenDelDia.md`
+- **Decisión arquitectónica definitiva**: Proxy Local (Opción B) — 2FA Microsoft bloquea concurrencia
+- **Próxima sesión**: FASE 1 — Implementar `validator_app/proxy/` completo (config.py, server.py, winsw.xml, install_service.bat, client.py, tests)
+- Estado general: Fase 0 completa, Fase 1 completa, Fase 1.5 decidida (Proxy Local), FASE 0 Docs completada, listo para FASE 1 Proxy Implementation

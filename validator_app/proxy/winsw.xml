@@ -1,0 +1,16 @@
+<service>
+  <id>JSWinProxy</id>
+  <name>JSConnect Win Proxy</name>
+  <description>Proxy local para validación de cobertura y score crediticio (JSConnect Win Coverage). Recibe peticiones de agentes LAN y las reenvía a WinForce/Equifax usando una sola sesión.</description>
+  <executable>python</executable>
+  <arguments>-m validator_app.proxy.server</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+  <logmode>rotate</logmode>
+  <logpath>%BASE%\logs</logpath>
+  <log level="info" />
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <onfailure action="restart" delay="60 sec" />
+  <env name="PYTHONUTF8" value="1" />
+  <env name="PYTHONIOENCODING" value="utf-8" />
+</service>

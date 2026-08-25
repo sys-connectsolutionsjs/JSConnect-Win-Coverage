@@ -8,10 +8,12 @@ App de escritorio (Python/Tkinter) para un call center que valida COBERTURA
 appwinforce.win.pe (sin scrapear HTML). Repo:
 https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
-## Estado del proyecto (2026-08-18)
+## Estado del proyecto (2026-08-25)
 - Fase 0 (captura de la API): COMPLETA.
-- Fase 1 (núcleo core): construida; pendiente prueba real con credenciales.
-- Fase 1.5 (decisión de autenticación): EN CURSO (plan aprobado abajo).
+- Fase 1 (núcleo core): COMPLETA — 25 tests, ruff limpio.
+- Fase 1.5 (decisión de autenticación): **DECIDIDA — Opción B (Proxy Local)**.
+- Fase 0 Documentación: COMPLETA — `docs/`, `Escalabilidad.md`, `anotaciones.md`, `resumenes/`.
+- **Próxima fase**: FASE 1 Proxy Implementation — implementar `validator_app/proxy/` completo.
 
 ## Descubrimientos técnicos (Fase 0)
 - Login: POST /controllers/acceso.php (accion=iniciar_sesion) -> cookie PHPSESSID.
@@ -58,168 +60,79 @@ B) Proxy local en la PC de la oficina (LAN).
 C) Cuentas propias por agente: DESCARTADA (no tienen cuentas).
 D) Sesión en caché por máquina: DESCARTADA (expiraciones + misma cuenta).
 
-### Decisión aprobada (2026-08-18)
-1. PRIMERO: prueba de concurrencia en 4-5 máquinas con la misma cuenta para
-   comprobar si Win bloquea. Registro de resultados en AGENTS.md.
-2. LUEGO: elegir arquitectura según los datos:
-   - Sensibilidad/bloqueo -> B (proxy local).
-   - Pasa limpia con 5+ simultáneas -> evaluar A.
-3. Recomendación técnica del plan: B (proxy local), incluso si la prueba pasa,
-   por la rotación mensual y el límite de 2-3 sesiones.
+### Hallazgo crítico 2026-08-25
+**Login WinForce redirige a `login.microsoftonline.com` para 2FA Microsoft** con la misma cuenta.
+Esto hace **inviable la prueba de concurrencia** planificada (4-5 máquinas simultáneas requerirían 2FA manual cada una).
 
-## Pasos del plan aprobado
-### Paso 0 — Continuidad
-- Crear este archivo (PlanesAprobados.md).
-- AGENTS.md: tarea de concurrencia al TOPE de Tareas pendientes + historial de
-  hoy + dato de rotación de credenciales.
+### Decisión aprobada (2026-08-25)
+**Opción B (Proxy Local) APROBADA** definitivamente. No se realiza prueba de concurrencia.
+Razones documentadas en `AGENTS.md` (Historial 2026-08-25) y `ResumenDelDia.md`.
 
-### Paso 1 — Herramienta de prueba de concurrencia
-- **Estado 2026-08-19**: SIGUE EN COLA (no implementado). El arranque del día se
-  pospuso esta tarea; se retomará hoy al volver a trabajar.
-- tools/probar_concurrencia.py: bucle login -> cobertura -> score (N veces),
-  con marcas de tiempo; registra errores/bloqueos para detectar el límite de Win.
-- Alternativa manual previa: abrir appwinforce.win.pe en 5 navegadores con el
-  mismo usuario y validar a la vez (prueba más fiel del límite real).
-- **Diseño acordado (código listo, NO creado aún)**: al construirla, usar el
-  siguiente borrador aprobado:
+## Plan Proxy Local — FASE 1 Implementation
 
-```python
-"""Prueba de concurrencia (Fase 1.5): simula uso simultaneo de la cuenta de Win.
+### Stack Confirmado
+- Framework: **FastAPI + uvicorn** (concurrencia nativa, validación Pydantic, Swagger)
+- Auth agentes: **Token compartido 256-bit + validación IP LAN** (`192.168/16`, `10/8`, `172.16/12`, `100.64/10` para Tailscale)
+- Auth admin: **API Key admin separada** (`X-Admin-Key`) para endpoints `/admin/*`
+- Ejecución: **winsw service** (`JSWinProxy` / "JSConnect Win Proxy") — auto-inicio, auto-restart, logs eventos
+- Config: **`config.yaml` gitignored + `config.yaml.example` en repo** — `install_service.bat` genera tokens auto
+- Requirements: **`requirements-proxy.txt` separado** (.exe agentes no arrastra fastapi/uvicorn)
+- GUI: **Diálogo modal** desde menú "⚙️ Configuración" (mueve "Buscar actualizaciones" ahí)
+- Docs: **Carpeta `docs/` permanente** ≠ `AGENTS.md/PlanesAprobados.md` volátiles
 
-Objetivo: comprobar si Win (la ISP) bloquea o avisa cuando varias maquinas usan la
-misma cuenta a la vez. Se ejecuta en 4-5 maquinas simultaneamente.
+### Acuerdos explícitos 2026-08-25
+1. Token proxy auto-generado en `install_service.bat` + mostrado en consola + guardado en `proxy_token.txt`
+2. Admin key igual (auto-generada + `admin_key.txt`)
+3. Servicio: `JSWinProxy` / Display "JSConnect Win Proxy"
+4. Puerto 8080 por defecto; `install_service.bat` verifica y permite cambiar si ocupado
+5. Menú GUI: "⚙️ Configuración" → items: "Configurar Proxy", "Buscar actualizaciones"
+6. Escalabilidad remota: VPN (Tailscale) + mismo proxy + mismo token; endpoint `/admin/config` para auto-discovery
+7. Documentación técnica en `docs/` (permanente); glosario en `anotaciones.md`
+8. `requirements-proxy.txt` con comentario explicando tradeoff separación vs simplicidad
 
-Uso:
-    python tools/probar_concurrencia.py [--ciclos N] [--intervalo S] [--log FILE]
+### Pasos de implementación (orden)
 
-    --ciclos      numero de ciclos login->cobertura->score (por defecto 5)
-    --intervalo   segundos de espera entre ciclos (por defecto 0)
-    --log         archivo de salida con marcas de tiempo (defecto concurrencia.log)
-"""
+#### FASE 1.1 — Proxy Server (config, server, winsw, install)
+- `validator_app/proxy/config.py` — Pydantic Settings (lee config.yaml + env)
+- `validator_app/proxy/config.yaml.example` — plantilla con placeholders
+- `validator_app/proxy/server.py` — FastAPI app + endpoints + ValidatorAPI wrapper
+- `validator_app/proxy/winsw.xml` — config servicio Windows
+- `validator_app/proxy/install_service.bat` — instala servicio (descarga winsw, genera tokens, verifica puerto)
+- `validator_app/proxy/uninstall_service.bat` — desinstala servicio
+- `validator_app/proxy/__init__.py`
 
-import argparse
-import getpass
-import socket
-import sys
-import time
-from datetime import datetime
-from pathlib import Path
+#### FASE 1.2 — Core Adaptado
+- `validator_app/core/api.py` — añadir `auto_relogin_if_needed()` + persistencia cookies
+- `validator_app/core/session.py` — exportar/importar cookies de sesión
 
-from validator_app.core import api
-from validator_app.gui import fields
+#### FASE 1.3 — Cliente Proxy
+- `validator_app/proxy/client.py` — `ProxyClient` con retries, timeouts, errores tipados, `from_discovery()`
 
-COORDENADAS_PRUEBA = "-12.087718994493725, -76.98571219979543"  # San Borja (cobertura SI)
-DOCUMENTO_PRUEBA = "75020496"  # DNI real de la captura (cobertura SI)
+#### FASE 1.4 — GUI Config Proxy
+- `validator_app/gui/main_window.py` — menú "⚙️ Configuración" → diálogo modal IP:puerto + token (keyring local `JSWinClient`)
 
+#### FASE 1.5 — Deploy & Docs
+- `validator_app/proxy/rotate_creds.py` — CLI owner: rota credenciales WinForce (RDP híbrido: navega manual + pega cookie)
+- `README_PROXY.md` — resumen deploy + comandos rápidos
+- `requirements-proxy.txt` + actualizar `requirements-dev.txt` (incluye `-r requirements-proxy.txt`)
+- `build.ps1` actualizado — incluye `proxy/client.py`, excluye `proxy/server.py`
+- `docs/proxy-deploy.md`, `docs/proxy-config.md`, `docs/rotacion-credenciales.md`, `docs/escalabilidad-remota.md`, `docs/arquitectura.md` (ya creados en Fase 0 Docs)
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Prueba de concurrencia de la cuenta Win.")
-    parser.add_argument("--ciclos", type=int, default=5)
-    parser.add_argument("--intervalo", type=float, default=0.0)
-    parser.add_argument("--log", default="concurrencia.log")
-    args = parser.parse_args()
-
-    usuario = input("Usuario (email): ").strip()
-    contrasena = getpass.getpass("Contrasena: ")
-    if not usuario or not contrasena:
-        print("[ERROR] Usuario y contrasena son obligatorios.")
-        return 1
-
-    lat, lon = fields.parse_coordenadas(COORDENADAS_PRUEBA)
-    tipo = fields.detectar_tipo_documento(DOCUMENTO_PRUEBA)
-
-    maquina = socket.gethostname()
-    log = Path(args.log)
-    fallos_seguidos = 0
-
-    print(f"Maquina: {maquina} | ciclos: {args.ciclos} | cuenta: {usuario}")
-    print(f"Prueba: login -> cobertura({lat},{lon}) -> score({tipo} {DOCUMENTO_PRUEBA})")
-    print("=" * 66)
-
-    for ciclo in range(1, args.ciclos + 1):
-        marca = datetime.now().isoformat(timespec="seconds")
-        resultado = "OK"
-        detalle = ""
-        try:
-            cliente = api.obtener_cliente().login(usuario, contrasena)
-            cobertura = cliente.validar_cobertura(lat, lon)
-            if cobertura["hay_cobertura"]:
-                score = cliente.validar_score(
-                    tipo, DOCUMENTO_PRUEBA, lat, lon, cobertura=cobertura["cobertura"]
-                )
-                detalle = f"cobertura={cobertura['cobertura']} score={score['valor']}"
-            else:
-                detalle = f"cobertura={cobertura['cobertura']} (sin score)"
-        except Exception as exc:
-            resultado = "FALLO"
-            detalle = f"{type(exc).__name__}: {exc}"
-            fallos_seguidos += 1
-        else:
-            fallos_seguidos = 0
-
-        linea = f"{marca}\t{maquina}\t{ciclo}\t{resultado}\t{detalle}"
-        print(f"[{ciclo:02}] {resultado}: {detalle}")
-        with log.open("a", encoding="utf-8") as fh:
-            fh.write(linea + "\n")
-
-        if fallos_seguidos >= 3:
-            print("3 fallos seguidos: probable bloqueo o sesion invalida. Deteniendo.")
-            break
-        if args.intervalo:
-            time.sleep(args.intervalo)
-
-    print("=" * 66)
-    print(f"Detalle guardado en: {log.resolve()}")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-```
-
-- **Uso previsto**: en 4-5 máquinas a la vez: `python tools/probar_concurrencia.py
-  --ciclos 5 --log concurrencia.log`. Cada máquina genera un log TSV
-  (fecha, máquina, ciclo, OK/FALLO, detalle) para correlacionar.
-- **Seguridad**: el log solo contiene cobertura/score (sin documento ni
-  contraseña); aun así, borrarlo al terminar y no subirlo a GitHub.
-- **Lint esperado**: debe pasar `ruff check .` y `python -c "import
-  tools.probar_concurrencia"` (no se ejecuta en pruebas automáticas porque pide
-  credenciales y hace peticiones reales).
-
-### Paso 2 — Ejecutar la prueba
-- En 4-5 máquinas simultáneas con la misma cuenta.
-- Observar: ¿bloquea? ¿avisa? ¿fuerza cierres? ¿3 min de inactividad?
-- Registrar resultados en AGENTS.md.
-
-### Paso 3 — Decidir arquitectura y registrar la decisión.
-
-### Paso 4 — Implementar lo elegido
-- TRABAJO COMÚN (ambas opciones): auto-relogin en core/api.py:
-  * Si la sesión tiene >~120 s sin uso, re-loguear en silencio antes de validar.
-  * Si una respuesta indica sesión expirada, re-loguear y reintentar 1 vez.
-- Si B (proxy): proxy/server.py (FastAPI o stdlib http.server) que reusa
-  ValidatorAPI y expone /cobertura y /score por LAN con token compartido.
-  El cliente de las 20 máquinas apunta al proxy (sin credenciales).
-- Si A (por máquina): keyring por máquina configurado UNA vez por el
-  responsable; GUI sin pantalla de login; modo "actualizar credenciales".
-
-## Pendientes adicionales (no bloquean la decisión)
+## Pendientes adicionales (no bloquean el proxy)
 - Prueba real del core (tools/probar_core.py) con credenciales del responsable.
-- Decidir geodata del score (A: replicar Equifax / B: manual / C: mínimo)
-  según el resultado de la prueba real.
+- Decidir geodata del score (A: replicar Equifax / B: manual / C: mínimo) según prueba real.
 - Decidir si la app llama a actualizar_score_cliente y/o newsearch.php.
-- Conectar GUI a core (keyring) + ajustar resultados + README.
+- Conectar GUI a core (keyring para credenciales standalone, resultados del core) y ajustar main_window.py.
 
-## Checklist próxima sesión
-1. Leer AGENTS.md (Archivos de documentación) + PlanesAprobados.md (Paso 1) para
-   retomar contexto completo sin depender de memoria.
-2. Crear tools/probar_concurrencia.py a partir del diseño aprobado en el Paso 1.
-3. Coordinar la prueba en 4-5 máquinas.
-4. Registrar resultados en AGENTS.md y decidir arquitectura.
-5. Implementar lo elegido (Paso 4) + pendientes adicionales.
+## Checklist próxima sesión (FASE 1 Proxy)
+1. Leer `AGENTS.md` + `PlanesAprobados.md` + `docs/arquitectura.md` para contexto completo.
+2. Implementar `validator_app/proxy/config.py` + `config.yaml.example`.
+3. Implementar `validator_app/proxy/server.py` (FastAPI + 6 endpoints + middleware auth).
+4. Implementar `validator_app/proxy/winsw.xml` + `install_service.bat` + `uninstall_service.bat`.
+5. Tests unitarios proxy (`tests/test_proxy.py`).
+6. Ejecutar `pytest` + `ruff check .` tras cada sub-fase.
 
 ## Notas de seguridad
-- Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en B solo viven
-  en la PC del proxy; en A en keyring por máquina (nunca en el repo).
-- NO subir a GitHub: tools/captura.json, tools/js/, generator/private_key.pem,
-  credenciales reales.
+- Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.
+- NO subir a GitHub: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `tools/captura.json`, `tools/js/`, `generator/private_key.pem`, credenciales reales.
+- Token proxy = secreto LAN (binding IP); admin key = solo owner.

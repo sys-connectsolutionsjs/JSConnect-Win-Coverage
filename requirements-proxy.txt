@@ -1,0 +1,27 @@
+# Dependencias del Proxy Local (solo para PC oficina)
+# NO se incluyen en el .exe final de los agentes
+# El .exe solo necesita validator_app/proxy/client.py (que usa httpx, ya en requirements.txt via requests)
+
+# Base (compartida con agentes)
+-r requirements.txt
+
+# Proxy server (FastAPI + uvicorn + Pydantic)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.7
+pydantic-settings>=2.3
+
+# winsw se descarga como binario en install_service.bat (no via pip)
+# httpx ya está en requirements.txt como dependencia de requests (no, requests != httpx)
+# El cliente proxy usa httpx, así que lo añadimos aquí también para el server
+httpx>=0.27
+
+# Nota para futuros programadores:
+# -----------------------------------------------------------------------
+# Separamos requirements-proxy.txt de requirements-dev.txt para que:
+#   1. El .exe de agentes (PyInstaller) NO incluya fastapi/uvicorn/pydantic (~15MB)
+#   2. Solo la PC del proxy instala estas dependencias pesadas
+#   3. requirements-dev.txt incluye -r requirements-proxy.txt para desarrollo completo
+# Tradeoff: dos archivos de requirements en lugar de uno. Decidimos ser felices
+# y mantener la separación por simplicidad de build y tamaño de .exe.
+# -----------------------------------------------------------------------

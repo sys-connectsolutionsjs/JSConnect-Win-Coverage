@@ -1,4 +1,6 @@
+# Dependencias de desarrollo (incluye proxy para desarrollo completo)
 -r requirements.txt
+-r requirements-proxy.txt
 playwright>=1.45
 pytest>=8.0
 ruff>=0.5
