@@ -32,6 +32,20 @@ class ScoreError(APIError):
     pass
 
 
+def _diagnostico(resp) -> str:
+    """Resumen tecnico de una respuesta (sin datos sensibles) para errores."""
+    tipo = "?"
+    if hasattr(resp, "headers"):
+        for clave, valor in resp.headers.items():
+            if clave.lower() == "content-type":
+                tipo = valor
+                break
+    cuerpo = getattr(resp, "text", "") or ""
+    if cuerpo:
+        cuerpo = f" body={cuerpo[:80]!r}"
+    return f"HTTP {resp.status_code} {tipo}{cuerpo}"
+
+
 def _formato_coordenada(valor: float) -> str:
     return repr(float(valor))
 
@@ -54,7 +68,7 @@ class ValidatorAPI:
             timeout=session.TIEMPO_LOGIN,
         )
         self._verificar_login(resp)
-        self._verificar_sesion_activa(sesion)
+        self._verificar_sesion_activa(sesion, _diagnostico(resp))
         self._sesion = sesion
         self._last_activity = time.time()
         return self
@@ -77,22 +91,32 @@ class ValidatorAPI:
         raise LoginError(comentario)
 
     @staticmethod
-    def _verificar_sesion_activa(sesion) -> None:
+    def _verificar_sesion_activa(sesion, diagnostico_login: str = "?") -> None:
         resp = sesion.get(
             f"{session.CONTROLLERS}/operador.php",
             params={"accion": "get_operador"},
             timeout=session.TIEMPO_LOGIN,
         )
+        detalle_operador = _diagnostico(resp)
         try:
             datos = resp.json()
         except ValueError:
-            raise LoginError("No se pudo iniciar sesion (la sesion no quedo activa).") from None
+            raise LoginError(
+                "No se pudo iniciar sesion (la sesion no quedo activa). "
+                f"[{diagnostico_login}; operador: {detalle_operador}]"
+            ) from None
         lista = datos if isinstance(datos, list) else [datos]
         ok = any(
             isinstance(x, dict) and x.get("response") == "success" for x in lista
         )
         if not ok:
-            raise LoginError("No se pudo iniciar sesion (la sesion no quedo activa).")
+            comentario = ""
+            if lista and isinstance(lista[0], dict):
+                comentario = f" ({lista[0].get('comment', '')})"
+            raise LoginError(
+                "No se pudo iniciar sesion (la sesion no quedo activa). "
+                f"[{diagnostico_login}; operador: {detalle_operador}]{comentario}"
+            )
 
     def _requerir_sesion(self) -> None:
         if self._sesion is None:

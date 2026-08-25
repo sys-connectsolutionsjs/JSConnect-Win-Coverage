@@ -156,6 +156,71 @@ def test_login_sin_sesion_activa():
         cliente.login("usuario@x.pe", "clave")
 
 
+class FakeHtmlResponse:
+    """Respuesta con body HTML (json() falla), como un WAF o pagina de error."""
+
+    def __init__(self, texto="<html>Access denied</html>", status=200):
+        self.texto = texto
+        self.status_code = status
+        self.headers = {"Content-Type": "text/html; charset=UTF-8"}
+
+    def json(self):
+        raise ValueError("no JSON")
+
+    @property
+    def text(self):
+        return self.texto
+
+
+def _login_html():
+    return [
+        ("acceso.php", "post", FakeHtmlResponse()),
+        ("operador.php", "get", FakeHtmlResponse("<html>blocked</html>")),
+    ]
+
+
+def test_sesion_no_activa_html_incluye_diagnostico():
+    sesion = FakeSesion(_login_html())
+    cliente = api.ValidatorAPI()
+    with (
+        mock.patch("validator_app.core.session.crear_sesion", return_value=sesion),
+        pytest.raises(api.LoginError) as captura,
+    ):
+        cliente.login("usuario@x.pe", "clave")
+    mensaje = str(captura.value)
+    assert "la sesion no quedo activa" in mensaje
+    assert "text/html" in mensaje
+    assert "200" in mensaje
+    assert "<html>" in mensaje
+
+
+def test_sesion_no_activa_json_incluye_comment():
+    sesion = FakeSesion(
+        [
+            ("acceso.php", "post", FakeResponse([{"response": "success"}])),
+            (
+                "operador.php",
+                "get",
+                FakeResponse({"response": "error", "comment": "sesion expirada"}),
+            ),
+        ]
+    )
+    cliente = api.ValidatorAPI()
+    with (
+        mock.patch("validator_app.core.session.crear_sesion", return_value=sesion),
+        pytest.raises(api.LoginError) as captura,
+    ):
+        cliente.login("usuario@x.pe", "clave")
+    assert "sesion expirada" in str(captura.value)
+
+
+def test_verificar_login_http_error_incluye_status():
+    resp = FakeHtmlResponse(status=503)
+    with pytest.raises(api.LoginError) as captura:
+        api.ValidatorAPI._verificar_login(resp)
+    assert "503" in str(captura.value)
+
+
 def test_requiere_sesion():
     cliente = api.ValidatorAPI()
     with pytest.raises(api.APIError):
