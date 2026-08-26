@@ -13,6 +13,27 @@ y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-08-25 — Sesión (tarde + noche)
+- [Hallazgo crítico] Login WinForce redirige a 2FA Microsoft → inviable simular 4-5
+  máquinas concurrentes con la misma cuenta.
+- [Decisión arquitectónica] **Proxy Local (Opción B) APROBADA**: 20 agentes LAN → 1
+  proxy (PC oficina) → 1-2 sesiones WinForce desde una sola IP. Stack: FastAPI +
+  uvicorn, token compartido + IP LAN, admin key separada, winsw service, config.yaml
+  gitignored.
+- [Avance] FASE 0 Documentación completada: `docs/` (5 archivos), `Escalabilidad.md`,
+  `anotaciones.md`, `resumenes/2026-08-19.md`.
+- [Avance] FASES 1–5 del Proxy implementadas: `validator_app/proxy/` completo
+  (server.py con 7 rutas, config.py, client.py, rotate_creds.py, winsw.xml,
+  install/uninstall .bat), `auto_relogin_if_needed()` + persistencia de cookies en
+  `core/api.py`, GUI con menú "⚙️ Configuración" y diálogo de proxy conectado a keyring.
+- [Avance] Sistema de códigos de error: excepciones tipadas con `code` + diccionario
+  `ERROR_CODES` (32 códigos) en `api.py`.
+- [Verificado] 35 tests pasando, ruff limpio.
+- [Nota] El cierre de esta sesión en `AGENTS.md` quedó desactualizado (decía "listo
+  para FASE 1 Proxy Implementation" pese a que ya se implementó todo el mismo día);
+  corregido en la sesión 2026-08-26. Ver `resumenes/2026-08-25.md` para el detalle
+  completo.
+
 ### 2026-08-19 — Sesión (tarde)
 - [Entorno] Nueva máquina: clonado el repo en
   `C:\Users\Connect Solutions 10\Documents\JS-REPOS\JSConnect-Win-Coverage`.

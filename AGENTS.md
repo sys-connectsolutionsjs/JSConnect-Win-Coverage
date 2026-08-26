@@ -145,6 +145,49 @@ SQLite ya viene en Python; no añade dependencias.
   el resumen de lo hecho en el día. Después, al confirmar el usuario que ya terminó la
   sesión, se le pregunta si desea presentar el resumen del día desde
   `ResumenDelDia.md`.
+- **Rotación de resúmenes** (al abrir un día nuevo): el contenido de `ResumenDelDia.md`
+  se reparte en dos destinos que NO compiten, cada uno con un rol distinto:
+  - `resumenes/<fecha>.md`: snapshot COMPLETO e inmutable de la sesión que cierra (todo
+    el detalle, tal cual quedó en `ResumenDelDia.md`).
+  - `HistorialResumenes.md`: entrada CONDENSADA de esa sesión, agregada arriba del todo
+    (orden cronológico inverso) — es el índice navegable, no el detalle completo.
+  - Después de rotar, `ResumenDelDia.md` empieza limpio con la fecha del día nuevo.
+
+## Regla de auto-actualización de la documentación
+
+Esta documentación existe para que cualquiera (persona o IA) pueda retomar el proyecto
+sin perder contexto. Para que no se desactualice como ya pasó una vez (ver cierre de
+sesión 2026-08-25, que quedó desfasado del código real), se sigue este proceso en
+**tres momentos**:
+
+1. **Al INICIAR sesión — ojeada de verificación (barata, no exhaustiva)**
+   Antes de tocar código: leer este archivo (Tareas pendientes + último cierre de
+   sesión) y confirmar contra el árbol real que el proyecto es el que la documentación
+   describe — ¿existen los archivos/funciones que se dan por pendientes o por hechos?,
+   ¿`pytest` y `ruff check .` siguen en verde? Si hay desfase, **reportarlo al usuario y
+   corregir la doc antes de empezar la tarea nueva**. No es una auditoría línea por
+   línea; es una comprobación rápida de coherencia.
+
+2. **Durante la sesión — registro narrativo (sin auditar)**
+   Al terminar cada tarea significativa (fase, feature o fix con tests en verde),
+   anotar en `ResumenDelDia.md` lo que se hizo, y sacar de la cola de
+   `PlanesAprobados.md` lo que ya se implementó. Basta con narrar lo trabajado; esta
+   anotación intermedia NO exige re-verificar el estado global del proyecto.
+
+3. **Al CERRAR sesión — actualización auditada**
+   Antes de escribir el cierre, auditar contra el código lo hecho en la sesión
+   (¿existen los archivos/funciones que se van a declarar completados?, ¿`pytest` y
+   `ruff check .` en verde?). Recién con eso verificado:
+   - Marcar `[COMPLETADO]` en `## Tareas pendientes` lo que se comprobó implementado
+     — **sin borrarlas de la lista**, se dejan visibles para trazabilidad.
+   - Añadir la entrada correspondiente en `## Historial` + un nuevo
+     `### Cierre de la sesión <fecha>`.
+   - Actualizar `README.md` si el cambio lo amerita (seguridad, funciones nuevas,
+     estructura, comandos) y `docs/` si cambió algo técnico permanente.
+   - Rotar `ResumenDelDia.md` según la regla de rotación de arriba.
+
+   **Regla de oro**: nunca marcar algo como completado o pendiente en la documentación
+   sin haberlo comprobado en el código.
 
 ## Archivos de documentación (mapa de conocimiento)
 Estos archivos son el punto de partida de cualquier persona (o IA) que retome el
@@ -165,6 +208,11 @@ proyecto. Leerlos en este orden ANTES de tocar código:
 6. **Escalabilidad.md**: guía para futuros programadores (cómo escalar a remotos).
 7. **anotaciones.md**: glosario técnico para términos que futuros devs desconozcan.
 8. **docs/**: documentación técnica permanente (arquitectura, deploy, config, rotación, escalabilidad).
+9. **HistorialResumenes.md**: índice cronológico condensado de resúmenes pasados (lo
+   más nuevo arriba). Ver ahí si se necesita ubicar rápido en qué sesión pasó algo.
+10. **resumenes/**: snapshots COMPLETOS e inmutables de cada sesión pasada
+    (`resumenes/<fecha>.md`), con el detalle íntegro que tenía `ResumenDelDia.md` al
+    cerrar esa sesión.
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
 DecisionesArquitectura.md, ManualOperador.md), se registra AQUÍ su existencia, propósito
@@ -181,17 +229,18 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes
-1. **FASE 0 DOCUMENTACIÓN** (EN CURSO): Completar `docs/`, `Escalabilidad.md`, `anotaciones.md`, actualizar `AGENTS.md`, `PlanesAprobados.md`, `README.md`
-2. **FASE 1 PROXY SERVER**: Implementar `validator_app/proxy/` completo (config, server, winsw, install, client, tests)
-3. **FASE 2 CORE ADAPTADO**: Añadir `auto_relogin_if_needed()` + persistencia cookies en `api.py`/`session.py`
-4. **FASE 3 CLIENTE PROXY**: `ProxyClient` con retries, timeouts, errores tipados, `from_discovery()`
-5. **FASE 4 GUI CONFIG PROXY**: Menú "⚙️ Configuración" → diálogo modal IP:puerto + token (keyring local)
-6. **FASE 5 DEPLOY & DOCS**: `rotate_creds.py`, `README_PROXY.md`, `requirements-proxy.txt`, `build.ps1` actualizado
-7. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura → score cliente prueba
-8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo
-9. Conectar GUI a core (keyring para credenciales, resultados del core) y ajustar `main_window.py`
-10. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart)
-11. **Sistema de códigos de error**: Incorporar `code` a todas las excepciones (`APIError`, `LoginError`, `ScoreError`, `CoberturaError`, `SessionError`, `NetworkError`, `ConfigError`, etc.) + diccionario `ERROR_CODES` en `api.py` con categoría y descripción para logging/monitoreo futuro
+1. **FASE 0 DOCUMENTACIÓN** [COMPLETADO — verificado 2026-08-26]: `docs/` (5 archivos), `Escalabilidad.md`, `anotaciones.md`, `resumenes/` existen y están al día.
+2. **FASE 1 PROXY SERVER** [COMPLETADO — verificado 2026-08-26]: `validator_app/proxy/` completo — `server.py` (7 rutas: `/api/cobertura`, `/api/score`, `/health`, `/admin/config`, `/admin/login`, `/admin/rotar`, `/admin/status`), `config.py`, `winsw.xml`, `install_service.bat`, `uninstall_service.bat`.
+3. **FASE 2 CORE ADAPTADO** [COMPLETADO — verificado 2026-08-26]: `auto_relogin_if_needed()` (`core/api.py:267`), `get_session_cookies()`/`set_session_cookies()` (`:282`/`:288`) implementados y usados en `validar_cobertura`/`validar_score`.
+4. **FASE 3 CLIENTE PROXY** [COMPLETADO — verificado 2026-08-26]: `ProxyClient` (`proxy/client.py`) con retries, excepciones tipadas (`ProxyConnectionError`, `ProxyAuthError`, `ProxyServerError`, `ProxyTimeoutError`), `from_discovery()`, `from_keyring()`.
+5. **FASE 4 GUI CONFIG PROXY** [COMPLETADO — verificado 2026-08-26]: menú "⚙️ Configuración" (`gui/main_window.py:33`) → diálogo modal `_abrir_config_proxy` (`:206`) con IP:puerto + token + keyring local.
+6. **FASE 5 DEPLOY & DOCS** [COMPLETADO — verificado 2026-08-26]: `rotate_creds.py`, `README_PROXY.md`, `requirements-proxy.txt` presentes.
+7. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura → score cliente prueba — **PENDIENTE**, no verificado en esta sesión.
+8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo — **PENDIENTE**.
+9. Conectar GUI a core (keyring para credenciales, resultados del core) end-to-end y ajustar `main_window.py` — **PENDIENTE de verificación real** (la config del proxy sí está conectada; falta confirmar el flujo completo login→cobertura→score contra la GUI).
+10. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) — **PENDIENTE**.
+11. **Sistema de códigos de error** [COMPLETADO — verificado 2026-08-26]: excepciones tipadas con `code` + diccionario `ERROR_CODES` en `api.py`, 35 tests pasando, ruff limpio.
+12. **Decisión de geodata del score** (opciones A/B/C, ver Historial `Fase 1.5`) — **PENDIENTE**, sigue sin resolver.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -286,6 +335,28 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   7. Documentación técnica en `docs/` (permanente); glosario en `anotaciones.md`
   8. `requirements-proxy.txt` con comentario explicando tradeoff separación vs simplicidad
 
+### Fase Proxy — Implementación [COMPLETADA, verificada 2026-08-26]
+- [Avance] `validator_app/proxy/server.py` (FastAPI): 7 rutas — `POST /api/cobertura`,
+  `POST /api/score`, `GET /health`, `GET /admin/config`, `POST /admin/login`,
+  `POST /admin/rotar`, `GET /admin/status`. Middleware de auth por token (agentes) y
+  `X-Admin-Key` (admin), validación de IP LAN (`_ip_in_allowed_networks`).
+- [Avance] `validator_app/proxy/config.py`: `ProxyConfig` (Pydantic Settings) con
+  `proxy_token`/`admin_key` (hex 64 chars), redes permitidas (LAN + rango Tailscale
+  `100.64/10`), timeouts, `session_max_idle_seconds=120`.
+- [Avance] `validator_app/proxy/client.py`: `ProxyClient` con retries
+  (`_request_with_retry`), excepciones tipadas (`ProxyConnectionError`,
+  `ProxyAuthError`, `ProxyServerError`, `ProxyTimeoutError`), `from_discovery()`,
+  `from_keyring()`/`save_to_keyring()` (servicio `JSWinClient`).
+- [Avance] `validator_app/proxy/rotate_creds.py`: CLI para rotar credenciales WinForce
+  vía RDP (extrae `PHPSESSID`, valida sesión, guarda en keyring del proxy).
+- [Avance] `validator_app/core/api.py`: `auto_relogin_if_needed()` (re-login si pasó
+  `session_max_idle` desde la última actividad), `get_session_cookies()` /
+  `set_session_cookies()` para persistencia, usados en `validar_cobertura`/`validar_score`.
+- [Avance] `validator_app/gui/main_window.py`: menú "⚙️ Configuración" → diálogo modal
+  `_abrir_config_proxy` (IP:puerto + token, toggle mostrar/ocultar, "Probar conexión"),
+  guardado/carga vía `ProxyClient.from_keyring()`/`save_to_keyring()`.
+- [Verificado] `python -m pytest -q` → 35 passed. `python -m ruff check .` → All checks passed.
+
 ### Decisión pendiente (geodata del score)
   - A) Replicar Equifax: oauth `client_credentials` + reverse-geocoding (igual que el
     navegador). Fiel para cualquier coordenada; requiere credenciales del sitio (extraer
@@ -298,8 +369,14 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   - Estado: el core ya acepta un dict `geodata` opcional; la GUI aún no lo envía (se
     resolverá en la prueba real).
 
-### Cierre de la sesión 2026-08-25 [CONTEXTO PARA LA SIGUIENTE]
+### Cierre de la sesión 2026-08-25 [CONTEXTO PARA LA SIGUIENTE — histórico, ver corrección abajo]
 - Se completó **FASE 0 Documentación**: creados `docs/` (5 archivos), `resumenes/2026-08-19.md`, `Escalabilidad.md`, `anotaciones.md`, actualizados `AGENTS.md`, `PlanesAprobados.md`, `README.md`, `ResumenDelDia.md`
 - **Decisión arquitectónica definitiva**: Proxy Local (Opción B) — 2FA Microsoft bloquea concurrencia
-- **Próxima sesión**: FASE 1 — Implementar `validator_app/proxy/` completo (config.py, server.py, winsw.xml, install_service.bat, client.py, tests)
-- Estado general: Fase 0 completa, Fase 1 completa, Fase 1.5 decidida (Proxy Local), FASE 0 Docs completada, listo para FASE 1 Proxy Implementation
+- Estado general al cierre: Fase 0 completa, Fase 1 (core) completa, Fase 1.5 decidida (Proxy Local), FASE 0 Docs completada
+- **Nota de corrección (2026-08-26)**: este cierre decía "listo para FASE 1 Proxy Implementation" como próximo paso, pero según el commit log (`877689f`, `801ce05`, `f63660b`, `7cf7ea1`) las FASES 1–5 del proxy y el sistema de códigos de error **ya se implementaron en commits posteriores el mismo 2026-08-25**, sin que este archivo se actualizara. Ver `### Cierre de la sesión 2026-08-26` para el estado real verificado.
+
+### Cierre de la sesión 2026-08-26 [CONTEXTO PARA LA SIGUIENTE]
+- **Auditoría de inicio de sesión**: se detectó que este archivo (entonces `Claude.md` en disco, aunque el tracked de git ya era `AGENTS.md`) tenía las "Tareas pendientes" desfasadas del código real — daba por pendiente todo el proxy (FASES 1–5) y el cierre 2026-08-25 decía "listo para FASE 1", pero el código ya estaba implementado.
+- **Verificado en el árbol real**: `validator_app/proxy/` completo (server.py con 7 rutas, config.py, client.py, rotate_creds.py, winsw.xml, install/uninstall .bat), `core/api.py` con `auto_relogin_if_needed()` (`:267`) y persistencia de cookies (`:282`/`:288`), GUI con menú "⚙️ Configuración" y diálogo de proxy (`main_window.py:33`/`:206`). **35 tests pasando, ruff limpio.**
+- **Corregido**: archivo en disco renombrado de `Claude.md` a `AGENTS.md` (coincide con el nombre tracked en git y con el título interno; cero referencias rotas, todo el proyecto ya decía "AGENTS.md"). Marcadas `[COMPLETADO]` las tareas 1–6 y 11 de "Tareas pendientes" (dejadas visibles, no borradas). Añadida la regla de auto-actualización (3 momentos: inicio/durante/cierre) y la regla de rotación de resúmenes.
+- **Pendiente real para la próxima sesión**: prueba real del core con credenciales (login→cobertura→score), decidir `actualizar_score_cliente`, conectar GUI↔core end-to-end, evaluar creación del lead final, y resolver la decisión de geodata del score (A/B/C, ver arriba).

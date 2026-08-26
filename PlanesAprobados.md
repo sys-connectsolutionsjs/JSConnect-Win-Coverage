@@ -8,12 +8,21 @@ App de escritorio (Python/Tkinter) para un call center que valida COBERTURA
 appwinforce.win.pe (sin scrapear HTML). Repo:
 https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
-## Estado del proyecto (2026-08-25)
+## Estado del proyecto (verificado 2026-08-26)
 - Fase 0 (captura de la API): COMPLETA.
-- Fase 1 (núcleo core): COMPLETA — 25 tests, ruff limpio.
+- Fase 1 (núcleo core): COMPLETA — 35 tests, ruff limpio.
 - Fase 1.5 (decisión de autenticación): **DECIDIDA — Opción B (Proxy Local)**.
 - Fase 0 Documentación: COMPLETA — `docs/`, `Escalabilidad.md`, `anotaciones.md`, `resumenes/`.
-- **Próxima fase**: FASE 1 Proxy Implementation — implementar `validator_app/proxy/` completo.
+- **Proxy Local (FASES 1.1–1.5) IMPLEMENTADO**: `validator_app/proxy/` completo
+  (server.py, config.py, client.py, rotate_creds.py, winsw.xml, install/uninstall .bat),
+  core adaptado (`auto_relogin_if_needed`, persistencia cookies), GUI conectada
+  (menú "⚙️ Configuración"). Detalle en `AGENTS.md` (Historial → Fase Proxy —
+  Implementación).
+- **Gap detectado**: no existe `tests/test_proxy.py` — el plan original (FASE 1.1,
+  paso 5 abajo) lo pedía y no se hizo. El proxy no tiene tests unitarios propios;
+  los 35 tests actuales cubren core/activation/GUI fields, no `validator_app/proxy/`.
+- **Próxima fase**: ya no es implementar el proxy (hecho). Ver "Pendientes
+  adicionales" abajo — la prueba real del core es el siguiente paso lógico.
 
 ## Descubrimientos técnicos (Fase 0)
 - Login: POST /controllers/acceso.php (accion=iniciar_sesion) -> cookie PHPSESSID.
@@ -68,69 +77,22 @@ Esto hace **inviable la prueba de concurrencia** planificada (4-5 máquinas simu
 **Opción B (Proxy Local) APROBADA** definitivamente. No se realiza prueba de concurrencia.
 Razones documentadas en `AGENTS.md` (Historial 2026-08-25) y `ResumenDelDia.md`.
 
-## Plan Proxy Local — FASE 1 Implementation
+## Plan Proxy Local — IMPLEMENTADO (sacado de la cola 2026-08-26)
+El plan completo de FASES 1.1–1.5 (stack, acuerdos, pasos de implementación) se
+ejecutó íntegramente. El detalle verificado vive en `AGENTS.md` (Historial → Fase
+Proxy — Implementación), no se duplica aquí. Único cabo suelto: **no se creó
+`tests/test_proxy.py`** (ver "Gap detectado" arriba) — si se retoma, es cola nueva,
+no parte de este plan ya cerrado.
 
-### Stack Confirmado
-- Framework: **FastAPI + uvicorn** (concurrencia nativa, validación Pydantic, Swagger)
-- Auth agentes: **Token compartido 256-bit + validación IP LAN** (`192.168/16`, `10/8`, `172.16/12`, `100.64/10` para Tailscale)
-- Auth admin: **API Key admin separada** (`X-Admin-Key`) para endpoints `/admin/*`
-- Ejecución: **winsw service** (`JSWinProxy` / "JSConnect Win Proxy") — auto-inicio, auto-restart, logs eventos
-- Config: **`config.yaml` gitignored + `config.yaml.example` en repo** — `install_service.bat` genera tokens auto
-- Requirements: **`requirements-proxy.txt` separado** (.exe agentes no arrastra fastapi/uvicorn)
-- GUI: **Diálogo modal** desde menú "⚙️ Configuración" (mueve "Buscar actualizaciones" ahí)
-- Docs: **Carpeta `docs/` permanente** ≠ `AGENTS.md/PlanesAprobados.md` volátiles
-
-### Acuerdos explícitos 2026-08-25
-1. Token proxy auto-generado en `install_service.bat` + mostrado en consola + guardado en `proxy_token.txt`
-2. Admin key igual (auto-generada + `admin_key.txt`)
-3. Servicio: `JSWinProxy` / Display "JSConnect Win Proxy"
-4. Puerto 8080 por defecto; `install_service.bat` verifica y permite cambiar si ocupado
-5. Menú GUI: "⚙️ Configuración" → items: "Configurar Proxy", "Buscar actualizaciones"
-6. Escalabilidad remota: VPN (Tailscale) + mismo proxy + mismo token; endpoint `/admin/config` para auto-discovery
-7. Documentación técnica en `docs/` (permanente); glosario en `anotaciones.md`
-8. `requirements-proxy.txt` con comentario explicando tradeoff separación vs simplicidad
-
-### Pasos de implementación (orden)
-
-#### FASE 1.1 — Proxy Server (config, server, winsw, install)
-- `validator_app/proxy/config.py` — Pydantic Settings (lee config.yaml + env)
-- `validator_app/proxy/config.yaml.example` — plantilla con placeholders
-- `validator_app/proxy/server.py` — FastAPI app + endpoints + ValidatorAPI wrapper
-- `validator_app/proxy/winsw.xml` — config servicio Windows
-- `validator_app/proxy/install_service.bat` — instala servicio (descarga winsw, genera tokens, verifica puerto)
-- `validator_app/proxy/uninstall_service.bat` — desinstala servicio
-- `validator_app/proxy/__init__.py`
-
-#### FASE 1.2 — Core Adaptado
-- `validator_app/core/api.py` — añadir `auto_relogin_if_needed()` + persistencia cookies
-- `validator_app/core/session.py` — exportar/importar cookies de sesión
-
-#### FASE 1.3 — Cliente Proxy
-- `validator_app/proxy/client.py` — `ProxyClient` con retries, timeouts, errores tipados, `from_discovery()`
-
-#### FASE 1.4 — GUI Config Proxy
-- `validator_app/gui/main_window.py` — menú "⚙️ Configuración" → diálogo modal IP:puerto + token (keyring local `JSWinClient`)
-
-#### FASE 1.5 — Deploy & Docs
-- `validator_app/proxy/rotate_creds.py` — CLI owner: rota credenciales WinForce (RDP híbrido: navega manual + pega cookie)
-- `README_PROXY.md` — resumen deploy + comandos rápidos
-- `requirements-proxy.txt` + actualizar `requirements-dev.txt` (incluye `-r requirements-proxy.txt`)
-- `build.ps1` actualizado — incluye `proxy/client.py`, excluye `proxy/server.py`
-- `docs/proxy-deploy.md`, `docs/proxy-config.md`, `docs/rotacion-credenciales.md`, `docs/escalabilidad-remota.md`, `docs/arquitectura.md` (ya creados en Fase 0 Docs)
-
-## Pendientes adicionales (no bloquean el proxy)
-- Prueba real del core (tools/probar_core.py) con credenciales del responsable.
-- Decidir geodata del score (A: replicar Equifax / B: manual / C: mínimo) según prueba real.
-- Decidir si la app llama a actualizar_score_cliente y/o newsearch.php.
-- Conectar GUI a core (keyring para credenciales standalone, resultados del core) y ajustar main_window.py.
-
-## Checklist próxima sesión (FASE 1 Proxy)
-1. Leer `AGENTS.md` + `PlanesAprobados.md` + `docs/arquitectura.md` para contexto completo.
-2. Implementar `validator_app/proxy/config.py` + `config.yaml.example`.
-3. Implementar `validator_app/proxy/server.py` (FastAPI + 6 endpoints + middleware auth).
-4. Implementar `validator_app/proxy/winsw.xml` + `install_service.bat` + `uninstall_service.bat`.
-5. Tests unitarios proxy (`tests/test_proxy.py`).
-6. Ejecutar `pytest` + `ruff check .` tras cada sub-fase.
+## Pendientes adicionales (cola activa)
+- Prueba real del core (tools/probar_core.py o GUI) con credenciales del responsable:
+  login → cobertura → score cliente prueba.
+- Decidir geodata del score (A: replicar Equifax / B: manual / C: mínimo) según
+  prueba real.
+- Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
+- Conectar GUI a core end-to-end (más allá de la config de proxy) y ajustar
+  `main_window.py` si hace falta.
+- Escribir `tests/test_proxy.py` (gap del plan anterior).
 
 ## Notas de seguridad
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.
