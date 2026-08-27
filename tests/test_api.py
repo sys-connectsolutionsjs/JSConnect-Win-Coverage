@@ -17,6 +17,26 @@ class FakeResponse:
         return self.datos
 
 
+class FakeResponseConBOM:
+    """Simula una respuesta cruda (como requests) cuyo texto trae un BOM UTF-8.
+
+    A diferencia de FakeResponse, aqui .json() falla como lo haria requests
+    de verdad al toparse con el BOM, y .text expone el texto crudo.
+    """
+
+    def __init__(self, texto: str, status=200):
+        self.texto = texto
+        self.status_code = status
+        self.headers = {"Content-Type": "text/html; charset=UTF-8"}
+
+    @property
+    def text(self):
+        return self.texto
+
+    def json(self):
+        raise json.JSONDecodeError("Expecting value", self.texto, 0)
+
+
 class FakeSesion:
     def __init__(self, respuestas):
         self.respuestas = respuestas
@@ -257,6 +277,23 @@ def test_cobertura_si():
     assert kwargs["params"]["data[latitud]"] == "-12.087718994493725"
 
 
+def test_cobertura_si_con_bom():
+    """Regresion: coordenada.php puede anteponer un BOM UTF-8 al JSON (visto en
+    prueba real contra el servidor). requests.json() falla con eso; _json()
+    debe recuperarse quitando el BOM antes de rendirse."""
+    texto = (
+        "﻿"
+        '{"response":"success","cobertura":"SI","tipo":"HORIZONTAL",'
+        '"id_celda":"8764","comment":"Resultado exitoso"}'
+    )
+    sesion = FakeSesion([("coordenada.php", "get", FakeResponseConBOM(texto))])
+    cliente = api.ValidatorAPI()
+    cliente._sesion = sesion
+    resultado = cliente.validar_cobertura(-11.956037627741102, -77.04065381800075)
+    assert resultado["hay_cobertura"] is True
+    assert resultado["id_celda"] == "8764"
+
+
 def test_cobertura_no():
     sesion = FakeSesion(
         [
@@ -290,6 +327,20 @@ def test_score_parsea_reporte():
     assert resultado["deuda_total"] == 0
     assert resultado["nombre"] == "SANCHEZ CHANAME ANGEL HUMBERTO"
     assert resultado["documento"] == "75020496"
+    assert resultado["valido"] is True
+
+
+def test_score_parsea_reporte_doble_encodificado():
+    """Regresion: el servidor real envia 'data' con DOS capas de json.loads
+    (confirmado con diagnostico real, ver ResumenDelDia.md), no una sola como
+    asumia el codigo original. _parsear_score debe tolerar la profundidad real
+    sin asumir un numero fijo de capas."""
+    doble = json.dumps(json.dumps(_reporte_equifax()))
+    resp = FakeResponse({"response": "success", "data": doble})
+    cliente = api.ValidatorAPI()
+    resultado = cliente._parsear_score(resp)
+    assert resultado["valor"] == 423
+    assert resultado["riesgo"] == "MUY ALTO"
     assert resultado["valido"] is True
 
 

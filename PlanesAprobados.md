@@ -84,15 +84,28 @@ Proxy — Implementación), no se duplica aquí. Único cabo suelto: **no se cre
 `tests/test_proxy.py`** (ver "Gap detectado" arriba) — si se retoma, es cola nueva,
 no parte de este plan ya cerrado.
 
+## Prueba real del core — COMPLETADA (2026-08-27)
+Login manual (2FA) + cookie inyectada vía `tools/probar_con_cookie.py` (nuevo, conservar
+como herramienta de diagnóstico) → cobertura (SI, HORIZONTAL, celda 8764) → score (423,
+MUY ALTO). Dos bugs reales encontrados y corregidos: BOM UTF-8 en `_json()` (cobertura) y
+doble-encodificado no implementado en `_parsear_score` (score, ya documentado desde Fase 0
+pero nunca hecho). 37 tests pasando, ruff limpio. Detalle completo en `AGENTS.md`
+(Historial → "Prueba real end-to-end (2026-08-27)") y `ResumenDelDia.md`.
+
+**Geodata del score — RESUELTA: opción C (payload mínimo)**. El score respondió bien
+enviando solo coordenadas + documento, sin geodata. No hace falta replicar Equifax (A) ni
+pedir datos manuales (B).
+
 ## Pendientes adicionales (cola activa)
-- Prueba real del core (tools/probar_core.py o GUI) con credenciales del responsable:
-  login → cobertura → score cliente prueba.
-- Decidir geodata del score (A: replicar Equifax / B: manual / C: mínimo) según
-  prueba real.
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
 - Conectar GUI a core end-to-end (más allá de la config de proxy) y ajustar
-  `main_window.py` si hace falta.
+  `main_window.py` si hace falta — el modo standalone hoy siempre falla
+  (`main_window.py:174` nunca hace login).
 - Escribir `tests/test_proxy.py` (gap del plan anterior).
+- `requirements.txt` no incluye `httpx` aunque `proxy/client.py` lo usa (afecta el .exe
+  del agente).
+- `pyproject.toml` exige `Python>=3.14`; la máquina de esta sesión solo tiene 3.12.2
+  instalado (workaround: `PYTHONPATH=.` en vez de instalar editable).
 
 ## Notas de seguridad
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.

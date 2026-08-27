@@ -379,10 +379,22 @@ class ValidatorAPI:
         dato = capa.get("data")
         if not dato:
             raise ScoreError("El sistema no devolvio el reporte de score.", "ERR_SCORE_MISSING")
-        try:
-            reporte = json.loads(dato)
-        except (TypeError, ValueError):
-            raise ScoreError("Reporte de score en formato inesperado.", "ERR_SCORE_PARSE") from None
+        # El reporte llega doble-encodificado (confirmado contra el servidor real:
+        # 2 capas de json.loads antes de obtener el dict). Se decodifica de forma
+        # tolerante a profundidad, con tope de seguridad, en vez de asumir un
+        # numero fijo de capas.
+        reporte = dato
+        for _ in range(3):
+            if not isinstance(reporte, str):
+                break
+            try:
+                reporte = json.loads(reporte)
+            except (TypeError, ValueError):
+                raise ScoreError(
+                    "Reporte de score en formato inesperado.", "ERR_SCORE_PARSE"
+                ) from None
+        if not isinstance(reporte, dict):
+            raise ScoreError("Reporte de score en formato inesperado.", "ERR_SCORE_PARSE")
         return self._extraer_score(reporte)
 
     @staticmethod
@@ -454,9 +466,20 @@ def _json(resp, contexto: str):
     try:
         return resp.json()
     except ValueError:
-        raise APIError(
-            f"Respuesta inesperada del servidor al consultar {contexto}.", "ERR_NETWORK"
-        ) from None
+        pass
+    # Algunos endpoints anteponen un BOM UTF-8 a la respuesta JSON; requests
+    # (json.loads) no lo tolera, aunque el resto del contenido sea valido.
+    texto = getattr(resp, "text", "")
+    if texto.startswith("﻿"):
+        try:
+            return json.loads(texto[1:])
+        except ValueError:
+            pass
+    raise APIError(
+        f"Respuesta inesperada del servidor al consultar {contexto}. "
+        f"[{_diagnostico(resp)}]",
+        "ERR_NETWORK",
+    )
 
 
 _cliente = None

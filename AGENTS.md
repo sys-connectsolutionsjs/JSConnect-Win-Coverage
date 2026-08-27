@@ -235,12 +235,13 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 4. **FASE 3 CLIENTE PROXY** [COMPLETADO — verificado 2026-08-26]: `ProxyClient` (`proxy/client.py`) con retries, excepciones tipadas (`ProxyConnectionError`, `ProxyAuthError`, `ProxyServerError`, `ProxyTimeoutError`), `from_discovery()`, `from_keyring()`.
 5. **FASE 4 GUI CONFIG PROXY** [COMPLETADO — verificado 2026-08-26]: menú "⚙️ Configuración" (`gui/main_window.py:33`) → diálogo modal `_abrir_config_proxy` (`:206`) con IP:puerto + token + keyring local.
 6. **FASE 5 DEPLOY & DOCS** [COMPLETADO — verificado 2026-08-26]: `rotate_creds.py`, `README_PROXY.md`, `requirements-proxy.txt` presentes.
-7. **Prueba real del core** con credenciales del usuario (keyring): login → cobertura → score cliente prueba — **PENDIENTE**, no verificado en esta sesión.
+7. **Prueba real del core** con credenciales del usuario [COMPLETADO — verificado 2026-08-27]: login manual (2FA) + cookie inyectada vía `tools/probar_con_cookie.py` → cobertura SI (HORIZONTAL, celda 8764) → score (423, MUY ALTO). Ver Historial "Prueba real end-to-end" para el detalle de los 2 bugs encontrados y corregidos en el camino.
 8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo — **PENDIENTE**.
 9. Conectar GUI a core (keyring para credenciales, resultados del core) end-to-end y ajustar `main_window.py` — **PENDIENTE de verificación real** (la config del proxy sí está conectada; falta confirmar el flujo completo login→cobertura→score contra la GUI).
 10. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) — **PENDIENTE**.
 11. **Sistema de códigos de error** [COMPLETADO — verificado 2026-08-26]: excepciones tipadas con `code` + diccionario `ERROR_CODES` en `api.py`, 35 tests pasando, ruff limpio.
-12. **Decisión de geodata del score** (opciones A/B/C, ver Historial `Fase 1.5`) — **PENDIENTE**, sigue sin resolver.
+12. **Decisión de geodata del score** [COMPLETADO — verificado 2026-08-27]: **opción C (payload mínimo)** confirmada — el score respondió correctamente enviando solo coordenadas + documento, con todos los campos de geodata vacíos en el payload. No hace falta replicar la geoapi de Equifax ni pedir datos manuales.
+13. **`tools/probar_con_cookie.py`** [NUEVO, 2026-08-27]: herramienta de diagnóstico contra el servidor real (cookie de sesión capturada del navegador). Ya probó su valor detectando 2 bugs reales — conservar para futuras revalidaciones.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -357,17 +358,45 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   guardado/carga vía `ProxyClient.from_keyring()`/`save_to_keyring()`.
 - [Verificado] `python -m pytest -q` → 35 passed. `python -m ruff check .` → All checks passed.
 
-### Decisión pendiente (geodata del score)
+### Decisión de geodata del score [RESUELTA 2026-08-27 — opción C]
   - A) Replicar Equifax: oauth `client_credentials` + reverse-geocoding (igual que el
     navegador). Fiel para cualquier coordenada; requiere credenciales del sitio (extraer
     con `--guardar-js`).
   - B) Entrada manual: pedir al agente distrito/ubigeo/dirección del lead y omitir
     segmentación/nse (en la captura venían vacíos en un caso). Requiere probar qué campos
     son obligatorios.
-  - C) Payload mínimo: probar `score_cliente` solo con coordenadas + documento y ver si el
-    servidor rellena la geodata.
-  - Estado: el core ya acepta un dict `geodata` opcional; la GUI aún no lo envía (se
-    resolverá en la prueba real).
+  - **C) Payload mínimo (GANADORA)**: probado `score_cliente` con coordenadas + documento
+    reales y todos los campos de geodata vacíos → el servidor respondió correctamente
+    (`valor=423, riesgo=MUY ALTO`). No hace falta replicar la geoapi de Equifax ni pedir
+    datos manuales al agente. Ver Historial "Prueba real end-to-end (2026-08-27)".
+
+### Prueba real end-to-end (2026-08-27) — dos bugs encontrados y corregidos
+- Primera prueba del proyecto contra el servidor real de WinForce (antes todo se verificaba
+  solo con dobles de prueba). Login manual en navegador (2FA) → cookie `PHPSESSID`
+  capturada → inyectada en sesión `requests` vía nuevo `tools/probar_con_cookie.py`.
+- **Bug 1 — BOM UTF-8 en `coordenada.php`**: el servidor antepone un BOM (`﻿`) a la
+  respuesta JSON de cobertura; `resp.json()` de `requests` no lo tolera. `_json()`
+  (`core/api.py:453`) lo convertía en "respuesta inesperada" sin mostrar la causa. El
+  servidor SIEMPRE respondió bien — el bug era 100% del cliente. Fix: `_json()` reintenta
+  `json.loads()` quitando el BOM antes de rendirse. Test de regresión
+  `test_cobertura_si_con_bom` (con nueva clase `FakeResponseConBOM` que simula el fallo
+  real de `requests.json()`).
+- **Bug 2 — doble-encodificado del score no implementado**: `_parsear_score` hacía un solo
+  `json.loads(dato)`, pero el servidor real envía **2 capas** (confirmado con diagnóstico:
+  profundidad 0 = string de 23702 chars, profundidad 1 = string de 20876 chars, profundidad
+  final = dict). Esto ya lo decía la Fase 0 (2026-08-18, "JSON doble-encodificado") pero la
+  Fase 1 nunca lo implementó — nunca se detectó porque los tests usaban fixtures con una
+  sola capa. Fix: decodificación tolerante a profundidad (hasta 3 iteraciones, tope de
+  seguridad) en vez de asumir un número fijo de capas. Test de regresión
+  `test_score_parsea_reporte_doble_encodificado`.
+- **Resultado**: flujo completo cobertura (SI, HORIZONTAL, celda 8764) + score (423, MUY
+  ALTO) verificado contra datos reales. **37 tests pasando, ruff limpio.**
+- **Login programático confirmado inviable**: el 2FA de Microsoft bloquea una sesión
+  `requests` limpia (mismo hallazgo de Fase 1.5, ahora verificado con credenciales reales)
+  — valida la arquitectura de Proxy Local + flujo de cookie ya implementada.
+- **Nueva herramienta permanente**: `tools/probar_con_cookie.py` — diagnóstico contra el
+  servidor real inyectando una cookie de sesión capturada del navegador. Detecta BOM,
+  redirects, profundidad de encoding. Conservar para futuras revalidaciones.
 
 ### Cierre de la sesión 2026-08-25 [CONTEXTO PARA LA SIGUIENTE — histórico, ver corrección abajo]
 - Se completó **FASE 0 Documentación**: creados `docs/` (5 archivos), `resumenes/2026-08-19.md`, `Escalabilidad.md`, `anotaciones.md`, actualizados `AGENTS.md`, `PlanesAprobados.md`, `README.md`, `ResumenDelDia.md`
@@ -380,3 +409,20 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - **Verificado en el árbol real**: `validator_app/proxy/` completo (server.py con 7 rutas, config.py, client.py, rotate_creds.py, winsw.xml, install/uninstall .bat), `core/api.py` con `auto_relogin_if_needed()` (`:267`) y persistencia de cookies (`:282`/`:288`), GUI con menú "⚙️ Configuración" y diálogo de proxy (`main_window.py:33`/`:206`). **35 tests pasando, ruff limpio.**
 - **Corregido**: archivo en disco renombrado de `Claude.md` a `AGENTS.md` (coincide con el nombre tracked en git y con el título interno; cero referencias rotas, todo el proyecto ya decía "AGENTS.md"). Marcadas `[COMPLETADO]` las tareas 1–6 y 11 de "Tareas pendientes" (dejadas visibles, no borradas). Añadida la regla de auto-actualización (3 momentos: inicio/durante/cierre) y la regla de rotación de resúmenes.
 - **Pendiente real para la próxima sesión**: prueba real del core con credenciales (login→cobertura→score), decidir `actualizar_score_cliente`, conectar GUI↔core end-to-end, evaluar creación del lead final, y resolver la decisión de geodata del score (A/B/C, ver arriba).
+
+### Cierre de la sesión 2026-08-27 [CONTEXTO PARA LA SIGUIENTE]
+- **Prueba real del core completada** (ver Historial "Prueba real end-to-end (2026-08-27)"):
+  login manual con 2FA → cookie inyectada → cobertura (SI) → score (423, MUY ALTO). Dos
+  bugs reales encontrados y corregidos en el camino (BOM UTF-8 en `_json()`,
+  doble-encodificado no implementado en `_parsear_score`). **37 tests pasando, ruff
+  limpio.**
+- **Decisión de geodata resuelta**: opción C (payload mínimo) — ya no es un pendiente.
+- Marcadas `[COMPLETADO]` las tareas 7 y 12 de "Tareas pendientes"; añadida tarea 13
+  registrando `tools/probar_con_cookie.py` como herramienta de diagnóstico permanente.
+- **Pendiente real para la próxima sesión**: decidir `actualizar_score_cliente` (tarea 8),
+  conectar GUI↔core end-to-end (tarea 9 — hoy solo el proxy está cableado en la GUI,
+  standalone sigue roto en `main_window.py:174`), evaluar creación del lead final (tarea
+  10). Deuda técnica sin resolver: `requirements.txt` sin `httpx`, `tests/test_proxy.py`
+  inexistente, `pyproject.toml` exige Python≥3.14 con la máquina en 3.12 (workaround
+  `PYTHONPATH=.` documentado). Commit de esta sesión pendiente de confirmar con el usuario;
+  push del commit `abd62ad` (sesión 2026-08-26) también sigue pendiente.
