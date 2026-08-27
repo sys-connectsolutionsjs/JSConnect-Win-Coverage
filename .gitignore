@@ -24,6 +24,11 @@ generator/private_key.pem
 .env
 *.local
 
+# Proxy: secretos que NUNCA deben subirse (solo viven en la PC del proxy)
+validator_app/proxy/config.yaml
+validator_app/proxy/proxy_token.txt
+validator_app/proxy/admin_key.txt
+
 # Windows
 Thumbs.db
 Desktop.ini

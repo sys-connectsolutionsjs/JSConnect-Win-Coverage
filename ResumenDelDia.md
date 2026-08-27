@@ -121,8 +121,33 @@ Fecha: 2026-08-26
   tiene Python 3.12.2 instalado — pese a que los 35 tests corren bien en 3.12. Workaround
   usado: `$env:PYTHONPATH="."` antes de correr el script. Pendiente decidir si se relaja el
   requisito de versión en `pyproject.toml` o se documenta la instalación real requerida.
-- Prueba real del core con credenciales (login → cobertura → score)
+### 2026-08-26 (madrugada del 27) — Cierre de sesión: gitignore + verificación de máquina nueva
+- **Verificación de "qué llevarse" para continuar el viernes en otra máquina**: revisado
+  qué archivos gitignored existen realmente en disco. Confirmado que NO se generó nada
+  sensible en esta sesión — no existen `config.yaml`, `proxy_token.txt`, `admin_key.txt`,
+  `*.pem` ni `captura.json` en esta máquina (son artefactos de la PC del proxy, no de esta).
+  La cookie `PHPSESSID` y las credenciales usadas en la prueba real solo vivieron en
+  memoria (`getpass`), nunca se escribieron a disco. Lo único no trackeado son carpetas de
+  caché regenerables (`__pycache__`, `.pytest_cache`, `.ruff_cache`,
+  `validator_app.egg-info`) — no hace falta llevarse nada de eso.
+- **Gap de seguridad encontrado y corregido**: `AGENTS.md` documenta desde el inicio que
+  `config.yaml`, `proxy_token.txt` y `admin_key.txt` (generados por
+  `validator_app/proxy/install_service.bat` en `%~dp0`, o sea dentro de
+  `validator_app/proxy/`) NUNCA deben subirse al repo — pero `.gitignore` no los listaba.
+  No causó daño hoy porque esos archivos no existen en esta máquina, pero un
+  `git add -A` en la PC del proxy (el viernes) podría haber subido credenciales reales de
+  WinForce al repo público. Corregido: agregadas las 3 rutas a `.gitignore`
+  (`validator_app/proxy/config.yaml`, `validator_app/proxy/proxy_token.txt`,
+  `validator_app/proxy/admin_key.txt`).
+- Todo commiteado y subido a `origin/main` antes de cerrar. 37 tests pasando, ruff limpio.
+
+#### Pendiente al volver (próxima sesión — viernes, probablemente otra máquina)
+- Clonar el repo de nuevo (o `git pull` si ya está clonado) — todo el trabajo de hoy ya
+  está en `origin/main`, no hace falta copiar archivos a mano.
 - Decidir si llamar a `actualizar_score_cliente`
-- Conectar GUI ↔ core end-to-end (más allá de la config de proxy)
+- Conectar GUI ↔ core end-to-end (más allá de la config de proxy) — el modo standalone
+  hoy siempre falla en `main_window.py:174` (nunca hace login)
 - Evaluar creación del lead final (`POST controllers/newsearch.php`)
-- Resolver la decisión de geodata del score (opciones A/B/C, ver `AGENTS.md`)
+- Deuda técnica pendiente: `requirements.txt` sin `httpx`, `tests/test_proxy.py`
+  inexistente, `pyproject.toml` exige Python≥3.14 (la máquina de hoy solo tenía 3.12.2 —
+  verificar en la máquina nueva)
