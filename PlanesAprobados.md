@@ -20,9 +20,12 @@ https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
   Implementación).
 - **Gap detectado**: no existe `tests/test_proxy.py` — el plan original (FASE 1.1,
   paso 5 abajo) lo pedía y no se hizo. El proxy no tiene tests unitarios propios;
-  los 35 tests actuales cubren core/activation/GUI fields, no `validator_app/proxy/`.
-- **Próxima fase**: ya no es implementar el proxy (hecho). Ver "Pendientes
-  adicionales" abajo — la prueba real del core es el siguiente paso lógico.
+  los 37 tests actuales cubren core/activation/GUI fields, no `validator_app/proxy/`.
+  (En camino de cerrarse: Fase 4 del plan "Sesión WinForce robusta".)
+- **Prueba real del core**: COMPLETADA 2026-08-27 (ver sección abajo).
+- **Próxima fase (en ejecución, 2026-08-28)**: plan "Sesión WinForce robusta" — keepalive
+  del proxy + limpieza del login muerto (el proxy asumía login programático, imposible con
+  2FA) + diálogo de cookie en la GUI para arreglar el modo standalone. Ver sección abajo.
 
 ## Descubrimientos técnicos (Fase 0)
 - Login: POST /controllers/acceso.php (accion=iniciar_sesion) -> cookie PHPSESSID.
@@ -96,16 +99,74 @@ pero nunca hecho). 37 tests pasando, ruff limpio. Detalle completo en `AGENTS.md
 enviando solo coordenadas + documento, sin geodata. No hace falta replicar Equifax (A) ni
 pedir datos manuales (B).
 
+## Plan aprobado — Sesión WinForce robusta (2026-08-28)
+
+**En ejecución.** Keepalive del proxy + limpieza del login muerto + cookie en la GUI.
+El detalle completo (fases, verificación, archivos) vive en el plan aprobado
+`~/.claude/plans/perfecto-ahora-tenemos-acceso-vivid-cake.md`. Resumen de la cola:
+
+- **Fase 0 — medir vida de la `PHPSESSID`** (`tools/medir_sesion.py`, NUEVO). Bloquea el
+  intervalo del keepalive. Requiere un login real + 2FA del usuario.
+- **Fase 1 (C) — limpiar login muerto del proxy.** Helper compartido
+  `core.api.validar_cookie_sesion()`; `/admin/login` y `/admin/rotar` pasan a recibir
+  `{php_sessid}` en vez de `{usuario, password}`; `_relogin_silent` → recarga+revalida
+  cookie del keyring; `session_alive` en `/health` y `/admin/status`.
+- **Fase 2 (B) — keepalive en el proxy.** Loop `asyncio` en `lifespan` que pinga
+  `operador.php` cada ~90 s (config `keepalive_enabled` / `keepalive_interval_seconds`).
+- **Fase 3 (D) — cookie en la GUI (arregla standalone).** `validator_app/gui/session_config.py`
+  (NUEVO) + diálogo `⚙️ Configurar Sesión` en `main_window.py`; la rama standalone deja de
+  usar `api.obtener_cliente()` y usa un `ValidatorAPI` con la cookie inyectada.
+- **Fase 4 — tests.** `tests/test_proxy.py` (NUEVO, cierra el gap de abajo),
+  `tests/test_session_config.py` (NUEVO), tests del helper en `tests/test_api.py`.
+- **Fase 5 — docs.** `docs/proxy-config.md`, `docs/proxy-deploy.md`, `README_PROXY.md`.
+
+### Análisis de lo ya hecho (piezas reutilizables — NO reimplementar)
+
+| Necesita el plan | Ya existe | Uso |
+|---|---|---|
+| Inyectar cookie en el core | `ValidatorAPI.set_session_cookies()` / `get_session_cookies()` (`core/api.py:282`/`:288`) | Se usa tal cual en Fases 1 y 3 |
+| Validar una `PHPSESSID` contra WinForce | `ValidatorAPI._verificar_sesion_activa()` (`core/api.py:233`) y su copia `validate_session_cookie()` (`rotate_creds.py:45`) | Se extrae a `validar_cookie_sesion()` y se deduplica |
+| Persistir la cookie del proxy en keyring | `_load_session_cookies()` / `_save_session_cookies()` (`server.py:148`/`:133`, clave `credentials_cookies`) | `set_session_cookie` reusa `_save_session_cookies` |
+| Flujo de cookie manual en la PC del proxy | `rotate_creds.py` completo (pega → valida → keyring → verifica `/admin/status`) | Sigue siendo el camino oficial; solo cambia su validador interno |
+| Diálogo modal de configuración en la GUI | `_abrir_config_proxy()` (`main_window.py:206`) — Entry con `show`, checkbox "Mostrar", "Probar" en hilo, guardar en keyring | Plantilla exacta para `_abrir_config_sesion()` |
+| Keyring del lado cliente | `ProxyClient.from_keyring()` / `save_to_keyring()` (servicio `JSWinClient`) | Mismo patrón para `session_config.py` (usuario `win_sessid`) |
+| Códigos de error de sesión | `ERR_SESSION_EXPIRED`, `ERR_SESSION_COOKIES` ya en `ERROR_CODES` | Se reutilizan, no se crean nuevos |
+| Prueba end-to-end cookie→cobertura→score | `tools/probar_con_cookie.py` (`_diagnosticar_score` incluido) | Base para `tools/medir_sesion.py` |
+
+### Código muerto confirmado a eliminar/reemplazar (Fase 1)
+
+- `server.py:_relogin_silent()` (`:111`): lee `usuario`/`password` del keyring y llama
+  `client.login()` → **imposible con 2FA**, nunca tuvo éxito en producción.
+- `server.py:login_winforce(usuario, password)` (`:195`), `AdminLoginRequest`,
+  `/admin/login`, `/admin/rotar`: asumen credenciales; pasan a cookie.
+- `server.py:ProxyValidatorAPI.auto_relogin_if_needed()` (`:104`): solo llamaba a
+  `_relogin_silent`; se renombra a `ensure_session_fresh()` y recarga cookie.
+- `core/api.py:ValidatorAPI.auto_relogin_if_needed(credentials)` (`:267`): el path con
+  `credentials` no se ejercita en producción; se conserva solo el early-return por
+  `_last_activity == 0` (que es justo lo que necesita un cliente con cookie inyectada).
+
+## Fuera de alcance de la sesión actual — próxima fase
+
+- **Login asistido con Playwright en la PC del proxy**: un script abre Chrome real, el
+  encargado hace login + 2FA en esa ventana, y el script **extrae la `PHPSESSID`
+  automáticamente** del contexto del navegador y la empuja a `/admin/login`. Elimina el
+  copiar/pegar de F12. Reusa el patrón del proyecto hermano "Captura de API". `playwright`
+  ya está en `requirements-dev.txt`; habría que decidir si entra en `requirements-proxy.txt`.
+  El plan actual deja `/admin/login` listo para recibir el `php_sessid` que este script
+  enviaría.
+
 ## Pendientes adicionales (cola activa)
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
-- Conectar GUI a core end-to-end (más allá de la config de proxy) y ajustar
-  `main_window.py` si hace falta — el modo standalone hoy siempre falla
-  (`main_window.py:174` nunca hace login).
-- Escribir `tests/test_proxy.py` (gap del plan anterior).
-- `requirements.txt` no incluye `httpx` aunque `proxy/client.py` lo usa (afecta el .exe
-  del agente).
-- `pyproject.toml` exige `Python>=3.14`; la máquina de esta sesión solo tiene 3.12.2
-  instalado (workaround: `PYTHONPATH=.` en vez de instalar editable).
+- ~~Conectar GUI a core end-to-end~~ → **absorbido por el plan "Sesión WinForce robusta"
+  (Fase 3)**.
+- ~~Escribir `tests/test_proxy.py`~~ → **absorbido por el plan "Sesión WinForce robusta"
+  (Fase 4)**.
+- `requirements.txt` no incluye `httpx`, que sí necesita el `.exe` del agente al empaquetar
+  `proxy/client.py`. (`httpx` sí está en `requirements-proxy.txt`, pero ese archivo es solo
+  para la PC del proxy, no para el build del agente.)
+- `pyproject.toml` exige `Python>=3.14`. La máquina de la sesión 2026-08-27 solo tenía
+  3.12.2 (workaround `PYTHONPATH=.`); la máquina actual (2026-08-28) sí tiene 3.14.7, así
+  que no bloquea hoy. Decidir si se relaja el requisito o se documenta como obligatorio.
 
 ## Notas de seguridad
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.

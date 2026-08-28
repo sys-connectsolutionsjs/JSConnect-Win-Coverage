@@ -43,8 +43,8 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── proxy-config.md
 │   ├── rotacion-credenciales.md
 │   └── escalabilidad-remota.md
-├── resumenes/                # historial diario inmutable
-│   └── 2026-08-19.md
+├── resumenes/                # snapshots diarios inmutables (2026-08-19, -25, -26, -27, ...)
+│   └── <fecha>.md
 ├── tests/
 │   ├── test_fields.py
 │   ├── test_captura_guard.py

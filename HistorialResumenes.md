@@ -13,6 +13,43 @@ y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-08-27 — Sesión (primera prueba real end-to-end del core)
+- [Confirmado] **Login programático inviable**: `acceso.php` acepta credenciales pero
+  responde `"Redireccionar"` (al 2FA de Microsoft) y `operador.php` devuelve HTML →
+  `ERR_LOGIN_SESSION`. El "recordar dispositivo" del 2FA es **por navegador, no por
+  cuenta**. Valida definitivamente la arquitectura Proxy Local + cookie manual.
+- [Bug real 1 — corregido] `coordenada.php` antepone un **BOM UTF-8** al JSON;
+  `requests.json()` fallaba y `_json()` lo ocultaba. Fix: reintento `json.loads(texto[1:])`
+  + test `test_cobertura_si_con_bom` (nueva clase `FakeResponseConBOM`).
+- [Bug real 2 — corregido] Score **doble-encodificado** (2 `json.loads`, documentado desde
+  Fase 0 pero nunca implementado — solo hacía uno). Fix: `_parsear_score` decodifica
+  tolerante a profundidad + test `test_score_parsea_reporte_doble_encodificado`.
+- [Verificado con datos reales] Flujo completo: cookie (login manual+2FA) → cobertura
+  (SI, HORIZONTAL, celda 8764) → score (423, MUY ALTO). **37 tests, ruff limpio.**
+- [Decisión] **Geodata del score = opción C (payload mínimo)**: funciona enviando solo
+  coordenadas + documento, sin replicar la geoapi de Equifax.
+- [Nuevo] `tools/probar_con_cookie.py` (herramienta de diagnóstico contra el servidor real,
+  con `_diagnosticar_score` para inspeccionar la profundidad del encoding).
+- [Seguridad] `.gitignore` no cubría `config.yaml` / `proxy_token.txt` / `admin_key.txt`
+  del proxy — corregido antes de que se generen en la PC del proxy.
+- [Entorno] En una máquina con Python 3.12.2 `pip install -e .` falla (pyproject exige
+  ≥3.14); workaround `PYTHONPATH=.`. Snapshot: `resumenes/2026-08-27.md`.
+- Commits: `c72188c`, `7bc6550`.
+
+### 2026-08-26 — Sesión (setup máquina nueva + sincronización de documentación)
+- [Entorno] Repo clonado en máquina nueva; `git user.name=AngelSanchezDev`. Acceso de
+  escritura resuelto: `AngelSanchezDev` se agregó como colaborador con permiso de escritura
+  en `sys-connectsolutionsjs/JSConnect-Win-Coverage` (antes daba 403).
+- [Auditoría] Detectado desfase doc↔código: `AGENTS.md` (en disco como `Claude.md`) daba
+  por pendientes las FASES 1–5 del proxy, pero ya estaban implementadas en commits
+  posteriores del 2026-08-25 (`877689f`, `801ce05`, `f63660b`, `7cf7ea1`).
+- [Corregido] `Claude.md` → `AGENTS.md` en disco (coincide con el tracked de git). Tareas
+  1–6 y 11 marcadas `[COMPLETADO]` con evidencia file:line. Añadidas la regla de
+  auto-actualización de docs (3 momentos) y la regla de rotación de resúmenes.
+- [Docs] Creado `resumenes/2026-08-25.md` (snapshot faltante); `HistorialResumenes.md` y
+  `PlanesAprobados.md` sincronizados con el estado real.
+- [Verificado] 35 tests pasando, ruff limpio. Snapshot: `resumenes/2026-08-26.md`.
+
 ### 2026-08-25 — Sesión (tarde + noche)
 - [Hallazgo crítico] Login WinForce redirige a 2FA Microsoft → inviable simular 4-5
   máquinas concurrentes con la misma cuenta.
