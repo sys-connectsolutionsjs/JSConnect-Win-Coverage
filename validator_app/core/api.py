@@ -462,6 +462,18 @@ class ValidatorAPI:
         return {"cobertura": cobertura, "score": score}
 
 
+def validar_cookie_sesion(php_sessid: str) -> None:
+    """Valida una PHPSESSID haciendo una peticion real a operador.php.
+
+    Helper compartido por el proxy (`server.py`) y `rotate_creds.py` para no
+    duplicar la logica de `_verificar_sesion_activa`. Lanza LoginError si la
+    sesion no esta activa.
+    """
+    sesion = session.crear_sesion()
+    sesion.cookies.set("PHPSESSID", php_sessid, domain="appwinforce.win.pe")
+    ValidatorAPI._verificar_sesion_activa(sesion)
+
+
 def _json(resp, contexto: str):
     try:
         return resp.json()

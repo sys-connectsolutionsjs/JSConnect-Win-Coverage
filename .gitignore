@@ -33,6 +33,9 @@ validator_app/proxy/admin_key.txt
 Thumbs.db
 Desktop.ini
 
+# Logs de herramientas de diagnostico locales (tools/medir_*.py)
+*.log
+
 # Documentación privada interna
 Contexto_Proyecto_JSConnect.docx
 *.docx

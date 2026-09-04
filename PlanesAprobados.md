@@ -105,14 +105,46 @@ pedir datos manuales (B).
 El detalle completo (fases, verificación, archivos) vive en el plan aprobado
 `~/.claude/plans/perfecto-ahora-tenemos-acceso-vivid-cake.md`. Resumen de la cola:
 
-- **Fase 0 — medir vida de la `PHPSESSID`** (`tools/medir_sesion.py`, NUEVO). Bloquea el
-  intervalo del keepalive. Requiere un login real + 2FA del usuario.
-- **Fase 1 (C) — limpiar login muerto del proxy.** Helper compartido
-  `core.api.validar_cookie_sesion()`; `/admin/login` y `/admin/rotar` pasan a recibir
-  `{php_sessid}` en vez de `{usuario, password}`; `_relogin_silent` → recarga+revalida
-  cookie del keyring; `session_alive` en `/health` y `/admin/status`.
-- **Fase 2 (B) — keepalive en el proxy.** Loop `asyncio` en `lifespan` que pinga
-  `operador.php` cada ~90 s (config `keepalive_enabled` / `keepalive_interval_seconds`).
+- **Fase 0 — medir vida de la `PHPSESSID`** (`tools/medir_sesion.py`, NUEVO).
+  **[COMPLETADA 2026-09-04]**. 4 corridas (`medir_sesion.log`): dos con `--max` por
+  defecto (600s) llegaron VIVA hasta 525s sin morir; una corrida corta murió entre
+  135s y 210s (anómala — coincide con una recarga del navegador que reemplazó la
+  `PHPSESSID`, ver `anotaciones.md` "Reuse de PHPSESSID..."; no representa el
+  idle-timeout real); la corrida `--max 3600` (la buena, sin interferencia) dio el
+  rango real: **VIVA a 1155s, MUERTA a 1350s** (entre 19.25 y 22.5 min de
+  inactividad) — algo por debajo del `session.gc_maxlifetime` default de PHP
+  (1440s/24min), probablemente por un timeout propio de la app o el GC
+  probabilístico de PHP. **Conclusión para Fase 2 SUPERADA por hallazgos
+  posteriores** (ver `tools/medir_keepalive.py` y `anotaciones.md` "Dos
+  límites de sesión" / hallazgos 2026-09-04 tarde): un keepalive de pings
+  reales no se comporta como un simple idle-timeout evitable con cualquier
+  intervalo fijo — hay indicios de detección anti-bot (query idéntico
+  repetido + actividad automatizada acumulada). La decisión final de
+  `keepalive_interval_seconds` queda **pendiente** hasta cerrar esa
+  investigación (test con `--coords-lista` programado, requiere lista de
+  coordenadas reales del usuario).
+- **Fase 1 (C) — limpiar login muerto del proxy. [COMPLETADA 2026-09-04]** Helper
+  compartido `core.api.validar_cookie_sesion()` (usado también por
+  `rotate_creds.py`, eliminando la duplicación); `/admin/login` y `/admin/rotar`
+  reciben `{php_sessid}` en vez de `{usuario, password}` (ambos hacen lo mismo,
+  intercambiables); `_relogin_silent()` reescrito para recargar+revalidar la
+  cookie del keyring (antes intentaba login programático inviable, código muerto
+  en dos capas); `session_alive` agregado a `/health` y `/admin/status`
+  (valida la cookie actual contra WinForce en vivo). `docs/rotacion-credenciales.md`
+  actualizado. 3 tests nuevos en `tests/test_api.py` (40 pasando, ruff limpio).
+  `tests/test_proxy.py` (FastAPI TestClient) queda para la Fase 4, como estaba
+  planeado.
+- **Fase 2 (B) — keepalive en el proxy. [BLOQUEADA, pendiente de investigación]**
+  Loop `asyncio` en `lifespan` que pinga WinForce periódicamente (config
+  `keepalive_enabled` / `keepalive_interval_seconds`) — diseño original asumía
+  `operador.php` (solo lectura) cada ~90s, pero eso ya no aplica: ver
+  investigación en curso (`tools/medir_keepalive.py`, `anotaciones.md`). Antes
+  de implementar esta fase falta cerrar: (1) qué endpoint usar como ping real
+  (`validar_cobertura` funcionó mejor que el chequeo pasivo, pero no es
+  gratis — cuenta como consulta real de negocio), (2) si hace falta rotar
+  coordenadas/variar el patrón para evitar detección anti-bot, y (3) qué
+  intervalo es seguro dado que el "tope" observado varió entre 1100s y 2400s
+  según la corrida.
 - **Fase 3 (D) — cookie en la GUI (arregla standalone).** `validator_app/gui/session_config.py`
   (NUEVO) + diálogo `⚙️ Configurar Sesión` en `main_window.py`; la rama standalone deja de
   usar `api.obtener_cliente()` y usa un `ValidatorAPI` con la cookie inyectada.

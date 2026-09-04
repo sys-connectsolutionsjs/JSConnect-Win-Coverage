@@ -37,11 +37,18 @@ class FakeResponseConBOM:
         raise json.JSONDecodeError("Expecting value", self.texto, 0)
 
 
+class FakeCookieJar(dict):
+    """Dict con .set() al estilo requests.cookies.RequestsCookieJar."""
+
+    def set(self, name, value, domain=None):
+        self[name] = value
+
+
 class FakeSesion:
     def __init__(self, respuestas):
         self.respuestas = respuestas
         self.llamadas = []
-        self.cookies = {"PHPSESSID": "abc123"}
+        self.cookies = FakeCookieJar({"PHPSESSID": "abc123"})
 
     def _responder(self, metodo, url, **kwargs):
         self.llamadas.append((metodo, url, kwargs))
@@ -190,6 +197,33 @@ class FakeHtmlResponse:
     @property
     def text(self):
         return self.texto
+
+
+def test_validar_cookie_sesion_valida():
+    sesion = FakeSesion([("operador.php", "get", FakeResponse([{"response": "success"}]))])
+    with mock.patch("validator_app.core.session.crear_sesion", return_value=sesion):
+        api.validar_cookie_sesion("cookie-valida")  # no debe lanzar
+    assert sesion.cookies["PHPSESSID"] == "cookie-valida"
+
+
+def test_validar_cookie_sesion_invalida():
+    sesion = FakeSesion(
+        [("operador.php", "get", FakeResponse({"response": "error", "comment": "no sesion"}))]
+    )
+    with (
+        mock.patch("validator_app.core.session.crear_sesion", return_value=sesion),
+        pytest.raises(api.LoginError),
+    ):
+        api.validar_cookie_sesion("cookie-expirada")
+
+
+def test_validar_cookie_sesion_html():
+    sesion = FakeSesion([("operador.php", "get", FakeHtmlResponse("<html>login</html>"))])
+    with (
+        mock.patch("validator_app.core.session.crear_sesion", return_value=sesion),
+        pytest.raises(api.LoginError),
+    ):
+        api.validar_cookie_sesion("cookie-cualquiera")
 
 
 def _login_html():

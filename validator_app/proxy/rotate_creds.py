@@ -19,7 +19,7 @@ from datetime import datetime
 
 import keyring
 
-from validator_app.core import session as core_session
+from validator_app.core import api as core_api
 from validator_app.proxy.config import get_config
 
 
@@ -43,25 +43,18 @@ PASO 7: Pegalo abajo cuando se solicite
 
 
 def validate_session_cookie(php_sessid: str) -> tuple[bool, str]:
-    """Valida que la cookie PHPSESSID funciona haciendo una peticion autenticada."""
-    sesion = core_session.crear_sesion()
-    sesion.cookies.set("PHPSESSID", php_sessid, domain="appwinforce.win.pe")
+    """Valida que la cookie PHPSESSID funciona haciendo una peticion autenticada.
 
+    Delega en el helper compartido `core.api.validar_cookie_sesion()` (usado
+    tambien por el proxy) para no duplicar la logica de `operador.php`.
+    """
     try:
-        resp = sesion.get(
-            f"{core_session.CONTROLLERS}/operador.php",
-            params={"accion": "get_operador"},
-            timeout=core_session.TIEMPO_LOGIN,
-        )
-        datos = resp.json()
-        lista = datos if isinstance(datos, list) else [datos]
-        ok = any(isinstance(x, dict) and x.get("response") == "success" for x in lista)
-        if ok:
-            return True, "Sesion valida - operador autenticado"
-        else:
-            return False, f"Sesion invalida: {datos}"
+        core_api.validar_cookie_sesion(php_sessid)
+    except core_api.LoginError as e:
+        return False, str(e)
     except Exception as e:
         return False, f"Error validando sesion: {e}"
+    return True, "Sesion valida - operador autenticado"
 
 
 def save_session_to_keyring(php_sessid: str) -> None:

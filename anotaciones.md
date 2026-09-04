@@ -119,6 +119,66 @@ Almacén cifrado del SO por usuario. Cada usuario Windows tiene el suyo.
 - **Consecuencia**: Prueba de concurrencia 4-5 máquinas **inviable** (requiere 2FA manual cada una)
 - **Solución**: Proxy local (1 sesión) + rotación manual via RDP (owner hace login en navegador + copia cookie)
 
+### Reuse de PHPSESSID en login + SSO silencioso (observado 2026-09-04)
+- **SSO silencioso de Azure AD**: si el navegador ya tiene sesión activa en
+  `login.microsoftonline.com` (login previo con "mantener sesión iniciada"),
+  el redirect de 2FA se completa solo, sin pedir credenciales ni segundo
+  factor de nuevo. No es que WinForce "salte" el 2FA — es Microsoft
+  reconociendo al usuario.
+- **`acceso.php` no regenera el PHPSESSID al loguear**: al recargar sin sesión
+  válida, el servidor emite una PHPSESSID anónima nueva y redirige al login;
+  tras completar el login (incluso vía SSO), la cookie autenticada resultante
+  es la **misma** que esa PHPSESSID anónima — no se llama a
+  `session_regenerate_id()`. Relevante para quien rote/inyecte cookies
+  manualmente: la cookie "vieja" que ves justo antes de loguear puede terminar
+  siendo la cookie autenticada real.
+- **Trampa práctica al copiar la cookie (observado 2026-09-04)**: si reusas
+  una pestaña/panel de DevTools que ya tenías abierto de una sesión anterior,
+  el panel Application → Cookies a veces no se refresca solo y muestra el
+  valor viejo cacheado. Dos intentos de `tools/medir_keepalive.py` fallaron
+  en el primer ping (HTML en vez de JSON) pese a "login fresco" — el tercer
+  intento, con pestaña nueva y el panel de cookies reabierto, funcionó al
+  toque. Antes de copiar `PHPSESSID`: pestaña nueva + reabrir DevTools.
+- **Síntoma frontend de sesión muerta**: al expirar la `PHPSESSID`, tablas
+  DataTables de la app (ej. `table_seguimiento`) muestran `Invalid JSON
+  response` — el AJAX que las alimenta devuelve HTML (redirect a login) o un
+  warning de PHP en vez de JSON limpio, mismo patrón que el bug de BOM UTF-8
+  ya corregido en `coordenada.php` (`AGENTS.md`, "Bug real 1"), aquí en un
+  endpoint distinto de WinForce. Es una señal visible en el navegador de que
+  la sesión ya murió, útil para detectar el corte sin depender solo del log
+  de `medir_sesion.py`.
+
+### Dos límites de sesión: idle-timeout + tope absoluto (medido 2026-09-04)
+**Contexto para quien diseñe/ajuste el keepalive de la Fase 2**: la sesión de
+WinForce no muere por un único timeout — hay evidencia de **dos límites
+independientes**, un patrón común en apps empresariales:
+
+1. **Idle-timeout (~20 min sin actividad)**. Medido en Fase 0
+   (`tools/medir_sesion.py`, solo pings de lectura `operador.php`): la sesión
+   murió entre 1155s y 1350s de inactividad (`medir_sesion.log`). **Un ping
+   de interacción real SÍ lo evita** — ver punto 2.
+2. **¿Tope absoluto de sesión? (~40 min desde el login, hipótesis NO
+   confirmada)**. Medido con `tools/medir_keepalive.py` v1 (pings reales de
+   `validar_cobertura` cada 300s exactos, durante 45 min,
+   `medir_keepalive.log`): la sesión sobrevivió pings exitosos hasta los
+   2100s (35 min, muy por encima del idle-timeout de arriba — confirma que
+   el ping real SÍ resetea ese reloj) pero el ping de los 2400s (40 min)
+   falló. **Corrección importante**: el error real de esa falla, revisado
+   despues en el log, fue un **HTTP 404 genérico** ("Not Found", estilo
+   Apache, charset iso-8859-1) — **no** el patrón de "HTML de login"
+   (HTTP 200, charset UTF-8) que sí vimos en otros casos de sesión muerta.
+   Un 404 así es compatible con un tope real de sesión, pero también con un
+   hipo transitorio de red/servidor o un bloqueo anti-abuso puntual — con un
+   solo dato no se puede distinguir. **No dar esto por confirmado** sin una
+   segunda muerte con el mismo patrón.
+
+**Implicación de diseño**: un keepalive (Fase 2) evita la muerte por
+inactividad, confirmado. La existencia de un tope absoluto adicional sigue
+sin confirmarse — la Fase 2 no debe asumirlo como un hecho todavía, pero sí
+debe manejar con gracia el caso en que la sesión muera igual pese al
+keepalive (avisar al owner, no solo reintentar en silencio), sea cual sea
+la causa real.
+
 ### Middleware Auth (Proxy)
 En `server.py`: valida requests antes de llegar a endpoints.
 - `/api/*` → `X-Proxy-Token` header + IP en `allowed_networks`

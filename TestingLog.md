@@ -11,18 +11,39 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, target py314).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (31 en total)
+## Inventario de tests (40 en total)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/test_fields.py | varios | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
-| tests/test_api.py | 14 | núcleo: login, cobertura, score y su parser |
+| tests/test_api.py | 17 | núcleo: login, cobertura, score, su parser y `validar_cookie_sesion()` |
 | tests/test_prueba_core.py | 6 | lógica del arnés gráfico (flujo, errores, mocks) |
+
+Nota: `tests/test_proxy.py` (FastAPI `TestClient` para las rutas `/admin/*`
+y `/health` del proxy) todavía no existe — queda para la Fase 4 del plan
+"Sesión WinForce robusta" (`PlanesAprobados.md`).
 
 Nota: `tools/probar_concurrencia.py` NO tiene tests automáticos a propósito (pide
 credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-04 — Fase 1 (limpiar login muerto del proxy) + helper compartido
+- [TDD rojo] 3 tests nuevos en `tests/test_api.py` para el helper nuevo
+  `validar_cookie_sesion()`: cookie válida (no lanza), cookie inválida/
+  expirada (`LoginError`), respuesta HTML en vez de JSON (`LoginError`,
+  reusa `FakeHtmlResponse`). Se agregó `FakeCookieJar` (dict con `.set()`
+  al estilo `requests.cookies.RequestsCookieJar`) a `FakeSesion.cookies`,
+  que antes era un dict plano sin ese método.
+- [TDD verde] `core/api.py`: nuevo `validar_cookie_sesion(php_sessid)`
+  (reutiliza `ValidatorAPI._verificar_sesion_activa`, no duplica el parseo
+  de `operador.php`). `rotate_creds.validate_session_cookie()` reescrito
+  para delegar en el helper. `server.py`: `/admin/login`/`/admin/rotar`
+  pasan a `{php_sessid}`; `_relogin_silent()` reescrito (recarga+revalida
+  cookie del keyring en vez de login programático inviable); `session_alive`
+  agregado a `/health`/`/admin/status`.
+- [Verificación] 40 tests pasando, ruff limpio.
+- Detalle completo en `PlanesAprobados.md` (Fase 1) y `ResumenDelDia.md`.
 
 ### Sesión 2026-08-21 — Primer intento real + diagnóstico de login
 - [Prueba real] El usuario ejecutó `probar_core_gui.py` con sus credenciales

@@ -3,11 +3,16 @@
 Endpoints:
 - POST /api/cobertura  {lat, lon} -> CoberturaResponse
 - POST /api/score      {tipo_doc, num_doc, lat, lon, cobertura?} -> ScoreResponse
-- GET  /health         -> {status, version, session_age, logged_in}
+- GET  /health         -> {status, version, session_age, logged_in, session_alive}
 - GET  /admin/config   -> {proxy_url, token, timeouts} (auto-discovery)
-- POST /admin/login    {usuario, password} -> prueba login WinForce
-- POST /admin/rotar    {usuario, password} -> rota credenciales WinForce
-- GET  /admin/status   -> {logged_in, session_age, creds_updated}
+- POST /admin/login    {php_sessid} -> inyecta y valida cookie de sesion WinForce
+- POST /admin/rotar    {php_sessid} -> rota la cookie de sesion WinForce
+- GET  /admin/status   -> {logged_in, session_age, creds_updated, session_alive}
+
+Nota: el login programatico (usuario/password) es inviable por el 2FA de
+Microsoft (ver AGENTS.md/anotaciones.md). La cookie PHPSESSID se obtiene
+siempre de un login manual en navegador y se inyecta via /admin/login o
+/admin/rotar (ambas hacen lo mismo: validar + guardar en keyring).
 
 Auth:
 - /api/*      -> X-Proxy-Token header + IP en allowed_networks
@@ -67,6 +72,7 @@ class HealthResponse(BaseModel):
     version: str
     session_age: int | None
     logged_in: bool
+    session_alive: bool
 
 
 class AdminConfigResponse(BaseModel):
@@ -76,9 +82,8 @@ class AdminConfigResponse(BaseModel):
     version: str
 
 
-class AdminLoginRequest(BaseModel):
-    usuario: str
-    password: str
+class AdminCookieRequest(BaseModel):
+    php_sessid: str
 
 
 class AdminStatusResponse(BaseModel):
@@ -86,6 +91,7 @@ class AdminStatusResponse(BaseModel):
     session_age: int | None
     creds_updated: str | None
     proxy_version: str
+    session_alive: bool
 
 
 # Wrapper ValidatorAPI para el proxy (singleton con persistencia)
@@ -109,24 +115,28 @@ class ProxyValidatorAPI:
         self._last_activity = now
 
     def _relogin_silent(self) -> None:
-        """Intenta re-logearse usando credenciales del keyring."""
+        """Recupera la sesion recargando y revalidando la cookie mas reciente
+        guardada en keyring (por si el owner la roto con rotate_creds.py
+        mientras el proxy seguia corriendo). El login programatico es
+        inviable por el 2FA de Microsoft; esta es la unica recuperacion
+        automatica posible."""
         import json
 
         import keyring
 
-        creds_json = keyring.get_password(
-            self.config.win_keyring_service, self.config.win_keyring_user
+        cookies_json = keyring.get_password(
+            self.config.win_keyring_service,
+            self.config.win_keyring_user + "_cookies",
         )
-        if not creds_json:
+        if not cookies_json:
             return
         try:
-            creds = json.loads(creds_json)
-            usuario = creds.get("usuario")
-            password = creds.get("password")
-            if usuario and password:
-                client = self._get_client()
-                client.login(usuario, password)
-                self._save_session_cookies()
+            cookies = json.loads(cookies_json)
+            php_sessid = cookies.get("PHPSESSID")
+            if not php_sessid:
+                return
+            core_api.validar_cookie_sesion(php_sessid)
+            self._get_client().set_session_cookies({"PHPSESSID": php_sessid})
         except Exception:
             pass
 
@@ -192,23 +202,34 @@ class ProxyValidatorAPI:
                 return client.validar_score(tipo_doc, num_doc, lat, lon, cobertura=cobertura)
             raise
 
-    def login_winforce(self, usuario: str, password: str) -> bool:
-        """Login explicito (usado por /admin/login y /admin/rotar)."""
+    def set_session_cookie(self, php_sessid: str) -> None:
+        """Inyecta y valida una cookie PHPSESSID obtenida de un login manual
+        en navegador (usado por /admin/login y /admin/rotar). Lanza
+        LoginError si la cookie no esta activa."""
+        core_api.validar_cookie_sesion(php_sessid)
         client = self._get_client()
-        client.login(usuario, password)
+        client.set_session_cookies({"PHPSESSID": php_sessid})
         self._save_session_cookies()
         self._creds_updated = time.strftime("%Y-%m-%dT%H:%M:%S")
-        return True
 
     def get_status(self) -> dict:
         client = self._get_client()
         session_age = int(time.time() - self._last_activity) if self._last_activity else None
         logged_in = client._sesion is not None
+        php_sessid = client._sesion.cookies.get("PHPSESSID") if client._sesion else None
+        session_alive = False
+        if php_sessid:
+            try:
+                core_api.validar_cookie_sesion(php_sessid)
+                session_alive = True
+            except core_api.LoginError:
+                session_alive = False
         return {
             "logged_in": logged_in,
             "session_age": session_age,
             "creds_updated": self._creds_updated,
             "proxy_version": "dev",
+            "session_alive": session_alive,
         }
 
 
@@ -320,6 +341,7 @@ async def health():
         version="dev",
         session_age=status["session_age"],
         logged_in=status["logged_in"],
+        session_alive=status["session_alive"],
     )
 
 
@@ -347,17 +369,17 @@ async def admin_config():
 
 
 @app.post("/admin/login", dependencies=[Depends(verify_admin_key)])
-async def admin_login(request: AdminLoginRequest):
+async def admin_login(request: AdminCookieRequest):
     proxy_api = get_proxy_api()
-    proxy_api.login_winforce(request.usuario, request.password)
-    return {"ok": True, "message": "Login WinForce exitoso, sesion guardada"}
+    proxy_api.set_session_cookie(request.php_sessid)
+    return {"ok": True, "message": "Cookie WinForce validada y guardada"}
 
 
 @app.post("/admin/rotar", dependencies=[Depends(verify_admin_key)])
-async def admin_rotar(request: AdminLoginRequest):
+async def admin_rotar(request: AdminCookieRequest):
     proxy_api = get_proxy_api()
-    proxy_api.login_winforce(request.usuario, request.password)
-    return {"ok": True, "message": "Credenciales rotadas y guardadas en keyring"}
+    proxy_api.set_session_cookie(request.php_sessid)
+    return {"ok": True, "message": "Cookie rotada y guardada en keyring"}
 
 
 @app.get(
@@ -373,6 +395,7 @@ async def admin_status():
         session_age=status["session_age"],
         creds_updated=status["creds_updated"],
         proxy_version=status["proxy_version"],
+        session_alive=status["session_alive"],
     )
 
 

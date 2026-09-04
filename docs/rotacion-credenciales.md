@@ -75,15 +75,18 @@ def main():
 
 Cuando haya agentes remotos y VPN (Tailscale):
 
-1. Owner conecta VPN a la red de la oficina
-2. Llama endpoint protegido:
+1. Owner hace login manual en el navegador (incluye 2FA Microsoft) y copia la
+   cookie `PHPSESSID` (igual que en v1)
+2. Con VPN conectada, llama el endpoint protegido:
    ```bash
    curl -X POST http://proxy.oficina.local:8080/admin/rotar \
      -H "X-Admin-Key: <admin_key>" \
      -H "Content-Type: application/json" \
-     -d '{"usuario":"nuevo@empresa.com","password":"nueva_pass"}'
+     -d '{"php_sessid":"<valor de la cookie>"}'
    ```
-3. Proxy valida `X-Admin-Key` → hace login → guarda cookies → responde OK
+3. Proxy valida `X-Admin-Key` → valida la cookie contra WinForce → guarda en
+   keyring → responde OK. `/admin/login` hace exactamente lo mismo, con el
+   mismo body — ambos endpoints son intercambiables.
 
 **Requisitos v2**:
 - VPN configurada (Tailscale gratis 100 devices)
