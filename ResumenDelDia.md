@@ -1,54 +1,5 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: 2026-08-28
+Fecha: 2026-09-04
 
 ## Qué se hizo hoy
-
-### 2026-08-28 — Sesión (mañana) — Retomar contexto + planificar sesión WinForce robusta
-
-#### Inicio de sesión
-- Verificado el estado del repo: rama `main`, working tree limpio, al día con `origin/main`
-  (último commit `7bc6550`).
-- Conectado GitHub CLI: cuenta `sys-connectsolutionsjs` (keyring), scopes `gist`, `read:org`,
-  `repo`, `workflow`. Acceso al repo confirmado (`gh repo view`).
-- Máquina actual: **Python 3.14.7** — el requisito `requires-python = ">=3.14"` de
-  `pyproject.toml` sí se cumple aquí (el problema de la sesión anterior no se reproduce).
-- Baseline: `python -m pytest -q` → **37 passed**. `python -m ruff check .` → limpio.
-
-#### Rotación de resúmenes (día nuevo)
-- Movido el contenido de `ResumenDelDia.md` (sesiones 2026-08-26 y 2026-08-27) a sus
-  destinos según la regla de rotación:
-  - `resumenes/2026-08-26.md` — snapshot completo (setup máquina + sincronización de docs)
-  - `resumenes/2026-08-27.md` — snapshot completo (diagnóstico 2FA + primera prueba real
-    end-to-end del core + 2 bugs corregidos + gitignore)
-  - `HistorialResumenes.md` — entradas condensadas de ambas sesiones, arriba del todo
-- `ResumenDelDia.md` reiniciado con la fecha de hoy.
-
-#### Planificación — plan "Sesión WinForce robusta" APROBADO
-- Analizada la contradicción de fondo: el login programático (`ValidatorAPI.login()`) está
-  confirmado inviable (2FA por dispositivo), pero el proxy (`server.py`) todavía tiene
-  `_relogin_silent()`, `login_winforce()` y `/admin/login` llamando `client.login()` —
-  código muerto que aparenta un mecanismo de recuperación que no existe.
-- Aclarado con el usuario el modelo real de la cookie: las 20 máquinas de agentes **nunca**
-  tocan la `PHPSESSID` (solo hablan con el proxy vía `X-Proxy-Token`); solo la PC del proxy
-  necesita cookie, y hoy se pone a mano UNA vez al día con `rotate_creds.py`.
-- Problema real identificado: **el proxy se cae solo** — WinForce cierra la sesión tras
-  ~3 min sin uso y no hay keepalive que la mantenga viva en los huecos de inactividad.
-- **Plan aprobado** (registrado en `PlanesAprobados.md`, ver "Sesión WinForce robusta"):
-  - Fase 0: `tools/medir_sesion.py` para medir la vida real de la `PHPSESSID` (bloquea el
-    intervalo del keepalive) — requiere un login real del usuario.
-  - Fase 1 (C): limpiar el login muerto del proxy; `/admin/login` pasa a recibir
-    `php_sessid`; helper compartido `core.api.validar_cookie_sesion()`.
-  - Fase 2 (B): keepalive en el proxy (ping autenticado cada ~90 s + config
-    `keepalive_*` + `session_alive` en `/health`).
-  - Fase 3 (D): diálogo `⚙️ Configurar Sesión` en la GUI + `validator_app/gui/session_config.py`
-    para arreglar el modo standalone (hoy roto en `main_window.py:174`).
-  - Fase 4: tests (`tests/test_proxy.py` NUEVO, `tests/test_session_config.py` NUEVO,
-    tests del helper en `tests/test_api.py`).
-  - Fase 5: documentación.
-  - Fuera de alcance (sesión aparte): login asistido con Playwright en la PC del proxy.
-
-#### Pendiente en esta sesión
-- Ejecutar la Fase 0 (medición de vida de sesión) — necesita que el usuario haga login
-  manual + 2FA y pegue la `PHPSESSID`.
-- Implementar Fases 1–5 del plan aprobado.

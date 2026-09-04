@@ -13,6 +13,27 @@ y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-08-28 — Sesión (mañana) — Retomar contexto + planificar sesión WinForce robusta
+- [Inicio] Repo al día con `origin/main` (`7bc6550`), GitHub CLI conectado, Python 3.14.7
+  cumple el requisito de `pyproject.toml`. Baseline: 37 tests pasando, ruff limpio.
+- [Docs] Rotación de resúmenes ejecutada: `resumenes/2026-08-26.md` y `resumenes/2026-08-27.md`
+  creados como snapshots completos; entradas condensadas agregadas a este archivo;
+  `ResumenDelDia.md` reiniciado.
+- [Hallazgo] Código muerto en el proxy: `_relogin_silent()`, `login_winforce()` y
+  `/admin/login` siguen llamando a `client.login()`, que es inviable por 2FA — aparentan
+  un mecanismo de recuperación que no existe.
+- [Aclarado] Modelo real de la cookie: los 20 agentes LAN nunca tocan `PHPSESSID` (solo
+  `X-Proxy-Token`); solo la PC del proxy necesita la cookie, puesta a mano con
+  `rotate_creds.py`.
+- [Problema real] El proxy se cae solo: WinForce cierra la sesión tras ~3 min de
+  inactividad y no hay keepalive.
+- [Plan aprobado] "Sesión WinForce robusta" (`PlanesAprobados.md`): Fase 0 medir vida de
+  sesión, Fase 1 limpiar login muerto del proxy, Fase 2 keepalive, Fase 3 diálogo
+  `⚙️ Configurar Sesión` en la GUI, Fase 4 tests, Fase 5 docs.
+- [Pendiente] Ejecutar Fase 0 (requiere login manual + 2FA del usuario) e implementar
+  Fases 1–5. Snapshot: `resumenes/2026-08-28.md`.
+- Commits: `fc81da8`.
+
 ### 2026-08-27 — Sesión (primera prueba real end-to-end del core)
 - [Confirmado] **Login programático inviable**: `acceso.php` acepta credenciales pero
   responde `"Redireccionar"` (al 2FA de Microsoft) y `operador.php` devuelve HTML →
