@@ -179,6 +179,29 @@ debe manejar con gracia el caso en que la sesión muera igual pese al
 keepalive (avisar al owner, no solo reintentar en silencio), sea cual sea
 la causa real.
 
+### Revisión del método (2026-09-05): por qué v1/v2 no permiten concluir
+Al retomar la investigación se detectaron dos defectos de método que hacen
+**inservibles** los datos de v1 y v2 (y con ellos la hipótesis anti-bot):
+
+1. **No se medía la edad real de la sesión.** El cronómetro arrancaba con el
+   script, no con el login. Como `acceso.php` **no regenera la `PHPSESSID`**
+   (ver arriba) y el panel de DevTools puede mostrar una cookie cacheada, la
+   sesión de v2 pudo llevar ya 10+ min viva al empezar: "murió a 1100s de
+   test" podía ser ~1700s de sesión — normal, sin necesidad de bot.
+2. **Cualquier error se tomaba como "sesión muerta" y cortaba la corrida.** El
+   404/iso-8859-1 de v1 y el 200+HTML de v2 son fallos **distintos**;
+   mezclarlos produjo el modelo contradictorio "idle-timeout + tope absoluto".
+
+`tools/medir_keepalive.py` **v3** corrige ambos: `--login-hora`/`--edad-inicial`
+obligatorios y columna `edad_sesion_s` en el log; cada fallo se clasifica
+(`SESION_MUERTA` / `TRANSITORIO` / `OTRO`) y, antes de dar la sesión por
+muerta, se **confirma** de forma independiente con
+`core.api.validar_cookie_sesion()`. Un transitorio ya no corta la prueba.
+La corrida se hace con el intervalo de producción (~900s), no con los
+180-420s de laboratorio, para validar directamente el diseño de la Fase 2.
+Coordenadas rotativas desde `tools/coords_prueba.txt` (10 ubicaciones
+públicas, no domicilios de clientes). **Pendiente: ejecutar la corrida v3.**
+
 ### Middleware Auth (Proxy)
 En `server.py`: valida requests antes de llegar a endpoints.
 - `/api/*` → `X-Proxy-Token` header + IP en `allowed_networks`

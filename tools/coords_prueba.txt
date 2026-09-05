@@ -1,0 +1,20 @@
+# Coordenadas para las pruebas de keepalive (tools/medir_keepalive.py).
+#
+# Ubicaciones PUBLICAS de Lima con cobertura registrada -- NO son domicilios de
+# clientes. Se rotan al azar en cada ping para no repetir siempre el mismo query
+# contra WinForce (buena practica de cliente: reparte la carga y no martillea una
+# sola coordenada cientos de veces).
+#
+# Formato: una coordenada por linea, "lat, lon". Lineas vacias y las que empiezan
+# por '#' se ignoran.
+
+-12.0712441748165, -77.03826026511716
+-12.063877213667501, -77.04326554484533
+-12.065493554702455, -77.02953115727665
+-12.057527207575193, -77.0408649786354
+-12.062260862664193, -77.04716154605693
+-12.052716496803216, -77.03354521899678
+-12.058066001705464, -77.04680736412837
+-12.053332272583939, -77.04047144316046
+-12.055987789450054, -77.02547774198794
+-12.050676729437065, -77.04956211237528
