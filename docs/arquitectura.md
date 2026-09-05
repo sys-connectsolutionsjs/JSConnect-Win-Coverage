@@ -41,7 +41,7 @@ flowchart LR
 - **Modo standalone**: Si no hay config proxy → usa `validator_app.core.api` directo (desarrollo/pruebas)
 
 ### Proxy Server (PC Oficina - única máquina)
-- **Proceso**: `uvicorn server:app --host 0.0.0.0 --port 8080` envuelto en **winsw service** (`JSWinProxy`)
+- **Proceso**: `python -m validator_app.proxy.server` envuelto en **winsw service** (`JSWinProxy`); host y puerto salen de `ProxyConfig` (`validator_app/proxy/install_service.bat`)
 - **Framework**: FastAPI (async, concurrencia nativa)
 - **Estado**: Stateless salvo sesión WinForce en memoria + cookies persistidas en keyring
 - **Endpoints**:
@@ -49,13 +49,14 @@ flowchart LR
   - `POST /api/score` — Consulta score crediticio (DNI/RUC/CE)
   - `GET /health` — Health check + info sesión
   - `GET /admin/config` — Auto-discovery para agentes futuros (proxy_url, token, timeouts)
-  - `POST /admin/login` — Owner inicia sesión en WinForce (via RDP)
-  - `POST /admin/rotar` — Owner rota credenciales WinForce (via RDP/VPN)
+  - `POST /admin/login` — Owner inyecta la cookie `PHPSESSID` obtenida de un login manual en navegador (via RDP)
+  - `POST /admin/rotar` — Owner rota la cookie `PHPSESSID` (via RDP/VPN); idéntico a `/admin/login`
+  - **Nota**: el login programático (usuario/password) es inviable — WinForce redirige a Microsoft 2FA. La cookie `PHPSESSID` se obtiene siempre de un login manual en navegador y se inyecta por estos endpoints o con `tools/probar_con_cookie.py` / `validator_app/proxy/rotate_creds.py`.
   - `GET /admin/status` — Estado sesión proxy
 - **Autenticación**:
   - `/api/*`: `X-Proxy-Token` + IP en rangos LAN permitidos
   - `/admin/*`: `X-Admin-Key` (solo owner)
-- **Persistencia**: Cookies de sesión WinForce en **Windows Keyring** (`JSWinProxy`/`credentials`) → sobreviven a reinicios del servicio
+- **Persistencia**: Cookies de sesión WinForce en **Windows Keyring** (`JSWinProxy`/`credentials_cookies`) → sobreviven a reinicios del servicio
 
 ### WinForce (Sistema externo ISP)
 - **Base URL**: `https://appwinforce.win.pe`
@@ -127,7 +128,7 @@ Agente                    Proxy                        WinForce              Equ
 | 4 | **config.yaml gitignored** + `config.yaml.example` en repo | Cero secretos en GitHub público | Owner debe generar config.yaml en instalación |
 | 5 | **Requirements separados** (`requirements-proxy.txt`) | .exe agentes no arrastra fastapi/uvicorn | Dos archivos requirements; documentado en README_PROXY.md |
 | 6 | **Endpoints `/admin/*` preparados** para v2 remota | Hoy solo via RDP; futuro VPN + HTTPS | Requiere cert TLS + VPN para exponer seguro |
-| 7 | **Auto-relogin silencioso** en proxy (120s idle) | Agentes no ven errores de sesión expirada | Lógica en `ValidatorAPI.auto_relogin_if_needed()` |
+| 7 | **Auto-recuperación de sesión** en proxy (120s idle) | Agentes no ven errores de sesión expirada mientras la cookie del keyring siga viva | Lógica en `ProxyValidatorAPI.auto_relogin_if_needed()` / `_relogin_silent()` (`server.py`); revalida la última `PHPSESSID` del keyring y **deja rastro en el log** de cada fallo (cookie expirada vs. fallo de red) |
 | 8 | **Geodata vacíos en score_cliente** | Servidor WinForce los rellena o no son obligatorios | Si WinForce cambia y exige geodata → replicar Equifax OAuth |
 
 ---
@@ -138,7 +139,7 @@ Agente                    Proxy                        WinForce              Equ
 |------|-----------|
 | **Red** | Solo LAN (`192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`); futuros remotos via VPN |
 | **Aplicación** | Token compartido 256-bit (hex 64 chars) + Admin key 256-bit separado |
-| **Credenciales WinForce** | Solo en keyring de PC proxy (`JSWinProxy`/`credentials`); NUNCA en agentes |
+| **Sesión WinForce** | Cookie `PHPSESSID` solo en keyring de PC proxy (`JSWinProxy`/`credentials_cookies`); NUNCA en agentes |
 | **Credenciales Equifax** | Solo en JS del sitio WinForce; proxy NO las maneja |
 | **Activación agentes** | RSA asimétrica por huella HW (`validator_app/activation/`) — independiente del proxy |
 | **Auditoría** | Logs en Visor de Eventos (winsw) + logs estructurados en proxy (JSON) |

@@ -33,7 +33,13 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── Escalabilidad.md          # guía para futuros programadores (escalabilidad remota)
 ├── anotaciones.md            # glosario técnico para futuros devs
 ├── tools/
-│   └── captura.py            # herramienta Playwright para descubrir la API interna
+│   ├── captura.py            # herramienta Playwright para descubrir la API interna
+│   ├── probar_con_cookie.py  # diagnóstico end-to-end del core con cookie del navegador
+│   ├── probar_core.py        # prueba manual del core (cobertura + score) por CLI
+│   ├── probar_core_gui.py    # prueba manual del core con mini-GUI
+│   ├── probar_concurrencia.py # comprueba si Win bloquea el uso simultáneo de la misma cuenta (se corre en varias máquinas a la vez)
+│   ├── medir_keepalive.py    # pings de interacción real a intervalos variables para sostener la sesión durante el horario laboral
+│   └── medir_sesion.py       # mide la vida real de una PHPSESSID sin actividad, para calibrar el keepalive
 ├── generator/
 │   ├── generar.py            # generador de códigos de activación (SOLO encargado)
 │   └── private_key.pem       # NUNCA se sube al repositorio (ver .gitignore)
@@ -229,7 +235,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes
-1. **FASE 0 DOCUMENTACIÓN** [COMPLETADO — verificado 2026-08-26]: `docs/` (5 archivos), `Escalabilidad.md`, `anotaciones.md`, `resumenes/` existen y están al día.
+1. **FASE 0 DOCUMENTACIÓN** [COMPLETADO — verificado 2026-09-05]: `docs/` (5 archivos), `Escalabilidad.md`, `anotaciones.md`, `resumenes/` existen y están al día. En esta revisión se corrigió `docs/arquitectura.md` (arranque real del servicio, endpoints admin por cookie `PHPSESSID`, clave de keyring `credentials_cookies`), desactualizado desde `1dcecc6`.
 2. **FASE 1 PROXY SERVER** [COMPLETADO — verificado 2026-08-26]: `validator_app/proxy/` completo — `server.py` (7 rutas: `/api/cobertura`, `/api/score`, `/health`, `/admin/config`, `/admin/login`, `/admin/rotar`, `/admin/status`), `config.py`, `winsw.xml`, `install_service.bat`, `uninstall_service.bat`.
 3. **FASE 2 CORE ADAPTADO** [COMPLETADO — verificado 2026-08-26]: `auto_relogin_if_needed()` (`core/api.py:267`), `get_session_cookies()`/`set_session_cookies()` (`:282`/`:288`) implementados y usados en `validar_cobertura`/`validar_score`.
 4. **FASE 3 CLIENTE PROXY** [COMPLETADO — verificado 2026-08-26]: `ProxyClient` (`proxy/client.py`) con retries, excepciones tipadas (`ProxyConnectionError`, `ProxyAuthError`, `ProxyServerError`, `ProxyTimeoutError`), `from_discovery()`, `from_keyring()`.

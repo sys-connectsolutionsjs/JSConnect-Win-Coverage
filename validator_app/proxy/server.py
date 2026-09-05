@@ -22,6 +22,7 @@ Auth:
 from __future__ import annotations
 
 import ipaddress
+import logging
 import time
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -33,6 +34,12 @@ from pydantic import BaseModel, Field
 
 from validator_app.core import api as core_api
 from validator_app.proxy.config import ProxyConfig, get_config, reset_config
+
+log = logging.getLogger(__name__)
+
+# Segundos que se reutiliza el ultimo resultado de validar la cookie antes de
+# volver a preguntarle a WinForce (evita una peticion de red por cada /health).
+SESSION_ALIVE_TTL_SECONDS = 30
 
 
 # Modelos Pydantic para requests/responses
@@ -101,6 +108,9 @@ class ProxyValidatorAPI:
         self._client: core_api.ValidatorAPI | None = None
         self._last_activity: float = 0
         self._creds_updated: str | None = None
+        self._session_alive: bool = False
+        self._session_alive_cookie: str | None = None
+        self._session_alive_checked_at: float = 0.0
 
     def _get_client(self) -> core_api.ValidatorAPI:
         if self._client is None:
@@ -119,26 +129,80 @@ class ProxyValidatorAPI:
         guardada en keyring (por si el owner la roto con rotate_creds.py
         mientras el proxy seguia corriendo). El login programatico es
         inviable por el 2FA de Microsoft; esta es la unica recuperacion
-        automatica posible."""
+        automatica posible.
+
+        Nunca propaga: los callers siguen adelante y dejan que la peticion
+        real falle con su propio error. Pero cada motivo de fallo queda
+        registrado, porque una recuperacion que no ocurre es invisible de
+        otro modo."""
         import json
 
         import keyring
+
+        keyring_ref = f"{self.config.win_keyring_service}/{self.config.win_keyring_user}_cookies"
+        remedio = (
+            "Haz login manual en el navegador y envia la PHPSESSID con "
+            "POST /admin/rotar (o ejecuta rotate_creds.py)."
+        )
 
         cookies_json = keyring.get_password(
             self.config.win_keyring_service,
             self.config.win_keyring_user + "_cookies",
         )
         if not cookies_json:
+            log.warning(
+                "Relogin omitido: no hay cookies guardadas en keyring (%s). %s",
+                keyring_ref,
+                remedio,
+            )
             return
+
         try:
             cookies = json.loads(cookies_json)
-            php_sessid = cookies.get("PHPSESSID")
-            if not php_sessid:
-                return
+        except ValueError as e:
+            log.error(
+                "Relogin fallido: las cookies del keyring (%s) no son JSON valido: %s. "
+                "El valor guardado esta corrupto. %s",
+                keyring_ref,
+                e,
+                remedio,
+            )
+            return
+
+        php_sessid = cookies.get("PHPSESSID")
+        if not php_sessid:
+            log.warning(
+                "Relogin omitido: las cookies del keyring (%s) no traen PHPSESSID "
+                "(claves presentes: %s). %s",
+                keyring_ref,
+                sorted(cookies) if isinstance(cookies, dict) else type(cookies).__name__,
+                remedio,
+            )
+            return
+
+        try:
             core_api.validar_cookie_sesion(php_sessid)
-            self._get_client().set_session_cookies({"PHPSESSID": php_sessid})
-        except Exception:
-            pass
+        except core_api.LoginError as e:
+            log.warning(
+                "Relogin fallido: la PHPSESSID guardada en keyring (%s) ya no esta activa "
+                "en WinForce: %s. %s",
+                keyring_ref,
+                e,
+                remedio,
+            )
+            return
+        except Exception as e:
+            log.exception(
+                "Relogin fallido: error inesperado validando la PHPSESSID contra WinForce: %s. "
+                "Si es un fallo de red o WinForce esta caido, se reintentara solo; "
+                "si persiste, revisa conectividad antes de rotar la cookie.",
+                e,
+            )
+            return
+
+        self._get_client().set_session_cookies({"PHPSESSID": php_sessid})
+        self._invalidate_session_alive_cache()
+        log.info("Relogin OK: sesion restaurada desde la cookie del keyring.")
 
     def _save_session_cookies(self) -> None:
         """Persiste cookies de sesion en keyring."""
@@ -156,22 +220,58 @@ class ProxyValidatorAPI:
             )
 
     def _load_session_cookies(self) -> None:
-        """Restaura cookies de sesion desde keyring."""
+        """Restaura cookies de sesion desde keyring al arrancar el proxy.
+
+        No propaga: el proxy debe levantar aunque no haya sesion, para poder
+        recibir la cookie por /admin/login. Pero deja dicho en el log por que
+        arranco sin sesion y como arreglarlo, porque si no el primer /api/*
+        falla sin ninguna pista."""
         import json
 
         import keyring
+
+        keyring_ref = f"{self.config.win_keyring_service}/{self.config.win_keyring_user}_cookies"
+        remedio = (
+            "Haz login manual en el navegador y envia la PHPSESSID con "
+            "POST /admin/rotar (o ejecuta rotate_creds.py)."
+        )
 
         cookies_json = keyring.get_password(
             self.config.win_keyring_service,
             self.config.win_keyring_user + "_cookies",
         )
-        if cookies_json:
-            try:
-                cookies = json.loads(cookies_json)
-                client = self._get_client()
-                client.set_session_cookies(cookies)
-            except Exception:
-                pass
+        if not cookies_json:
+            log.warning(
+                "Arranque sin sesion: no hay cookies guardadas en keyring (%s). %s",
+                keyring_ref,
+                remedio,
+            )
+            return
+
+        try:
+            cookies = json.loads(cookies_json)
+        except ValueError as e:
+            log.error(
+                "Arranque sin sesion: las cookies del keyring (%s) no son JSON valido: %s. "
+                "El valor guardado esta corrupto. %s",
+                keyring_ref,
+                e,
+                remedio,
+            )
+            return
+
+        try:
+            self._get_client().set_session_cookies(cookies)
+        except Exception as e:
+            log.exception(
+                "Arranque sin sesion: no se pudieron aplicar las cookies del keyring (%s): %s. %s",
+                keyring_ref,
+                e,
+                remedio,
+            )
+            return
+
+        log.info("Sesion restaurada desde keyring (%s).", keyring_ref)
 
     def validar_cobertura(self, lat: float, lon: float) -> dict:
         self.auto_relogin_if_needed()
@@ -212,18 +312,52 @@ class ProxyValidatorAPI:
         self._save_session_cookies()
         self._creds_updated = time.strftime("%Y-%m-%dT%H:%M:%S")
 
+    def _invalidate_session_alive_cache(self) -> None:
+        """Fuerza que el proximo get_status() vuelva a preguntarle a WinForce."""
+        self._session_alive_checked_at = 0.0
+
+    def _is_session_alive(self, php_sessid: str) -> bool:
+        """Valida la cookie contra WinForce, reutilizando el ultimo resultado
+        durante SESSION_ALIVE_TTL_SECONDS.
+
+        /health se sondea con frecuencia y cada validacion es una peticion de
+        red a WinForce; sin cache un monitor cada segundo genera una peticion
+        por segundo. El cache se ata a la cookie concreta, asi que inyectar una
+        nueva sesion nunca devuelve un resultado viejo."""
+        now = time.time()
+        if (
+            self._session_alive_cookie == php_sessid
+            and now - self._session_alive_checked_at < SESSION_ALIVE_TTL_SECONDS
+        ):
+            return self._session_alive
+
+        try:
+            core_api.validar_cookie_sesion(php_sessid)
+            alive = True
+        except core_api.LoginError:
+            alive = False
+        except Exception as e:
+            # Un fallo de red no prueba que la sesion este muerta: se reporta
+            # como no-viva para este chequeo, pero no se cachea.
+            log.exception(
+                "No se pudo comprobar si la sesion sigue viva: %s. "
+                "session_alive se reporta como False sin cachear; probablemente "
+                "sea red o WinForce caido, no una cookie expirada.",
+                e,
+            )
+            return False
+
+        self._session_alive = alive
+        self._session_alive_cookie = php_sessid
+        self._session_alive_checked_at = now
+        return alive
+
     def get_status(self) -> dict:
         client = self._get_client()
         session_age = int(time.time() - self._last_activity) if self._last_activity else None
         logged_in = client._sesion is not None
         php_sessid = client._sesion.cookies.get("PHPSESSID") if client._sesion else None
-        session_alive = False
-        if php_sessid:
-            try:
-                core_api.validar_cookie_sesion(php_sessid)
-                session_alive = True
-            except core_api.LoginError:
-                session_alive = False
+        session_alive = self._is_session_alive(php_sessid) if php_sessid else False
         return {
             "logged_in": logged_in,
             "session_age": session_age,
@@ -422,6 +556,13 @@ async def api_error_handler(request: Request, exc: core_api.APIError):
 
 if __name__ == "__main__":
     import uvicorn
+
+    # Sin esto el nivel raiz es WARNING y los log.info de sesion/relogin no se
+    # verian; los warning saldrian por el handler de ultimo recurso, sin hora.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    )
 
     config = get_config()
     uvicorn.run(app, host=config.proxy_host, port=config.proxy_port)
