@@ -13,6 +13,16 @@ y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-04 — Sesión — Medición de vida de PHPSESSID y limpieza del login muerto del proxy
+- **Fix de entorno**: `tools/medir_sesion.py` fallaba con `ModuleNotFoundError: validator_app` con `C:\Python314\python.exe` directo (paquete no instalado en modo editable en ese intérprete). Resuelto con `python -m pip install -e .`.
+- **Fase 0 completada** (`tools/medir_sesion.py`, 4 corridas): la corrida limpia `--max 3600` dio el dato bueno — **VIVA a 1155s, MUERTA a 1350s** (~19–22 min de inactividad real). Las de `--max 600` llegaron a 525s sin morir; una muerte a 135–210s fue anómala (coincidió con recarga que reemplazó la `PHPSESSID`). El idle-timeout real queda algo por debajo del `gc_maxlifetime` default de PHP (1440s) pero en el mismo orden; el `keepalive_interval` planeado da margen amplio.
+- **Hallazgo de autenticación**: `acceso.php` **no regenera el PHPSESSID** al loguear (reusa la cookie anónima ya presente); el 2FA de Microsoft pasa por SSO silencioso de Azure AD si ya hay sesión de Microsoft. Documentado en `anotaciones.md`.
+- **Keepalive en investigación** (`tools/medir_keepalive.py`, pings de interacción real): v1 (intervalo fijo 5 min) sobrevivió hasta 2100s y murió a 2400s; v2 (intervalos variables 180–420s) murió antes, a **1100s** — más rápido haciendo *más* actividad. Esto rompe el modelo "idle-timeout + tope absoluto de 40 min" (que queda como hipótesis sin confirmar) y apunta a **detección anti-bot acumulativa**: ~4 sesiones automatizadas en ~2 h, todas contra la misma coordenada exacta repetida decenas de veces.
+- **Decisión**: pausar pruebas automatizadas; reanudar con `--coords-lista` (coordenadas rotativas que dará el usuario) dejando tiempo entre sesiones. Guard interno de 120s en `ValidatorAPI` (`core/api.py:197`) da falso "sesión expirada" si se reutiliza la instancia entre pings — el script usa instancia nueva por ping.
+- **Fase 1 (C) — limpiar login muerto del proxy** (commit `1dcecc6`): `core/api.py` nuevo helper compartido `validar_cookie_sesion()` (reutiliza `_verificar_sesion_activa`); `rotate_creds.py` delega en él (elimina duplicación); `server.py` `AdminLoginRequest` → `AdminCookieRequest` (`{php_sessid}`), `/admin/login` y `/admin/rotar` intercambiables, `_relogin_silent()` recarga+revalida la cookie del keyring en vez del login programático inviable (código muerto en dos capas), `session_alive` añadido a `/health` y `/admin/status`; `docs/rotacion-credenciales.md` actualizado; 3 tests nuevos.
+- **Calidad**: 40 tests pasando, ruff limpio. Detalle en `PlanesAprobados.md` (Fases 0 y 1) y `anotaciones.md`. Commits: `1dcecc6`.
+- **Pendiente al cierre**: correr keepalive con `--coords-lista`; registrar `keepalive_interval_seconds` final en `PlanesAprobados.md`; Fase 2 (keepalive) bloqueada hasta cerrar la investigación; Fases 3 (diálogo cookie GUI), 4 (tests), 5 (docs).
+
 ### 2026-08-28 — Sesión (mañana) — Retomar contexto + planificar sesión WinForce robusta
 - [Inicio] Repo al día con `origin/main` (`7bc6550`), GitHub CLI conectado, Python 3.14.7
   cumple el requisito de `pyproject.toml`. Baseline: 37 tests pasando, ruff limpio.
