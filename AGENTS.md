@@ -38,8 +38,9 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── probar_core.py        # prueba manual del core (cobertura + score) por CLI
 │   ├── probar_core_gui.py    # prueba manual del core con mini-GUI
 │   ├── probar_concurrencia.py # comprueba si Win bloquea el uso simultáneo de la misma cuenta (se corre en varias máquinas a la vez)
-│   ├── medir_keepalive.py    # pings de interacción real a intervalos variables para sostener la sesión durante el horario laboral
-│   └── medir_sesion.py       # mide la vida real de una PHPSESSID sin actividad, para calibrar el keepalive
+│   ├── medir_keepalive.py    # mide cuánto sobrevive la sesión con pings reales cada N min (mide edad de sesión, clasifica la muerte)
+│   ├── medir_sesion.py       # mide la vida real de una PHPSESSID sin actividad, para calibrar el keepalive
+│   └── coords_prueba.txt     # 49 coordenadas públicas (polígono de Lima) que medir_keepalive.py rota por ping
 ├── generator/
 │   ├── generar.py            # generador de códigos de activación (SOLO encargado)
 │   └── private_key.pem       # NUNCA se sube al repositorio (ver .gitignore)
@@ -74,6 +75,12 @@ JS-Win-Coverage/              (raíz del proyecto)
         ├── uninstall_service.bat # desinstala servicio
         └── rotate_creds.py   # CLI owner: rota credenciales WinForce (RDP)
 ```
+
+**Informes diarios:** las reglas de creación y la estética de la plantilla están
+consolidadas en `C:\Users\Angel\Documents\JSCONECTSOLUTIONS\Informe de avanzes\Reportes-Diarios-JS-Connect\GUIA_INFORMES.md`.
+Para generar un informe, leer también `REGLAS_CREACION_INFORMES.txt`, verificar la
+plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
+`artifact.md` si pertenecen a una sesión histórica distinta.
 
 ## Comandos
 - Instalar producción: `pip install -r requirements.txt`
@@ -248,6 +255,13 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 11. **Sistema de códigos de error** [COMPLETADO — verificado 2026-08-26]: excepciones tipadas con `code` + diccionario `ERROR_CODES` en `api.py`, 35 tests pasando, ruff limpio.
 12. **Decisión de geodata del score** [COMPLETADO — verificado 2026-08-27]: **opción C (payload mínimo)** confirmada — el score respondió correctamente enviando solo coordenadas + documento, con todos los campos de geodata vacíos en el payload. No hace falta replicar la geoapi de Equifax ni pedir datos manuales.
 13. **`tools/probar_con_cookie.py`** [NUEVO, 2026-08-27]: herramienta de diagnóstico contra el servidor real (cookie de sesión capturada del navegador). Ya probó su valor detectando 2 bugs reales — conservar para futuras revalidaciones.
+14. **Medición de vida de PHPSESSID** [COMPLETADO — verificado 2026-09-04]: `tools/medir_sesion.py` ejecutado con 4 corridas. Las corridas limpias registraron VIVA a 1155s y MUERTA a 1350s; las corridas de 600s llegaron a 525s. La corrida anómala de 135-210s coincide con recarga/reuse de cookie y no se toma como idle-timeout.
+15. **Investigación de keepalive** [CASI CERRADA — corrida final en curso]: `tools/medir_keepalive.py` **v3** (2026-09-05) corrige los dos defectos que invalidaban v1/v2 — no medía la edad real de la sesión, y cualquier error cortaba la corrida como "muerte". Ahora mide `edad_sesion_s`, clasifica el fallo (`SESION_MUERTA`/`TRANSITORIO`/`OTRO`) y lo confirma con `validar_cookie_sesion()` antes de cortar. La corrida v3 (intervalo 900s, 49 coords rotativas) lleva **2h+ con la sesión viva** → el keepalive de 15 min funciona y las hipótesis de "tope absoluto a 40 min" y "anti-bot" quedan muy debilitadas. **Falta el desenlace de la corrida nocturna** (`medir_keepalive.log`).
+16. **Fase 2 — keepalive robusto** [DESBLOQUEO EN CURSO]: las 3 preguntas abiertas están casi resueltas — endpoint = `validar_cobertura` (confirmado como ping válido), rotar coords = sí (49 en `coords_prueba.txt`), intervalo = 900s en prueba. Fijar el número final y el diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de agentes) cuando termine la corrida v3.
+17. **Fase 3 — diálogo de cookie en GUI** [PENDIENTE]: implementar después de cerrar la investigación de keepalive.
+18. **Arranque de los scripts de `tools/`** [COMPLETADO — verificado 2026-09-05, commit `82f9a4c`]: los 6 scripts que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
+19. **`tools/coords_prueba.txt`** [NUEVO, 2026-09-05, commit `26e7567`]: 49 coordenadas públicas (10 del usuario + 39 generadas dentro de su polígono) que `medir_keepalive.py` rota por ping para no repetir el mismo query.
+20. **Visibilidad de fallos del proxy** [COMPLETADO — verificado 2026-09-05, commit `5506ed4`]: `_relogin_silent()`/`_load_session_cookies()` ya no tienen `except Exception: pass` — cada fallo se loguea con causa + error + remedio; `/health` cachea `session_alive` 30s (antes pegaba a WinForce en cada request); `logging.basicConfig` en `__main__`.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -432,3 +446,41 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   inexistente, `pyproject.toml` exige Python≥3.14 con la máquina en 3.12 (workaround
   `PYTHONPATH=.` documentado). Commit de esta sesión pendiente de confirmar con el usuario;
   push del commit `abd62ad` (sesión 2026-08-26) también sigue pendiente.
+
+### Cierre de la sesión 2026-09-04 [CONTEXTO PARA LA SIGUIENTE]
+- **Fase 0 de medición completada**: `tools/medir_sesion.py` produjo 4 corridas. El dato limpio es **VIVA a 1155s y MUERTA a 1350s**; las corridas de 600s llegaron a 525s. La corrida que murió entre 135s y 210s fue anómala y coincide con la recarga que reemplazó/reutilizó `PHPSESSID`, por lo que no representa el idle-timeout real.
+- **Hallazgo de cookie y SSO**: al recargar, `PHPSESSID` cambia y el login con SSO silencioso de Microsoft termina reutilizando la misma cookie anónima; `acceso.php` no regenera la cookie al autenticar. No copiar cookies, credenciales ni coordenadas exactas a este archivo.
+- **Keepalive**: `tools/medir_keepalive.py` usa `validar_cobertura` como actividad real y crea una instancia nueva de `ValidatorAPI` por ping para no disparar el guard interno de 120s del cliente. La v1 sobrevivió hasta 2100s y murió a 2400s; la v2 con intervalos variables murió a 1100s. La hipótesis de un tope absoluto de 40 min queda **sin confirmar**; el patrón sugiere posible detección anti-bot por sesiones automatizadas repetidas.
+- **Decisión operativa**: pausar nuevas pruebas automatizadas por hoy. La próxima corrida requiere una lista de coordenadas reales del usuario y debe dejar pasar tiempo antes de encadenar sesiones. `tools/medir_keepalive.py` ya acepta `--coords-lista`.
+- **Proxy corregido**: `validar_cookie_sesion()` quedó centralizado en `core/api.py`; `rotate_creds.py`, `/admin/login` y `/admin/rotar` trabajan con `{php_sessid}`; `_relogin_silent()` recarga y valida la cookie del keyring en lugar de intentar login programático; `/health` y `/admin/status` exponen `session_alive`. Resultado: **40 tests pasando, ruff limpio**.
+- **Pendiente real**: cerrar la investigación del endpoint/intervalo de keepalive; luego implementar Fase 2, el diálogo de cookie de Fase 3, tests y documentación. El historial completo está en `ResumenDelDia.md` y debe rotarse a `HistorialResumenes.md` al comenzar otro día.
+
+### Cierre de la sesión 2026-09-05 [CONTEXTO PARA LA SIGUIENTE]
+- **AL RETOMAR, LO PRIMERO: leer `medir_keepalive.log`.** Se dejó corriendo la
+  corrida v3 toda la noche (arrancó 21:09; a las 23:24 la sesión llevaba 8170s /
+  2h 16m viva, todos los pings VIVA). El desenlace decide el diseño final de la
+  Fase 2: si aguanta hasta la mañana → no hay tope absoluto, Fase 2 = solo
+  keepalive; si murió a las X horas → hay un tope de varias horas y la Fase 2
+  además necesita re-login programado.
+- **5 commits, todos en `origin/main`**: `5506ed4` (visibilidad de fallos del
+  proxy + caché `session_alive` + sync `docs/arquitectura.md` y árbol `tools/`),
+  `44d1132` (rotación 2026-09-04 → historial), `3925dbf` (`medir_keepalive.py`
+  v3 + `tests/test_medir_keepalive.py`), `26e7567` (`coords_prueba.txt` a 49),
+  `82f9a4c` (arranque de `tools/` sin `PYTHONPATH`).
+- **Investigación de keepalive — casi cerrada**: v3 corrigió el método (medía
+  tiempo de test, no edad de sesión; cualquier error contaba como muerte). Con
+  el método bueno, 2h+ de pings cada 15 min sin un fallo → el keepalive
+  funciona, y "tope a 40 min" + "anti-bot" quedan muy debilitados. Detalle en
+  `anotaciones.md` ("Revisión del método" + "Dos límites de sesión", con nota de
+  estado 2026-09-05).
+- **49 tests pasando, ruff limpio** (eran 40; +9 del clasificador de
+  `medir_keepalive`). Sin cambios de código en el proxy más allá de `5506ed4`.
+- **`AGENTS.md` entró al commit con ediciones del usuario** (nota "Informes
+  diarios", ítems 14–17 previos, este propio bloque de contexto) además de las
+  de la sesión.
+- **Deuda vieja sin cerrar** (no tocada hoy): `resumenes/2026-09-04.md` nunca se
+  creó (la rotación de esa fecha solo hizo la entrada condensada);
+  `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.
+- **Pendiente real**: leer el log → fijar `keepalive_interval_seconds` y
+  confirmar el diseño "latido perezoso" → implementar Fase 2 → Fase 3 (diálogo
+  de cookie en GUI) → Fase 4 (`tests/test_proxy.py`) → Fase 5 (docs).

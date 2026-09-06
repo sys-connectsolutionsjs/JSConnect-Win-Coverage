@@ -149,6 +149,13 @@ Almacén cifrado del SO por usuario. Cada usuario Windows tiene el suyo.
   de `medir_sesion.py`.
 
 ### Dos límites de sesión: idle-timeout + tope absoluto (medido 2026-09-04)
+> **ESTADO 2026-09-05**: el punto 2 de abajo ("tope absoluto a ~40 min") está
+> **probablemente descartado**. El test v3 (`tools/medir_keepalive.py`, método
+> corregido — ver "Revisión del método" más abajo) lleva **2h+ con la sesión
+> viva** haciendo un ping real cada 15 min, muy por encima de ese supuesto tope.
+> El 404 de v1 casi seguro era un transitorio, no la sesión muriendo. El texto
+> original se conserva como histórico; leerlo con esta corrección delante.
+
 **Contexto para quien diseñe/ajuste el keepalive de la Fase 2**: la sesión de
 WinForce no muere por un único timeout — hay evidencia de **dos límites
 independientes**, un patrón común en apps empresariales:
@@ -199,8 +206,23 @@ muerta, se **confirma** de forma independiente con
 `core.api.validar_cookie_sesion()`. Un transitorio ya no corta la prueba.
 La corrida se hace con el intervalo de producción (~900s), no con los
 180-420s de laboratorio, para validar directamente el diseño de la Fase 2.
-Coordenadas rotativas desde `tools/coords_prueba.txt` (10 ubicaciones
-públicas, no domicilios de clientes). **Pendiente: ejecutar la corrida v3.**
+Coordenadas rotativas desde `tools/coords_prueba.txt` — **49 puntos** (10 que
+dio el usuario + 39 generados con rejilla+jitter dentro de su polígono), todos
+ubicaciones públicas de Lima, no domicilios de clientes.
+
+**Resultado parcial de la corrida v3 (2026-09-05, en curso toda la noche):**
+arrancó 21:09 con la sesión a 70s de edad, pings cada 15 min. Todos VIVA; a las
+23:24 la sesión lleva **8170s (2h 16m)** y sigue. Esto ya supera con mucho el
+idle-timeout de Fase 0 (~1200s), el "tope" de v1 (2400s) y el de v2 (1100s):
+- el **keepalive de 15 min funciona** — un ping real de `validar_cobertura`
+  resetea el reloj de expiración;
+- la hipótesis de **detección anti-bot** (por query repetido / actividad
+  acumulada) **no se sostiene** con 2h+ de pings sin un solo fallo — queda como
+  no confirmada en ningún sentido.
+**Falta el desenlace de la noche**: si aguanta hasta la mañana → no hay tope
+absoluto y la Fase 2 es solo el keepalive; si muere a las X horas → hay un tope
+de sesión de varias horas y la Fase 2 además necesita re-login programado.
+**Al retomar, mirar `medir_keepalive.log` primero.**
 
 ### Middleware Auth (Proxy)
 En `server.py`: valida requests antes de llegar a endpoints.

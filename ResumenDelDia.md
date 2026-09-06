@@ -4,7 +4,7 @@ Fecha: 2026-09-05
 
 ## Qué se hizo hoy
 
-### 2026-09-05 — Sesión — Visibilidad de fallos de sesión del proxy + sincronización de docs
+### 2026-09-05 — Sesión — Visibilidad de fallos del proxy, método de medición de keepalive (v3) y corrida nocturna
 
 #### Inicio
 - Repo local estaba **3 commits por detrás** de `origin/main` (`7bc6550` →
@@ -65,6 +65,11 @@ Fecha: 2026-09-05
 - **40 tests pasando, ruff limpio.** Sin tests nuevos: es un cambio de logging.
 - Commit `5506ed4` pusheado a `origin/main`.
 
+#### Rotación de resúmenes (commit `44d1132`)
+- La sesión 2026-09-04 (que había quedado sin rotar) se movió a
+  `HistorialResumenes.md` con detalle completo; `ResumenDelDia.md` se reabrió
+  con la fecha de hoy.
+
 #### Nota / deuda menor
 - `docs/arquitectura.md:143` ("Credenciales Equifax") y `:66` ("rotación
   credenciales cada 1-2 meses") se dejaron intactas a propósito: describen el
@@ -73,12 +78,64 @@ Fecha: 2026-09-05
   en vez de `python -m`, el `logging.basicConfig` del `__main__` no corre;
   habría que mover la config de logging al `lifespan`.
 
-#### Pendiente (heredado de la investigación de keepalive)
-- Correr `tools/medir_keepalive.py` con `--coords-lista` (coordenadas
-  rotativas) una vez el usuario dé la lista — dejar pasar tiempo antes de la
-  próxima corrida automatizada (posible detección anti-bot acumulativa).
-- Registrar la decisión final de `keepalive_interval_seconds` en
-  `PlanesAprobados.md` (Fase 0) una vez cerrada la investigación.
-- Fase 2 (B) — keepalive — **bloqueada** hasta cerrar la investigación.
+#### Investigación de keepalive — método nuevo (v3) (commits `3925dbf`, `26e7567`)
+Al retomar la investigación se vio que **los datos de v1/v2 no permitían
+concluir nada**, por dos defectos de método:
+1. **No se medía la edad real de la sesión** — el cronómetro arrancaba con el
+   script, no con el login. Como `acceso.php` no regenera la `PHPSESSID`, la
+   sesión de v2 pudo llevar ya 10+ min viva: "murió a 1100s de test" podía ser
+   ~1700s de sesión, algo normal.
+2. **Cualquier error cortaba la corrida y contaba como "sesión muerta"** — el
+   404 estilo Apache de v1 y el 200+HTML de v2 son fallos distintos.
+
+`tools/medir_keepalive.py` **v3** corrige ambos:
+- `--login-hora` / `--edad-inicial` obligatorios; columna `edad_sesion_s` en el
+  log; cabecera `#` por corrida para no apilar corridas sin separador.
+- `_clasificar()` → `SESION_MUERTA` / `TRANSITORIO` / `OTRO` según `code` +
+  status HTTP; el 404 de v1 ahora es transitorio, no muerte.
+- Ante un fallo, `_confirmar_muerte()` revalida la cookie por su cuenta con
+  `core.api.validar_cookie_sesion()` antes de dar la sesión por muerta; un
+  transitorio reintenta con backoff (hasta `--reintentos`, def. 3), no corta.
+- `--coords-archivo` para rotar coordenadas desde fichero.
+- Intervalo por defecto **900s** (el de producción), no 180–420s de laboratorio:
+  así la corrida valida directamente el diseño de la Fase 2.
+- `tests/test_medir_keepalive.py`: 9 tests del clasificador. **49 tests total.**
+
+#### `tools/coords_prueba.txt` — ampliado a 49 puntos (commit `26e7567`)
+Las 10 del usuario forman un polígono; se añadieron 39 puntos generados con
+rejilla + jitter dentro de su convex hull (descartando los de fuera y los
+demasiado juntos). Más variedad por ping = menos repetición del mismo query
+contra WinForce en una corrida larga. Son ubicaciones **públicas** (zona Jesús
+María / Lince / San Isidro), no domicilios de clientes → se comitean.
+
+#### Fix — los scripts de `tools/` arrancan solos (commit `82f9a4c`)
+`python tools/medir_keepalive.py` fallaba con `ModuleNotFoundError:
+validator_app`: al ejecutar un script Python pone `tools/` en `sys.path`, no la
+raíz del repo. Ya había mordido el 04/09 con `medir_sesion.py` (parcheado con
+`pip install -e .`, que hay que repetir por cada intérprete). Los 6 scripts de
+`tools/` que importan `validator_app` insertan ahora la raíz en `sys.path`
+antes del import (mismo patrón que `tests/test_captura_guard.py`). Docstrings
+actualizados ("requiere PYTHONPATH=." → "desde la raíz del repo").
+
+#### Test v3 en marcha — corriendo toda la noche
+Arrancó **21:09** con la sesión a 70s de edad. Pings cada 15 min, 49 coords
+rotativas. Todos los pings **VIVA**; a las **23:24** la sesión lleva **8170s
+(2h 16m)** de edad y sigue.
+
+Contexto: idle-timeout pasivo de Fase 0 = 1155–1350s; v1 "murió" a 2400s (era
+un HTTP 404 raro); v2 "murió" a 1100s (cookie ya vieja). **A 2h+ el keepalive
+de 15 min funciona, y las hipótesis de "tope absoluto a 40 min" y "detección
+anti-bot" quedan muy debilitadas.** Falta ver si aguanta la noche entera o
+aparece un tope de varias horas.
+
+**Al retomar: revisar `medir_keepalive.log` ANTES de nada.**
+
+#### Pendiente
+- **Leer el desenlace de la corrida v3** en `medir_keepalive.log`.
+- Con eso: fijar `keepalive_interval_seconds` y confirmar el diseño de la Fase 2
+  ("latido perezoso": pinguear solo tras N min sin tráfico real de los agentes).
+- Fase 2 (B) — keepalive en el proxy — **desbloqueo en curso**.
 - Fase 3 (D) — diálogo de cookie en la GUI.
-- Fase 4 — tests. Fase 5 — documentación.
+- Fase 4 — tests (`tests/test_proxy.py`). Fase 5 — documentación.
+- Deuda vieja sin cerrar: `resumenes/2026-09-04.md` nunca se creó;
+  `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.

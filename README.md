@@ -26,14 +26,14 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 ```
 - **Proxy Local (Opción B)**: Decidida tras detectar que WinForce redirige a Microsoft 2FA, haciendo inviable la concurrencia multi-máquina.
 - 20 agentes LAN → 1 proxy → 1-2 sesiones WinForce desde una sola IP → sin riesgo de bloqueo.
-- Credenciales WinForce **solo en la PC del proxy** (Windows Keyring); rotación = actualizar 1 PC.
+- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring); renovarla = un re-login manual del encargado en esa PC (el login programático usuario/contraseña es inviable por el 2FA de Microsoft).
 - Escalable a agentes remotos vía **Tailscale VPN** (mismo token, misma arquitectura, cero cambios de código).
 
 ### Características
 - Consulta directa a la API interna (rápido y ligero).
 - Entrada de coordenadas en formato `-11.956037627741102, -77.04065381800075`.
 - Detección automática del tipo de documento (DNI/RUC/CE).
-- Sesión automática con re-login silencioso cuando expira (proxy: 120s idle).
+- Sesión automática: el proxy revalida y recarga la cookie del keyring cuando lleva >120s inactivo, y registra en el log cualquier fallo de recuperación.
 - Credenciales guardadas cifradas con el Administrador de Credenciales de Windows (keyring).
 - Sistema de activación por código RSA (solo personal autorizado).
 - Botón de actualizaciones contra GitHub Releases.
@@ -133,14 +133,14 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 ```
 - **Local Proxy (Option B)**: Decided after discovering WinForce redirects to Microsoft 2FA, making multi-machine concurrency unfeasible.
 - 20 LAN agents → 1 proxy → 1-2 WinForce sessions from single IP → no blocking risk.
-- WinForce credentials **only on proxy PC** (Windows Keyring); rotation = update 1 PC.
+- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring); renewing it = one manual re-login by the manager on that PC (programmatic username/password login is unfeasible due to Microsoft 2FA).
 - Scalable to remote agents via **Tailscale VPN** (same token, same architecture, zero code changes).
 
 ### Features
 - Direct internal API calls (fast and lightweight).
 - Coordinates input as `-11.956037627741102, -77.04065381800075`.
 - Automatic document type detection (DNI/RUC/CE).
-- Automatic session management with silent re-login on expiry (proxy: 120s idle).
+- Automatic session management: the proxy revalidates and reloads the keyring cookie when idle >120s, and logs any recovery failure.
 - Credentials stored encrypted via Windows Credential Manager (keyring).
 - Activation-code licensing (authorized staff only).
 - Update button against GitHub Releases.
