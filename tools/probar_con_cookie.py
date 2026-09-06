@@ -1,6 +1,6 @@
 """Prueba de cobertura/score usando una cookie PHPSESSID capturada del navegador.
 
-Uso (requiere PYTHONPATH=. si validator_app no esta instalado editable):
+Uso (desde la raiz del repo):
     python tools/probar_con_cookie.py
 
 No pide usuario/contrasena: se asume que ya iniciaste sesion manualmente en el
@@ -13,6 +13,12 @@ resultado) para descartar que el servidor ate la sesion al User-Agent.
 """
 
 import getpass
+import sys
+from pathlib import Path
+
+# Permite `python tools/probar_con_cookie.py` desde la raiz del repo sin tener
+# `validator_app` instalado editable ni exportar PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from validator_app.core import api, session
 from validator_app.gui import fields

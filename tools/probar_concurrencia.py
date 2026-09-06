@@ -19,6 +19,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# Permite `python tools/probar_concurrencia.py` desde la raiz del repo sin tener
+# `validator_app` instalado editable ni exportar PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from validator_app.core import api
 from validator_app.gui import fields
 

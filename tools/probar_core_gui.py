@@ -8,9 +8,15 @@ contrasena, coordenadas y documento; el flujo login -> cobertura -> score
 corre en un hilo aparte para no congelar la interfaz.
 """
 
+import sys
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
+
+# Permite `python tools/probar_core_gui.py` desde la raiz del repo sin tener
+# `validator_app` instalado editable ni exportar PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from validator_app.gui import prueba_core
 

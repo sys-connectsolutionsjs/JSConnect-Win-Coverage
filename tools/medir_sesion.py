@@ -9,7 +9,7 @@ es el rango real del idle-timeout. Con eso se calibra
 keepalive_interval_seconds de la Fase 2 (debe quedar por debajo del limite
 inferior de ese rango, con margen).
 
-Uso (requiere PYTHONPATH=. si validator_app no esta instalado editable):
+Uso (desde la raiz del repo):
     python tools/medir_sesion.py [--espera-inicial S] [--incremento S] [--max S] [--log FILE]
 
     --espera-inicial  segundos de espera antes del primer ping (por defecto 30)
@@ -30,6 +30,10 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+# Permite `python tools/medir_sesion.py` desde la raiz del repo sin tener
+# `validator_app` instalado editable ni exportar PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from validator_app.core import api
 

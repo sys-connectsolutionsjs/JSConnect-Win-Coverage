@@ -48,7 +48,7 @@ PROTOCOLO (importante, el metodo vale tanto como el codigo):
   4. Dejar correr sin limite hasta muerte confirmada.
   5. NO encadenar corridas: una por sesion de trabajo.
 
-Uso (requiere PYTHONPATH=. si validator_app no esta instalado editable):
+Uso (desde la raiz del repo):
     python tools/medir_keepalive.py [opciones]
 
     --login-hora HH:MM  hora del login manual (calcula la edad inicial sola)
@@ -72,6 +72,12 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+
+# Permite `python tools/medir_keepalive.py` desde la raiz del repo sin tener
+# `validator_app` instalado editable ni exportar PYTHONPATH (mismo patron que
+# tests/test_captura_guard.py). Al correr un script, Python pone tools/ en
+# sys.path, no la raiz.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from validator_app.core import api
 from validator_app.gui import fields

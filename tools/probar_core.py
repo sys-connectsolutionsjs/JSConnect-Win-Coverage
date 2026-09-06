@@ -9,6 +9,11 @@ prueba; ejecuta login -> cobertura -> score e imprime los resultados.
 
 import getpass
 import sys
+from pathlib import Path
+
+# Permite `python tools/probar_core.py` desde la raiz del repo sin tener
+# `validator_app` instalado editable ni exportar PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from validator_app.core import api
 from validator_app.gui import fields
