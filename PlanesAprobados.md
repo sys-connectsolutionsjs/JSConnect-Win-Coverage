@@ -8,14 +8,17 @@ App de escritorio (Python/Tkinter) para un call center que valida COBERTURA
 appwinforce.win.pe (sin scrapear HTML). Repo:
 https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
-## Estado del proyecto (verificado 2026-08-26; addendum 2026-09-05)
+## Estado del proyecto (verificado 2026-08-26; addendum 2026-09-08)
 
-**Addendum 2026-09-05**: del plan "Sesión WinForce robusta" — Fase 1 (limpiar
+**Addendum 2026-09-08**: del plan "Sesión WinForce robusta" — Fase 1 (limpiar
 login muerto) COMPLETA y con la visibilidad de fallos añadida encima (`5506ed4`);
-Fase 0 (medir vida de sesión) COMPLETA pero su conclusión quedó **superada**: la
-investigación de keepalive se reabrió con método corregido (`medir_keepalive.py`
-v3) y hay una **corrida final en curso** (2h+ con la sesión viva, ver Fase 0 más
-abajo). **49 tests, ruff limpio.** Fase 2 en desbloqueo; Fases 3–5 pendientes.
+Fase 0 (medir vida de sesión) COMPLETA. **Investigación de keepalive CERRADA**
+(reporte final de la corrida v3 recibido 2026-09-08): el keepalive de 15 min
+funciona (37 pings VIVA hasta ≈ 9 h 16 m de edad de sesión) y **existe un tope
+absoluto de sesión ≈ 9.5 h desde el login** (muerte limpia a ≈ 9 h 31 m,
+confirmada por `validar_cookie_sesion()`); idle-timeout, anti-bot acumulativo y
+"tope a 40 min" quedan **descartados**. **49 tests, ruff limpio.** Fase 2 LISTA
+PARA IMPLEMENTAR (`keepalive_interval_seconds = 900`); Fases 3–5 pendientes.
 
 - Fase 0 (captura de la API): COMPLETA.
 - Fase 1 (núcleo core): COMPLETA — 35 tests, ruff limpio.
@@ -123,16 +126,22 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   inactividad) — algo por debajo del `session.gc_maxlifetime` default de PHP
   (1440s/24min), probablemente por un timeout propio de la app o el GC
   probabilístico de PHP.
-  **Actualización 2026-09-05 — la investigación de keepalive se rehízo con
-  método corregido.** Los datos de v1/v2 (que sugerían un "tope absoluto a 40
-  min" y posible anti-bot) resultaron **inservibles**: v1/v2 medían tiempo de
-  test, no edad de sesión, y trataban cualquier error como muerte. `medir_keepalive.py`
-  **v3** mide `edad_sesion_s`, clasifica el fallo y lo confirma con
-  `validar_cookie_sesion()` antes de cortar. La corrida v3 (intervalo 900s, 49
-  coords rotativas de `coords_prueba.txt`) lleva **2h+ con la sesión viva** →
-  el keepalive de 15 min funciona; "tope a 40 min" y "anti-bot" quedan muy
-  debilitados. **Falta el desenlace de la corrida nocturna** (`medir_keepalive.log`);
-  con él se fija `keepalive_interval_seconds`.
+  **Actualización 2026-09-08 — la investigación de keepalive se rehízo con
+  método corregido y quedó CERRADA.** Los datos de v1/v2 (que sugerían un "tope
+  absoluto a 40 min" y posible anti-bot) resultaron **inservibles**: v1/v2 medían
+  tiempo de test, no edad de sesión, y trataban cualquier error como muerte.
+  `medir_keepalive.py` **v3** mide `edad_sesion_s`, clasifica el fallo y lo
+  confirma con `validar_cookie_sesion()` antes de cortar. Corrida v3 (arrancó
+  2026-09-05 21:08, intervalo fijo 900s, 49 coords rotativas de
+  `coords_prueba.txt`; reporte final 2026-09-08): **37 pings consecutivos VIVA**,
+  última confirmación a 33 370s (≈ 9 h 16 m de edad de sesión); murió **limpia** a
+  34 270s (≈ 9 h 31 m) con patrón HTTP 200 + HTML de login, confirmado por
+  `validar_cookie_sesion()`. Lecturas: idle-timeout **descartado** como causa
+  (ping real cada 900s), anti-bot acumulativo **descartado** (37 pings variados,
+  0 fallos), "tope a 40 min" **descartado** (era el 404 ambiguo de v1); **sí
+  existe un tope absoluto de sesión ≈ 9.5 h desde el login**, por encima de la
+  jornada de 8 h con ~1.5 h de margen. `keepalive_interval_seconds` fijado en
+  **900** para la Fase 2.
 - **Fase 1 (C) — limpiar login muerto del proxy. [COMPLETADA 2026-09-04]** Helper
   compartido `core.api.validar_cookie_sesion()` (usado también por
   `rotate_creds.py`, eliminando la duplicación); `/admin/login` y `/admin/rotar`
@@ -150,23 +159,27 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   cookie expirada de fallo de red); `/health` cachea `session_alive` 30s en vez
   de validar contra WinForce en cada request; `logging.basicConfig` en el
   `__main__` de `server.py`. `docs/arquitectura.md` sincronizado.
-- **Fase 2 (B) — keepalive en el proxy. [DESBLOQUEO EN CURSO]**
+- **Fase 2 (B) — keepalive en el proxy. [LISTA PARA IMPLEMENTAR]**
   Loop `asyncio` en `lifespan` que pinga WinForce (config `keepalive_enabled` /
-  `keepalive_interval_seconds`). Las 3 preguntas que la bloqueaban están casi
-  resueltas por la corrida v3:
+  `keepalive_interval_seconds`). Las 3 preguntas que la bloqueaban están resueltas
+  por la corrida v3:
   1. **Endpoint** → `validar_cobertura` confirmado como ping válido (resetea el
      reloj de expiración; el chequeo pasivo de `operador.php` no).
   2. **Rotar coordenadas** → sí; `tools/coords_prueba.txt` tiene 49 y la corrida
-     de 2h+ no muestra ningún problema por variar el query.
-  3. **Intervalo** → 900s (15 min) en prueba, 2h+ sin fallo. El número final
-     sale del desenlace de la corrida nocturna.
+     de 9 h no muestra ningún problema por variar el query.
+  3. **Intervalo** → **900s (15 min), fijo** — 37 pings sin fallo en 9 h, muy por
+     encima del idle-timeout de Fase 0 (~1200s).
   **Diseño acordado: "latido perezoso"** — el loop no pinga cada N s a secas,
   sino solo si pasaron N min **sin tráfico real de los agentes** (comparar
   contra `ProxyValidatorAPI._last_activity`, que ya existe). Con 20 agentes el
   trabajo normal ya mantiene la sesión; el ping solo cubre huecos (almuerzo,
   primera hora). Reduce las consultas fantasma contra la cuenta de Win ~95%.
-  Además manejar con gracia la muerte pese al keepalive (avisar al owner, no
-  reintentar en silencio) por si hay un tope de sesión de varias horas.
+  **Tope absoluto de sesión ≈ 9.5 h (confirmado)**: el keepalive NO lo evita. La
+  Fase 2 debe **avisar al owner** cuando la sesión muera pese al keepalive (no
+  reintentar en silencio); el re-login programado es inviable por el 2FA, así que
+  el owner reinyecta la cookie con `rotate_creds.py` / `POST /admin/rotar` **al
+  inicio del turno** (no a media mañana), aprovechando el margen de ~1.5 h sobre
+  la jornada de 8 h.
 - **Fase 3 (D) — cookie en la GUI (arregla standalone).** `validator_app/gui/session_config.py`
   (NUEVO) + diálogo `⚙️ Configurar Sesión` en `main_window.py`; la rama standalone deja de
   usar `api.obtener_cliente()` y usa un `ValidatorAPI` con la cookie inyectada.
@@ -225,8 +238,9 @@ Ya hecho, se deja como referencia de qué se tocó:
   (`82f9a4c`: los scripts insertan la raíz en `sys.path` solos). Sigue pendiente
   decidir si se relaja el requisito de `pyproject.toml` o se documenta como
   obligatorio.
-- **Corrida de keepalive v3 en curso (2026-09-05)**: leer `medir_keepalive.log`
-  al retomar; con el resultado, fijar `keepalive_interval_seconds` (Fase 2).
+- ~~Corrida de keepalive v3~~ → **CERRADA 2026-09-08**: `keepalive_interval_seconds
+  = 900` fijado; tope absoluto de sesión ≈ 9.5 h confirmado. Ver Fase 0 (act.
+  2026-09-08) y `anotaciones.md`.
 
 ## Notas de seguridad
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.

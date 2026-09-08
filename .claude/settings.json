@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/historial_sync.py"],
+            "timeout": 15,
+            "statusMessage": "Revisando sincronizacion de documentacion"
+          }
+        ]
+      }
+    ]
+  }
+}

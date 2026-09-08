@@ -148,13 +148,16 @@ Almacén cifrado del SO por usuario. Cada usuario Windows tiene el suyo.
   la sesión ya murió, útil para detectar el corte sin depender solo del log
   de `medir_sesion.py`.
 
-### Dos límites de sesión: idle-timeout + tope absoluto (medido 2026-09-04)
-> **ESTADO 2026-09-05**: el punto 2 de abajo ("tope absoluto a ~40 min") está
-> **probablemente descartado**. El test v3 (`tools/medir_keepalive.py`, método
-> corregido — ver "Revisión del método" más abajo) lleva **2h+ con la sesión
-> viva** haciendo un ping real cada 15 min, muy por encima de ese supuesto tope.
-> El 404 de v1 casi seguro era un transitorio, no la sesión muriendo. El texto
-> original se conserva como histórico; leerlo con esta corrección delante.
+### Dos límites de sesión: idle-timeout + tope absoluto (idle medido 2026-09-04, tope medido 2026-09-08)
+> **ESTADO 2026-09-08 — investigación CERRADA.** El punto 2 de abajo ("tope
+> absoluto a ~40 min") queda **descartado**: ese 404 de v1 era un transitorio,
+> no la sesión muriendo. Pero la corrida final de v3 (37 pings cada 15 min a lo
+> largo de 9 h) **sí midió un tope absoluto real**: la sesión vivió confirmada
+> hasta ≈ 9 h 16 m y murió limpia a ≈ 9 h 31 m desde el login, independiente de
+> la actividad. Resumen del modelo real: **idle-timeout ~20 min (lo evita el
+> keepalive) + tope absoluto ≈ 9.5 h (NO lo evita el keepalive)**. El texto
+> original de abajo se conserva como histórico; leerlo con esta corrección
+> delante.
 
 **Contexto para quien diseñe/ajuste el keepalive de la Fase 2**: la sesión de
 WinForce no muere por un único timeout — hay evidencia de **dos límites
@@ -179,12 +182,14 @@ independientes**, un patrón común en apps empresariales:
    solo dato no se puede distinguir. **No dar esto por confirmado** sin una
    segunda muerte con el mismo patrón.
 
-**Implicación de diseño**: un keepalive (Fase 2) evita la muerte por
-inactividad, confirmado. La existencia de un tope absoluto adicional sigue
-sin confirmarse — la Fase 2 no debe asumirlo como un hecho todavía, pero sí
-debe manejar con gracia el caso en que la sesión muera igual pese al
-keepalive (avisar al owner, no solo reintentar en silencio), sea cual sea
-la causa real.
+**Implicación de diseño (actualizada 2026-09-08)**: un keepalive (Fase 2) evita
+la muerte por inactividad — confirmado con 9 h de pings sin fallo. El **tope
+absoluto ≈ 9.5 h desde el login ya es un hecho medido**, no una hipótesis: la
+Fase 2 debe asumirlo. El keepalive no lo evita, así que la Fase 2 tiene que
+**avisar al owner** cuando la sesión muera pese al keepalive (no solo reintentar
+en silencio); el re-login programado es inviable por el 2FA, de modo que el owner
+reinyecta la cookie **al inicio del turno** (hay ~1.5 h de margen sobre la
+jornada de 8 h).
 
 ### Revisión del método (2026-09-05): por qué v1/v2 no permiten concluir
 Al retomar la investigación se detectaron dos defectos de método que hacen
@@ -210,19 +215,25 @@ Coordenadas rotativas desde `tools/coords_prueba.txt` — **49 puntos** (10 que
 dio el usuario + 39 generados con rejilla+jitter dentro de su polígono), todos
 ubicaciones públicas de Lima, no domicilios de clientes.
 
-**Resultado parcial de la corrida v3 (2026-09-05, en curso toda la noche):**
-arrancó 21:09 con la sesión a 70s de edad, pings cada 15 min. Todos VIVA; a las
-23:24 la sesión lleva **8170s (2h 16m)** y sigue. Esto ya supera con mucho el
-idle-timeout de Fase 0 (~1200s), el "tope" de v1 (2400s) y el de v2 (1100s):
-- el **keepalive de 15 min funciona** — un ping real de `validar_cobertura`
-  resetea el reloj de expiración;
-- la hipótesis de **detección anti-bot** (por query repetido / actividad
-  acumulada) **no se sostiene** con 2h+ de pings sin un solo fallo — queda como
-  no confirmada en ningún sentido.
-**Falta el desenlace de la noche**: si aguanta hasta la mañana → no hay tope
-absoluto y la Fase 2 es solo el keepalive; si muere a las X horas → hay un tope
-de sesión de varias horas y la Fase 2 además necesita re-login programado.
-**Al retomar, mirar `medir_keepalive.log` primero.**
+**Resultado final de la corrida v3 (reporte recibido 2026-09-08):** arrancó
+2026-09-05 21:08 con la sesión a 70s de edad, ping fijo cada 900s, 49 coords
+rotativas. **37 pings consecutivos VIVA**; última confirmación a **33 370s
+(≈ 9 h 16 m)** de edad de sesión. Murió **limpia** a **34 270s (≈ 9 h 31 m)**:
+categoría `SESION_MUERTA`, patrón HTTP 200 + `text/html` (HTML de login),
+**confirmado de forma independiente** por `core.api.validar_cookie_sesion()`.
+Lecturas:
+- **keepalive de 15 min funciona** — un ping real de `validar_cobertura` resetea
+  el reloj de expiración; idle-timeout de Fase 0 **descartado** como causa de
+  esta muerte;
+- **detección anti-bot descartada** — 37 pings variados en 9 h, 0 fallos;
+- **"tope a 40 min" descartado** — era el 404 ambiguo de v1;
+- **sí existe un tope absoluto de sesión ≈ 9.5 h desde el login**, independiente
+  de la actividad → la Fase 2 lo asume (avisar al owner + reinyección de cookie
+  al inicio del turno).
+Un dato limpio basta aquí (a diferencia del 404 ambiguo de v1): patrón de muerte
+inequívoco, idle-timeout excluido por los pings activos, confirmación
+independiente. Una 2ª corrida solo afinaría el número exacto. **Investigación
+CERRADA.**
 
 ### Middleware Auth (Proxy)
 En `server.py`: valida requests antes de llegar a endpoints.

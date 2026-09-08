@@ -30,8 +30,12 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── TestingLog.md             # metodología TDD + bitácora de pruebas
 ├── README.md                 # documentación pública (español + inglés)
 ├── ResumenDelDia.md          # historial del día en curso (resumen de cierre)
+├── HistorialResumenes.md     # índice cronológico condensado de sesiones pasadas
 ├── Escalabilidad.md          # guía para futuros programadores (escalabilidad remota)
 ├── anotaciones.md            # glosario técnico para futuros devs
+├── .claude/
+│   ├── settings.json         # config versionada (hook PostToolUse de doc-sync)
+│   └── hooks/historial_sync.py  # recuerda sincronizar docs al rotar un resumen
 ├── tools/
 │   ├── captura.py            # herramienta Playwright para descubrir la API interna
 │   ├── probar_con_cookie.py  # diagnóstico end-to-end del core con cookie del navegador
@@ -202,6 +206,13 @@ sesión 2026-08-25, que quedó desfasado del código real), se sigue este proces
    **Regla de oro**: nunca marcar algo como completado o pendiente en la documentación
    sin haberlo comprobado en el código.
 
+**Recordatorio automático (hook)**: `.claude/hooks/historial_sync.py` (registrado en
+`.claude/settings.json` como hook `PostToolUse`) vigila `HistorialResumenes.md`.
+Cada vez que se le agregan entradas nuevas (`### YYYY-MM-DD`), inyecta un
+recordatorio para sincronizar `anotaciones.md` / `PlanesAprobados.md` / `AGENTS.md`;
+cada 3 entradas nuevas acumuladas, además recuerda revisar `README.md`. Es solo un
+aviso — no edita nada y no reemplaza la verificación contra el código.
+
 ## Archivos de documentación (mapa de conocimiento)
 Estos archivos son el punto de partida de cualquier persona (o IA) que retome el
 proyecto. Leerlos en este orden ANTES de tocar código:
@@ -256,8 +267,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 12. **Decisión de geodata del score** [COMPLETADO — verificado 2026-08-27]: **opción C (payload mínimo)** confirmada — el score respondió correctamente enviando solo coordenadas + documento, con todos los campos de geodata vacíos en el payload. No hace falta replicar la geoapi de Equifax ni pedir datos manuales.
 13. **`tools/probar_con_cookie.py`** [NUEVO, 2026-08-27]: herramienta de diagnóstico contra el servidor real (cookie de sesión capturada del navegador). Ya probó su valor detectando 2 bugs reales — conservar para futuras revalidaciones.
 14. **Medición de vida de PHPSESSID** [COMPLETADO — verificado 2026-09-04]: `tools/medir_sesion.py` ejecutado con 4 corridas. Las corridas limpias registraron VIVA a 1155s y MUERTA a 1350s; las corridas de 600s llegaron a 525s. La corrida anómala de 135-210s coincide con recarga/reuse de cookie y no se toma como idle-timeout.
-15. **Investigación de keepalive** [CASI CERRADA — corrida final en curso]: `tools/medir_keepalive.py` **v3** (2026-09-05) corrige los dos defectos que invalidaban v1/v2 — no medía la edad real de la sesión, y cualquier error cortaba la corrida como "muerte". Ahora mide `edad_sesion_s`, clasifica el fallo (`SESION_MUERTA`/`TRANSITORIO`/`OTRO`) y lo confirma con `validar_cookie_sesion()` antes de cortar. La corrida v3 (intervalo 900s, 49 coords rotativas) lleva **2h+ con la sesión viva** → el keepalive de 15 min funciona y las hipótesis de "tope absoluto a 40 min" y "anti-bot" quedan muy debilitadas. **Falta el desenlace de la corrida nocturna** (`medir_keepalive.log`).
-16. **Fase 2 — keepalive robusto** [DESBLOQUEO EN CURSO]: las 3 preguntas abiertas están casi resueltas — endpoint = `validar_cobertura` (confirmado como ping válido), rotar coords = sí (49 en `coords_prueba.txt`), intervalo = 900s en prueba. Fijar el número final y el diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de agentes) cuando termine la corrida v3.
+15. **Investigación de keepalive** [CERRADA — verificado 2026-09-08]: `tools/medir_keepalive.py` **v3** corrigió los dos defectos que invalidaban v1/v2 (no medía la edad real de la sesión; cualquier error cortaba la corrida como "muerte"). Corrida final (arrancó 2026-09-05 21:08, ping fijo 900s, 49 coords; reporte 2026-09-08): **37 pings consecutivos VIVA** hasta ≈ 9 h 16 m de edad de sesión; muerte **limpia** a ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Conclusiones: idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **existe un tope absoluto de sesión ≈ 9.5 h desde el login**. Detalle en `anotaciones.md` ("Dos límites de sesión" + "Revisión del método") y `PlanesAprobados.md` (Fase 0, act. 2026-09-08).
+16. **Fase 2 — keepalive robusto** [LISTA PARA IMPLEMENTAR]: endpoint = `validar_cobertura` (ping válido), rotar coords = sí (49 en `coords_prueba.txt`), **intervalo = 900s fijo**. Diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de agentes, contra `ProxyValidatorAPI._last_activity`). El keepalive NO evita el tope absoluto ≈ 9.5 h: la Fase 2 debe **avisar al owner** cuando la sesión muera igual (no reintentar en silencio) → el owner reinyecta la cookie al inicio del turno.
 17. **Fase 3 — diálogo de cookie en GUI** [PENDIENTE]: implementar después de cerrar la investigación de keepalive.
 18. **Arranque de los scripts de `tools/`** [COMPLETADO — verificado 2026-09-05, commit `82f9a4c`]: los 6 scripts que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
 19. **`tools/coords_prueba.txt`** [NUEVO, 2026-09-05, commit `26e7567`]: 49 coordenadas públicas (10 del usuario + 39 generadas dentro de su polígono) que `medir_keepalive.py` rota por ping para no repetir el mismo query.
@@ -456,12 +467,12 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - **Pendiente real**: cerrar la investigación del endpoint/intervalo de keepalive; luego implementar Fase 2, el diálogo de cookie de Fase 3, tests y documentación. El historial completo está en `ResumenDelDia.md` y debe rotarse a `HistorialResumenes.md` al comenzar otro día.
 
 ### Cierre de la sesión 2026-09-05 [CONTEXTO PARA LA SIGUIENTE]
-- **AL RETOMAR, LO PRIMERO: leer `medir_keepalive.log`.** Se dejó corriendo la
-  corrida v3 toda la noche (arrancó 21:09; a las 23:24 la sesión llevaba 8170s /
-  2h 16m viva, todos los pings VIVA). El desenlace decide el diseño final de la
-  Fase 2: si aguanta hasta la mañana → no hay tope absoluto, Fase 2 = solo
-  keepalive; si murió a las X horas → hay un tope de varias horas y la Fase 2
-  además necesita re-login programado.
+- ~~**AL RETOMAR, LO PRIMERO: leer `medir_keepalive.log`.**~~ **[RESUELTO
+  2026-09-08]** Se dejó corriendo la corrida v3 toda la noche (arrancó 21:08).
+  Desenlace: 37 pings VIVA hasta ≈ 9 h 16 m, muerte limpia a ≈ 9 h 31 m → **hay
+  un tope absoluto de sesión ≈ 9.5 h**, pero el re-login programado sigue siendo
+  inviable (2FA), así que la Fase 2 avisa al owner y este reinyecta la cookie al
+  inicio del turno. Ver `### Cierre de la sesión 2026-09-08`.
 - **5 commits, todos en `origin/main`**: `5506ed4` (visibilidad de fallos del
   proxy + caché `session_alive` + sync `docs/arquitectura.md` y árbol `tools/`),
   `44d1132` (rotación 2026-09-04 → historial), `3925dbf` (`medir_keepalive.py`
@@ -484,3 +495,31 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - **Pendiente real**: leer el log → fijar `keepalive_interval_seconds` y
   confirmar el diseño "latido perezoso" → implementar Fase 2 → Fase 3 (diálogo
   de cookie en GUI) → Fase 4 (`tests/test_proxy.py`) → Fase 5 (docs).
+
+### Cierre de la sesión 2026-09-08 [CONTEXTO PARA LA SIGUIENTE]
+- **Inicio**: repo local 6 commits por detrás de `origin/main` (`1dcecc6` →
+  `3c1baa5`); `git pull --ff-only` limpio. Esos 6 commits son de la sesión
+  2026-09-05 hecha en la otra máquina.
+- **Investigación de keepalive CERRADA** — el "AL RETOMAR, LO PRIMERO: leer
+  `medir_keepalive.log`" del cierre 2026-09-05 queda resuelto. Reporte final de
+  la corrida v3 (arrancó 2026-09-05 21:08, ping fijo 900s, 49 coords): **37 pings
+  consecutivos VIVA** hasta ≈ 9 h 16 m de edad de sesión; muerte **limpia** a
+  ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Idle-timeout, anti-bot y
+  "tope a 40 min" **descartados**; **tope absoluto de sesión ≈ 9.5 h desde el
+  login** confirmado. `keepalive_interval_seconds = 900` fijado; Fase 2 lista.
+- **Documentación sincronizada** con la investigación cerrada: `PlanesAprobados.md`
+  (addendum, Fase 0 act. 2026-09-08, Fase 2, cola activa), `anotaciones.md`
+  ("Dos límites de sesión" + "Revisión del método", ambos con el desenlace),
+  `AGENTS.md` (ítems 15–16 + este cierre). `README.md` no se tocó (la
+  investigación es interna; la gestión de sesión que describe sigue vigente).
+- **Nuevo: hook de auto-actualización de docs** — `.claude/settings.json` +
+  `.claude/hooks/historial_sync.py` (hook `PostToolUse`). Al agregar entradas a
+  `HistorialResumenes.md` recuerda sincronizar `anotaciones.md` /
+  `PlanesAprobados.md` / `AGENTS.md`; cada 3 entradas nuevas, también `README.md`.
+  Estado local en `.claude/hooks/historial_sync_state.local.json` (gitignored).
+  Ver "Regla de auto-actualización de la documentación".
+- **Pendiente real**: implementar Fase 2 (keepalive "latido perezoso" + aviso al
+  owner por el tope ≈ 9.5 h) → Fase 3 (diálogo de cookie en GUI) → Fase 4
+  (`tests/test_proxy.py`) → Fase 5 (docs). Deuda vieja sin cerrar:
+  `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` nunca se crearon;
+  `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.

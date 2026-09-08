@@ -39,3 +39,6 @@ Desktop.ini
 # Documentación privada interna
 Contexto_Proyecto_JSConnect.docx
 *.docx
+
+# Estado local del hook de sincronizacion de documentacion (.claude/hooks/)
+.claude/hooks/*.local.json
