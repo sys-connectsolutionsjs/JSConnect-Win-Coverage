@@ -156,6 +156,27 @@ def _main_manual() -> int:
     return 0
 
 
+def _main_preview(args: argparse.Namespace) -> int:
+    """Abre la ventana de captura y muestra si funciona, SIN guardar nada ni
+    tocar la config del proxy. Para inspeccionar la UX."""
+    try:
+        php_sessid = capturar_php_sessid_asistido(
+            timeout_min=args.timeout, fresh=args.fresh
+        )
+    except LoginAsistidoError as e:
+        _avisar(False, _TITULO, str(e))
+        return 1
+
+    print(php_sessid)  # visible solo si se corre desde una terminal
+    _avisar(
+        True,
+        _TITULO,
+        f"Sesion capturada correctamente ({len(php_sessid)} caracteres). "
+        "Modo --preview: no se guardo nada.",
+    )
+    return 0
+
+
 def _main_asistido(args: argparse.Namespace) -> int:
     try:
         php_sessid = capturar_php_sessid_asistido(
@@ -196,6 +217,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Asistido: borra el perfil del navegador antes de abrirlo.",
     )
     parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Abre la ventana de captura para probarla, SIN guardar nada.",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         default=10,
@@ -203,6 +229,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.preview:
+        return _main_preview(args)
     if args.manual:
         return _main_manual()
     return _main_asistido(args)

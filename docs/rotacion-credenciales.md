@@ -56,6 +56,15 @@ Pide pegar la `PHPSESSID` a mano (F12 → Application → Cookies). Mismo resto 
 flujo (validar → keyring → verificar). `--fresh` borra el perfil del navegador si
 el asistido se atasca.
 
+### Probar la ventana sin renovar nada: `--preview`
+
+```powershell
+python -m validator_app.proxy.rotate_creds --preview
+```
+Abre la ventana de captura y muestra si funciona (imprime la `PHPSESSID` en la
+terminal, cuadro "no se guardo nada"). **No** toca el keyring ni necesita
+`config.yaml`. Útil para inspeccionar la UX en una máquina de desarrollo.
+
 ---
 
 ## Procedimiento Futuro (v2 — Remoto via VPN)

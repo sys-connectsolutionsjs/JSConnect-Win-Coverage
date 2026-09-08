@@ -47,6 +47,9 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
   `capturar_php_sessid_asistido(timeout_min=0)` abre y cierra Chromium sin error y
   lanza `LoginAsistidoError` (esperado sin completar login). `.lnk` de prueba
   creado OK con el one-liner de PowerShell.
+- [Añadido] `rotate_creds --preview`: 3 tests (no guarda ni verifica, gana sobre
+  `--manual`, fallo de captura avisa). 74 tests, ruff limpio. Abre la ventana sin
+  tocar keyring ni `config.yaml` — para probar la UX en desarrollo.
 
 ### Sesión 2026-09-08 — Fase 2A: keepalive del proxy
 - [TDD rojo] `tests/test_proxy.py` NUEVO (abre el archivo de la Fase 4). 12 tests

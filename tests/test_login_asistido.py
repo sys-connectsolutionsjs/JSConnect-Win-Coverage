@@ -138,3 +138,49 @@ def test_avisar_sin_tkinter_no_revienta(capsys):
     with mock.patch.dict("sys.modules", {"tkinter": None}):
         rotate_creds._avisar(True, "t", "m")  # no debe lanzar
     assert "t" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------
+# --preview: ver la ventana sin guardar ni tocar config del proxy
+# --------------------------------------------------------------------------
+
+def test_preview_no_guarda_ni_verifica():
+    with (
+        mock.patch.object(rotate_creds, "capturar_php_sessid_asistido", return_value="cookie-x"),
+        mock.patch.object(rotate_creds, "save_session_to_keyring") as save,
+        mock.patch.object(rotate_creds, "_verificar_proxy") as verif,
+        mock.patch.object(rotate_creds, "_avisar") as avisar,
+    ):
+        rc = rotate_creds.main(["--preview"])
+    assert rc == 0
+    save.assert_not_called()
+    verif.assert_not_called()
+    assert avisar.call_args[0][0] is True
+
+
+def test_preview_gana_sobre_manual():
+    with (
+        mock.patch.object(rotate_creds, "capturar_php_sessid_asistido", return_value="c") as cap,
+        mock.patch.object(rotate_creds, "extract_php_sessid_from_input") as inp,
+        mock.patch.object(rotate_creds, "save_session_to_keyring"),
+        mock.patch.object(rotate_creds, "_avisar"),
+    ):
+        rotate_creds.main(["--preview", "--manual"])
+    cap.assert_called_once()
+    inp.assert_not_called()
+
+
+def test_preview_fallo_captura_avisa():
+    with (
+        mock.patch.object(
+            rotate_creds,
+            "capturar_php_sessid_asistido",
+            side_effect=login_asistido.LoginAsistidoError("no se capturo"),
+        ),
+        mock.patch.object(rotate_creds, "save_session_to_keyring") as save,
+        mock.patch.object(rotate_creds, "_avisar") as avisar,
+    ):
+        rc = rotate_creds.main(["--preview"])
+    assert rc == 1
+    save.assert_not_called()
+    assert avisar.call_args[0][0] is False

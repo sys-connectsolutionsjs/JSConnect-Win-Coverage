@@ -111,9 +111,10 @@ Sin consola, sin F12. El `.lnk` lo crea `install_service.bat`; corre
 
 ### Fallback manual (si Playwright se rompe)
 ```powershell
-python -m validator_app.proxy.rotate_creds --manual   # pide pegar PHPSESSID (F12)
-python -m validator_app.proxy.rotate_creds --fresh     # asistido, perfil limpio
-curl http://localhost:8080/admin/status               # verificar: logged_in: true
+python -m validator_app.proxy.rotate_creds --manual    # pide pegar PHPSESSID (F12)
+python -m validator_app.proxy.rotate_creds --fresh      # asistido, perfil limpio
+python -m validator_app.proxy.rotate_creds --preview    # probar la ventana, sin guardar nada
+curl http://localhost:8080/admin/status                # verificar: logged_in: true
 ```
 
 ---

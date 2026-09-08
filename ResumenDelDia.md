@@ -115,7 +115,8 @@ y no cambia el diseño de la Fase 2.
 - **`rotate_creds.py` → v2**: sin argumentos = asistido, resultado por
   `tkinter.messagebox` ("✓ Sesión renovada"), corre bajo `pythonw.exe` (sin
   consola). `--manual` = el copiar/pegar de antes (fallback si Playwright se
-  rompe). `--fresh` borra el perfil del navegador.
+  rompe). `--fresh` borra el perfil del navegador. `--preview` (añadido después)
+  abre la ventana para inspeccionarla sin guardar nada ni necesitar `config.yaml`.
 - **`install_service.bat`**: paso nuevo `python -m playwright install chromium` +
   paso nuevo que crea el `.lnk` **"Renovar sesion WinForce"** en el Escritorio
   (PowerShell/WScript.Shell, target `pythonw.exe`). Renumerados los pasos a `/10`.
