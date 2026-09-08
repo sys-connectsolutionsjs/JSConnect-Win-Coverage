@@ -30,7 +30,7 @@ echo [INFO] Directorio base: %BASE_DIR%
 
 REM Verificar Python
 echo.
-echo [1/10] Verificando Python...
+echo [1/11] Verificando Python...
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
     echo [ERROR] Python no encontrado en PATH.
@@ -56,7 +56,7 @@ echo [OK] Python %PY_VER%.%PY_MINOR% detectado.
 
 REM Instalar dependencias
 echo.
-echo [2/10] Instalando dependencias (requirements-proxy.txt)...
+echo [2/11] Instalando dependencias (requirements-proxy.txt)...
 cd /d "%BASE_DIR%"
 if not exist "requirements-proxy.txt" (
     echo [ERROR] No se encuentra requirements-proxy.txt en %BASE_DIR%
@@ -73,7 +73,7 @@ echo [OK] Dependencias instaladas.
 
 REM Descargar el navegador para el login asistido (rotate_creds sin --manual)
 echo.
-echo [3/10] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
+echo [3/11] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
 python -m playwright install chromium
 if %errorLevel% neq 0 (
     echo [WARN] No se pudo descargar Chromium. El icono "Renovar sesion WinForce"
@@ -83,7 +83,7 @@ if %errorLevel% neq 0 (
 
 REM Descargar winsw.exe
 echo.
-echo [4/10] Descargando winsw.exe (Windows Service Wrapper)...
+echo [4/11] Descargando winsw.exe (Windows Service Wrapper)...
 set "WINSW_URL=https://github.com/winsw/winsw/releases/download/v3.0.0/WinSW.NET4.exe"
 set "WINSW_PATH=%BASE_DIR%\winsw.exe"
 powershell -Command "Invoke-WebRequest -Uri '%WINSW_URL%' -OutFile '%WINSW_PATH%' -UseBasicParsing" 2>nul
@@ -103,7 +103,7 @@ echo [OK] winsw.exe descargado en %WINSW_PATH%
 
 REM Generar tokens seguros
 echo.
-echo [5/10] Generando tokens de seguridad...
+echo [5/11] Generando tokens de seguridad...
 python -c "
 import secrets, sys
 proxy_token = secrets.token_hex(32)
@@ -119,7 +119,7 @@ echo [OK] Tokens generados (64 chars hex cada uno).
 
 REM Verificar/crear config.yaml
 echo.
-echo [6/10] Configurando config.yaml...
+echo [6/11] Configurando config.yaml...
 set "CONFIG_YAML=%BASE_DIR%\config.yaml"
 if exist "%CONFIG_YAML%" (
     echo [INFO] config.yaml ya existe. Se mantendra el existente.
@@ -177,9 +177,16 @@ if exist "%CONFIG_YAML%" (
     echo [OK] config.yaml creado en %CONFIG_YAML%
 )
 
+REM Instalar la extension de Chrome "Renovar sesion WinForce" (force-install por politica)
+echo.
+echo [7/11] Instalando la extension de Chrome "Renovar sesion WinForce"...
+cd /d "%BASE_DIR%\..\.."
+python -m validator_app.proxy._instalar_extension
+cd /d "%BASE_DIR%"
+
 REM Generar winsw.xml con paths absolutos
 echo.
-echo [7/10] Generando winsw.xml con paths absolutos...
+echo [8/11] Generando winsw.xml con paths absolutos...
 set "PYTHON_EXE=%BASE_DIR%\..\..\python.exe"
 if not exist "%PYTHON_EXE%" (
     where python >nul 2>&1
@@ -209,7 +216,7 @@ echo [OK] winsw.xml generado.
 
 REM Instalar servicio
 echo.
-echo [8/10] Instalando servicio Windows...
+echo [9/11] Instalando servicio Windows...
 cd /d "%BASE_DIR%"
 "%WINSW_PATH%" install
 if %errorLevel% neq 0 (
@@ -221,7 +228,7 @@ echo [OK] Servicio instalado.
 
 REM Iniciar servicio
 echo.
-echo [9/10] Iniciando servicio...
+echo [10/11] Iniciando servicio...
 "%WINSW_PATH%" start
 if %errorLevel% neq 0 (
     echo [ERROR] Fallo al iniciar el servicio. Revisa logs en Visor de Eventos -> JSWinProxy
@@ -256,7 +263,7 @@ del health_check.tmp 2>nul
 
 REM Crear el acceso directo "Renovar sesion WinForce" en el Escritorio
 echo.
-echo [10/10] Creando el icono "Renovar sesion WinForce" en el Escritorio...
+echo [11/11] Creando el icono "Renovar sesion WinForce" en el Escritorio...
 for /f "delims=" %%p in ('where pythonw.exe 2^>nul') do set "PYTHONW_EXE=%%p"
 if not defined PYTHONW_EXE set "PYTHONW_EXE=pythonw.exe"
 set "REPO_ROOT=%BASE_DIR%\..\.."
@@ -304,8 +311,10 @@ echo   Ver logs:       Visor de Eventos -> Applications and Services Logs -> JSW
 echo   Detener:        %BASE_DIR%\winsw.exe stop
 echo   Reiniciar:      %BASE_DIR%\winsw.exe restart
 echo   Desinstalar:    %BASE_DIR%\uninstall_service.bat
-echo   Renovar sesion: doble clic en "Renovar sesion WinForce" (Escritorio)
-echo                   o: python -m validator_app.proxy.rotate_creds [--manual]
+echo   Renovar sesion: la EXTENSION de Chrome pone un badge rojo y el owner
+echo                   hace 1 clic (reabre Chrome tras instalar para que aparezca).
+echo                   Fallback: icono "Renovar sesion WinForce" del Escritorio,
+echo                   o python -m validator_app.proxy.rotate_creds [--manual]
 echo.
 echo CONFIGURACION AGENTES (en cada una de las 20 maquinas):
 echo   1. Ejecutar JSConnect-Win-Coverage.exe

@@ -48,10 +48,18 @@ if %errorLevel% neq 0 (
     echo [OK] Servicio desinstalado.
 )
 
+echo [INFO] Quitando la extension de Chrome "Renovar sesion WinForce"...
+cd /d "%BASE_DIR%\..\.."
+python -m validator_app.proxy._instalar_extension --uninstall 2>nul
+cd /d "%BASE_DIR%"
+
 echo [INFO] Limpiando archivos generados...
 del "%BASE_DIR%\winsw.exe" 2>nul
 del "%BASE_DIR%\winsw.xml" 2>nul
-echo [OK] winsw.exe y winsw.xml eliminados.
+del "%BASE_DIR%\extension.crx" 2>nul
+del "%BASE_DIR%\updates.xml" 2>nul
+rmdir /s /q "%BASE_DIR%\.extension_build" 2>nul
+echo [OK] winsw.exe, winsw.xml y la extension eliminados.
 
 echo.
 echo =====================================================================

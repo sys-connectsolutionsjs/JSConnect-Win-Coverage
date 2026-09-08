@@ -125,6 +125,34 @@ y no cambia el diseño de la Fase 2.
   contraseña una vez y luego solo aprueba el 2FA. Fallback a Chromium si no hay
   Chrome. (Se descartó un flag `--extension` para cargar Bitwarden — el gestor de
   Chrome basta.) 76 tests, ruff limpio.
+
+#### Fase 2.5d — Extensión de Chrome (renovar con un clic desde el navegador del owner) — HECHO
+- El owner **no quiere** ventana aparte ni re-login: quiere renovar desde su
+  Chrome de siempre. Adjuntarse a ese Chrome con Playwright **no se puede** (Chrome
+  136+ bloquea `--remote-debugging-port` en el perfil por defecto). → **extensión**.
+- **`validator_app/proxy/extension/`** (NUEVO): `manifest.json` MV3 + `background.js`
+  + `icon.png`. Badge rojo cuando la sesión muere (poll `GET /local/estado` cada
+  5 min); clic → `chrome.cookies.get({url: WINFORCE, name: "PHPSESSID"})` (lee
+  HttpOnly) → `POST 127.0.0.1:<puerto>/local/renovar` → notificación.
+- **`server.py`**: `_es_local` (dependency 127.0.0.1) + `POST /local/renovar`
+  (reusa `set_session_cookie`) + `GET /local/estado` (reusa `get_status`). Sin
+  admin key — petición local + el proxy valida la cookie igual.
+- **`_instalar_extension.py`** (NUEVO): copia la plantilla → `.extension_build/`,
+  sustituye el puerto, empaqueta `.crx` firmado (`chrome --pack-extension`,
+  `extension.pem` estable), escribe `updates.xml` y la política
+  `HKLM\...\Chrome\ExtensionSettings\<id>` = `force_installed` (winreg).
+  `--uninstall` la borra. `install_service.bat` lo llama en el paso `[7/11]`;
+  `uninstall_service.bat` lo llama con `--uninstall`.
+- **`.gitignore`**: `.extension_build/`, `extension.pem`, `extension.crx`,
+  `updates.xml`.
+- **Tests**: `tests/test_proxy.py` estrena **FastAPI `TestClient`** (5 tests de
+  `/local/*`: 127.0.0.1 OK, IP externa 403, cookie inválida 401, `/local/estado`);
+  `tests/test_instalar_extension.py` NUEVO (`_crx_id` contra la definición,
+  `_render_updates_xml`). **84 tests, ruff limpio.**
+- **Smoke real**: `_instalar_extension` empaquetó el `.crx` (2741 B) y calculó un
+  id de extensión estable (`oclimnkhjeeamemdkdkfdliadmkdafkl`); el `updates.xml`
+  quedó bien; la escritura de HKLM avisó "sin permisos" (correcto sin admin).
+- El login asistido (`.lnk` del Escritorio) y `--manual` pasan a **fallback**.
 - **`install_service.bat`**: paso nuevo `python -m playwright install chromium` +
   paso nuevo que crea el `.lnk` **"Renovar sesion WinForce"** en el Escritorio
   (PowerShell/WScript.Shell, target `pythonw.exe`). Renumerados los pasos a `/10`.

@@ -28,6 +28,26 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Fase 2.5d: extensión de Chrome
+- [TDD rojo] `tests/test_proxy.py` estrena **FastAPI `TestClient`** (adelanta parte
+  de la Fase 4): `TestClient(server.app, client=("127.0.0.1", N))` para controlar
+  `request.client.host`; `get_proxy_api` monkeypatcheado a un `Mock`.
+  - `POST /local/renovar` desde `127.0.0.1` → 200, `set_session_cookie` llamado.
+  - `POST /local/renovar` desde `10.0.0.9` → 403 (guardia `_es_local`).
+  - `set_session_cookie` lanza `LoginError` → 401 (por el `exception_handler` que
+    ya existe).
+  - `GET /local/estado` → `{session_alive, session_dead_since}` de `get_status`.
+- [TDD rojo] `tests/test_instalar_extension.py` NUEVO: `_crx_id` contra su
+  definición (sha256 → 32 hex → 0-f a a-p), determinismo, y que cambie con la
+  clave; `_render_updates_xml` contiene id/codebase/version.
+- [TDD verde] `server.py` (`_es_local` + `/local/*`), `extension/` (manifest MV3 +
+  `background.js` + `icon.png` generado con Python), `_instalar_extension.py`.
+- [Verificación] 84 tests, ruff limpio. **Smoke real**: `_instalar_extension`
+  empaquetó `extension.crx` (2741 B) con `chrome --pack-extension`, generó
+  `extension.pem` y calculó un id estable en dos corridas
+  (`oclimnkhjeeamemdkdkfdliadmkdafkl`); `updates.xml` correcto; el `winreg` a HKLM
+  avisó "sin permisos" sin abortar (correcto sin admin).
+
 ### Sesión 2026-09-08 — Fase 2.5: login asistido
 - [TDD rojo] `tests/test_login_asistido.py` NUEVO (10 tests). Playwright
   interactivo no se testea en CI → se cubre la lógica pura:

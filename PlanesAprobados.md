@@ -17,10 +17,11 @@ Fase 0 (medir vida de sesión) COMPLETA. **Investigación de keepalive CERRADA**
 funciona (37 pings VIVA hasta ≈ 9 h 16 m de edad de sesión) y **existe un tope
 absoluto de sesión ≈ 9.5 h desde el login** (muerte limpia a ≈ 9 h 31 m,
 confirmada por `validar_cookie_sesion()`); idle-timeout, anti-bot acumulativo y
-"tope a 40 min" quedan **descartados**. **Fases 2A (keepalive del proxy) y 2.5
-(login asistido) COMPLETADAS 2026-09-08** — el proxy mantiene la sesión viva y el
-owner la renueva con doble clic (sin F12). 22 tests nuevos (`tests/test_proxy.py`
-+ `tests/test_login_asistido.py`), 71 pasando, ruff limpio. Pendiente: Fases 3–5.
+"tope a 40 min" quedan **descartados**. **Fases 2A (keepalive) y 2.5 (renovación de
+sesión) COMPLETADAS 2026-09-08** — el proxy mantiene la sesión viva y el owner la
+renueva con **un clic en una extensión de su Chrome de siempre** (fallbacks:
+ventana asistida `.lnk` / `--manual`). ~35 tests nuevos, 84 pasando, ruff limpio.
+Pendiente: Fases 3–5.
 
 - Fase 0 (captura de la API): COMPLETA.
 - Fase 1 (núcleo core): COMPLETA — 35 tests, ruff limpio.
@@ -174,15 +175,23 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   gestiona la frescura). **12 tests nuevos en `tests/test_proxy.py`** (abre el
   archivo de la Fase 4); 61 pasando, ruff limpio. Validado end-to-end contra
   WinForce real (detectó una sesión muerta y disparó el aviso).
-- **Fase 2.5 (B) — login asistido. [COMPLETADA 2026-09-08]** `login_asistido.py`
-  (Playwright captura la `PHPSESSID` de `context.cookies()` — ve las HttpOnly —
-  con perfil persistente para el SSO). `rotate_creds.py` v2: sin args = asistido +
-  `tkinter.messagebox`; `--manual` = copiar/pegar (fallback sin Playwright);
-  `--fresh` limpia el perfil. `install_service.bat` descarga Chromium y crea el
-  `.lnk` "Renovar sesion WinForce" en el Escritorio (`pythonw.exe`, sin consola).
-  `playwright>=1.45` → `requirements-proxy.txt`; `.browser_profile/` gitignored.
-  10 tests en `tests/test_login_asistido.py`. El owner renueva la sesión con doble
-  clic, sin F12.
+- **Fase 2.5 (B) — renovación de sesión sin F12. [COMPLETADA 2026-09-08]**
+  - **2.5d (vía principal) — extensión de Chrome**: MV3 en el navegador cotidiano
+    del owner; badge rojo cuando la sesión muere → 1 clic → `chrome.cookies` (lee
+    HttpOnly) → `POST 127.0.0.1/local/renovar`. Endpoints `/local/*` en `server.py`
+    (solo localhost, sin admin key). `_instalar_extension.py` empaqueta el `.crx` y
+    la fuerza-instala por política (`ExtensionSettings\<id>` = `force_installed`).
+    Adjuntarse al Chrome del owner con Playwright NO se puede (Chrome 136+ bloquea
+    el debug port en el perfil por defecto).
+  - **2.5 (fallback) — login asistido**: `login_asistido.py` (Playwright abre el
+    Chrome instalado, perfil dedicado; captura la `PHPSESSID` de `context.cookies()`).
+    `rotate_creds.py` v2: sin args = asistido + `messagebox`; `--manual` =
+    copiar/pegar; `--fresh` / `--preview`. `.lnk` en el Escritorio.
+  - `playwright>=1.45` → `requirements-proxy.txt`. Gitignored: `.browser_profile/`,
+    `.extension_build/`, `extension.pem/.crx`, `updates.xml`.
+  - **20 tests** (`tests/test_login_asistido.py` + `tests/test_proxy.py`
+    `/local/*` con FastAPI TestClient + `tests/test_instalar_extension.py`).
+    84 pasando, ruff limpio.
 - **Fase 3 (D) — cookie en la GUI (arregla standalone).** `validator_app/gui/session_config.py`
   (NUEVO) + diálogo `⚙️ Configurar Sesión` en `main_window.py`; la rama standalone deja de
   usar `api.obtener_cliente()` y usa un `ValidatorAPI` con la cookie inyectada.

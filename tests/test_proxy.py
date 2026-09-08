@@ -1,14 +1,17 @@
 """Tests del proxy local (validator_app.proxy.server).
 
-Cubre el keepalive "latido perezoso" de la Fase 2A y el fix del guard idle del
-cliente-core. Son unit tests sobre `ProxyValidatorAPI` con `core.api`
-monkeypatcheado (sin red, sin FastAPI TestClient — eso es Fase 4).
+Cubre el keepalive "latido perezoso" de la Fase 2A, el fix del guard idle del
+cliente-core, y los endpoints `/local/*` de la extension de Chrome (Fase 2.5d,
+con FastAPI TestClient — adelanta parte de la Fase 4).
 """
 
 import asyncio
 import time
 import types
 from unittest import mock
+
+import pytest
+from fastapi.testclient import TestClient
 
 from validator_app.core import api as core_api
 from validator_app.proxy import server
@@ -230,3 +233,55 @@ def test_keepalive_loop_sobrevive_a_un_tick_que_lanza():
 
     asyncio.run(run())
     assert pa._keepalive_tick.call_count == 2  # siguió pese al error del 1º
+
+
+# --------------------------------------------------------------------------
+# Endpoints /local/* de la extensión de Chrome (Fase 2.5d)
+# --------------------------------------------------------------------------
+
+@pytest.fixture
+def client_local(monkeypatch):
+    """TestClient con IP de cliente 127.0.0.1 y get_proxy_api mockeado."""
+    fake = mock.Mock()
+    monkeypatch.setattr(server, "get_proxy_api", lambda: fake)
+    return TestClient(server.app, client=("127.0.0.1", 51000)), fake
+
+
+def test_local_renovar_desde_localhost(client_local):
+    client, fake = client_local
+    r = client.post("/local/renovar", json={"php_sessid": "cookie-nav"})
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    fake.set_session_cookie.assert_called_once_with("cookie-nav")
+
+
+def test_local_renovar_rechaza_ip_externa(monkeypatch):
+    fake = mock.Mock()
+    monkeypatch.setattr(server, "get_proxy_api", lambda: fake)
+    client = TestClient(server.app, client=("10.0.0.9", 1))
+    r = client.post("/local/renovar", json={"php_sessid": "x"})
+    assert r.status_code == 403
+    fake.set_session_cookie.assert_not_called()
+
+
+def test_local_renovar_cookie_invalida_401(client_local):
+    client, fake = client_local
+    fake.set_session_cookie.side_effect = core_api.LoginError("sesion muerta", "ERR_LOGIN_SESSION")
+    r = client.post("/local/renovar", json={"php_sessid": "x"})
+    assert r.status_code == 401
+
+
+def test_local_estado(client_local):
+    client, fake = client_local
+    fake.get_status.return_value = {
+        "session_alive": True,
+        "keepalive": {"session_dead_since": None},
+    }
+    r = client.get("/local/estado")
+    assert r.status_code == 200
+    assert r.json() == {"session_alive": True, "session_dead_since": None}
+
+
+def test_local_estado_rechaza_ip_externa():
+    client = TestClient(server.app, client=("192.168.1.5", 1))
+    assert client.get("/local/estado").status_code == 403

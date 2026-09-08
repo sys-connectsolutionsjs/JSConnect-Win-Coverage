@@ -81,9 +81,11 @@ JS-Win-Coverage/              (raíz del proyecto)
         ├── winsw.xml         # config servicio Windows
         ├── install_service.bat   # instala servicio (winsw, tokens, Chromium, icono Escritorio)
         ├── uninstall_service.bat # desinstala servicio
-        ├── rotate_creds.py   # CLI owner: renovar sesión WinForce — asistido (default) / --manual
+        ├── rotate_creds.py   # CLI renovar sesión (fallback): asistido / --manual / --preview
         ├── login_asistido.py # captura la PHPSESSID con navegador (Playwright, HttpOnly)
-        └── .browser_profile/ # GITIGNORED: perfil persistente del login asistido
+        ├── _instalar_extension.py  # empaqueta + fuerza-instala la extensión de Chrome
+        ├── extension/        # extensión MV3 "Renovar sesion WinForce" (vía principal de renovación)
+        └── .browser_profile/ · .extension_build/ · *.pem · *.crx · updates.xml  # GITIGNORED
 ```
 
 **Informes diarios:** las reglas de creación y la estética de la plantilla están
@@ -290,6 +292,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
     - Creados `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` (recuperados
       verbatim de git). Sin cambios de código; 49 tests / ruff siguen en verde.
 22. **Fase 2.5 — login asistido** [COMPLETADO — 2026-09-08]: `validator_app/proxy/login_asistido.py` NUEVO — Playwright abre Chromium (perfil persistente `.browser_profile/`, gitignored), el owner inicia sesión normalmente y el script captura la `PHPSESSID` de `context.cookies()` (ve las HttpOnly), la valida con `validar_cookie_sesion()` y la guarda. `rotate_creds.py` pasa a "v2": sin args = asistido + `tkinter.messagebox` de resultado; `--manual` = el copiar/pegar de antes (fallback sin Playwright); `--fresh` limpia el perfil; `--preview` abre la ventana para probarla sin guardar nada ni necesitar `config.yaml`. El navegador es el **Google Chrome instalado** (`channel="chrome"`, sin la infobar de automatización → el gestor de contraseñas autocompleta; fallback a Chromium si no hay Chrome). `install_service.bat` descarga Chromium (`playwright install chromium`) y crea el `.lnk` "Renovar sesion WinForce" en el Escritorio (`pythonw.exe`, sin consola). `playwright>=1.45` → `requirements-proxy.txt`. **10 tests en `tests/test_login_asistido.py`** (NUEVO), 71 pasando, ruff limpio. Smoke real: Chromium abre/cierra limpio y lanza el error esperado sin login.
+23. **Fase 2.5d — extensión de Chrome (renovar con un clic)** [COMPLETADO — 2026-09-08]: la **vía principal** de renovación pasa a ser una extensión MV3 (`validator_app/proxy/extension/`) en el Chrome cotidiano del owner — adjuntarse a ese Chrome con Playwright NO se puede (Chrome 136+ bloquea `--remote-debugging-port` en el perfil por defecto). La extensión: badge rojo cuando la sesión muere → 1 clic → `chrome.cookies.get` (lee HttpOnly) → `POST 127.0.0.1:<puerto>/local/renovar`. Endpoints `/local/renovar` y `/local/estado` en `server.py` (solo `127.0.0.1`, sin admin key; reusan `set_session_cookie` / `get_status`). `_instalar_extension.py` (NUEVO, lo llama `install_service.bat`) empaqueta un `.crx` firmado, escribe `updates.xml` y la política `ExtensionSettings\<id>` = `force_installed` (winreg). `uninstall_service.bat --uninstall` borra la política. **10 tests nuevos** (`tests/test_proxy.py` con FastAPI TestClient — adelanta parte de la Fase 4 — + `tests/test_instalar_extension.py`), 84 pasando, ruff limpio. Smoke real: `_instalar_extension` empaqueta el crx y computa un id estable (`oclimnkhjeeamemdkdkfdliadmkdafkl`). El login asistido (`.lnk` del Escritorio) y `--manual` quedan de fallback.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -554,10 +557,19 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   `playwright` → `requirements-proxy.txt`; `.browser_profile/` gitignored.
   `tests/test_login_asistido.py` NUEVO (10 tests). Ver ítem 22. Ahora el owner
   renueva la sesión con **doble clic**, sin F12.
-- **71 tests, ruff limpio** al cierre de esta parte.
+- **Fase 2.5d — extensión de Chrome (5ª parte)**: la renovación pasa a ser un clic
+  en el navegador cotidiano del owner (badge rojo → clic → cookie a
+  `/local/renovar`). `_instalar_extension.py` la fuerza-instala por política.
+  `tests/test_proxy.py` estrena FastAPI `TestClient` (adelanta parte de la Fase 4).
+  Ver ítem 23. Login asistido + `--manual` quedan de fallback.
+- **84 tests, ruff limpio** al cierre de esta parte.
 - **Pendiente real**: Fase 3 (diálogo de cookie en la GUI del agente) → Fase 4
-  (ampliar `tests/test_proxy.py` con FastAPI TestClient) → Fase 5 (barrido final de
-  docs). Deuda vieja restante: decidir `actualizar_score_cliente` / `newsearch.php`.
+  (completar `tests/test_proxy.py`: endpoints `/api/*` + auth + IP) → Fase 5
+  (barrido final de docs). Deuda vieja restante: decidir `actualizar_score_cliente`
+  / `newsearch.php`.
+- **Aviso**: durante la sesión, al limpiar un Chrome zombie de una prueba se hizo
+  `taskkill /IM chrome.exe` (cerró todo Chrome de la máquina). No repetir — matar
+  solo el proceso hijo del perfil de prueba.
 - **Observación (no bloqueante)**: `config.yaml` **no se está leyendo** —
   pydantic-settings avisa "yaml_file config key ignored, no YamlConfigSettingsSource".
   El proxy hoy funciona por defaults + env vars (`PROXY_*`). Arreglar cuando se

@@ -14,22 +14,38 @@
 
 ---
 
-## Procedimiento — Login Asistido (por defecto)
+## Procedimiento — Extensión de Chrome (vía principal)
 
 > Renovación diaria de la sesión (por el tope absoluto de sesión ≈ 9.5 h). El
-> owner no necesita saber nada técnico.
+> owner no necesita saber nada técnico y **no sale de su navegador de siempre**.
+
+`install_service.bat` fuerza-instala en el Chrome de la PC del proxy la extensión
+**"Renovar sesion WinForce"** (política de Chrome — el owner no puede quitarla por
+error, no hace falta modo desarrollador). Tras instalar, **hay que reabrir Chrome**
+una vez para que aparezca.
 
 ### Para el owner
 
-1. En el Escritorio de la PC del proxy, **doble clic en "Renovar sesion WinForce"**.
-2. Se abre una ventana de Chrome en la página de login de WinForce.
-3. **Inicia sesión como siempre.** El primer login de cada jornada incluye el
-   paso de Microsoft (2FA); el resto del día se salta solo.
-4. Cuando la barra superior de la ventana se pone **verde** ("Sesión capturada,
-   ya puedes cerrar esta ventana"), ciérrala.
-5. Aparece un cuadro **"✓ Sesión renovada correctamente"**. Listo.
+1. Trabaja normal en Chrome, con la sesión de WinForce abierta como siempre.
+2. Cuando el proxy detecta que la sesión murió, el **icono de la extensión** (barra
+   de Chrome, arriba a la derecha) muestra un **badge rojo `!`**.
+3. **Un clic en el icono.** La extensión lee la sesión de WinForce del propio
+   navegador y la manda al proxy.
+4. Sale una notificación **"Sesión del proxy renovada. Listo."** El badge se apaga.
 
-No hay que abrir consola, ni F12, ni copiar nada.
+Si al pulsar sale "No hay sesión de WinForce en este navegador", es que la sesión
+de WinForce del owner también caducó → que abra `appwinforce.win.pe`, inicie
+sesión (incluye el 2FA de Microsoft), y vuelva a pulsar el icono.
+
+### Fallbacks (para el técnico / si el proxy está caído)
+
+- **Icono "Renovar sesion WinForce" del Escritorio** (login asistido con navegador
+  aparte): doble clic → login → barra verde → cuadro "✓". Ver
+  `python -m validator_app.proxy.rotate_creds [--preview|--fresh]`.
+- **`python -m validator_app.proxy.rotate_creds --manual`**: pega la `PHPSESSID`
+  a mano (F12). No necesita Playwright ni el navegador.
+
+### Configuración de una vez — autocompletar la contraseña (solo para el fallback)
 
 ### Configuración de una vez — autocompletar la contraseña
 
@@ -161,13 +177,13 @@ el login OAuth2/SAML completo — no hace falta.
 
 ## Checklist (Para el Owner)
 
-Renovación diaria (login asistido):
-- [ ] Doble clic en "Renovar sesion WinForce" (Escritorio de la PC del proxy)
-- [ ] Inicié sesión en la ventana que se abrió (incluye Microsoft el 1er login del día)
-- [ ] La barra se puso verde → cerré la ventana
-- [ ] Salió el cuadro "✓ Sesión renovada"
+Renovación diaria (extensión):
+- [ ] Vi el badge rojo `!` en el icono de la extensión de Chrome
+- [ ] (Si hacía falta) abrí `appwinforce.win.pe` e inicié sesión (2FA Microsoft)
+- [ ] Un clic en el icono de la extensión
+- [ ] Salió la notificación "Sesión del proxy renovada"
 
 Cambio de credenciales (cada 1-2 meses, cuando WinForce las rota):
 - [ ] Recibí el nuevo usuario/contraseña de WinForce
-- [ ] Doble clic en "Renovar sesion WinForce" e inicié sesión con las **nuevas**
-- [ ] (Igual que arriba: barra verde → cerrar → "✓")
+- [ ] Inicié sesión en `appwinforce.win.pe` con las **nuevas** (2FA Microsoft)
+- [ ] Un clic en el icono de la extensión → "Sesión del proxy renovada"

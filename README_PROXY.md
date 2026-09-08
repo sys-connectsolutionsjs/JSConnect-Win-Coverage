@@ -101,24 +101,24 @@ New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 
 
 Ver `docs/rotacion-credenciales.md` para detalles completos.
 
-### Login asistido (por defecto — renovación diaria y cambio de credenciales)
-1. En la PC del proxy, **doble clic en "Renovar sesion WinForce"** (Escritorio).
-2. Se abre el **Google Chrome instalado** (perfil dedicado) → el owner inicia
-   sesión (incluye Microsoft el 1er login del día).
-3. La barra superior se pone **verde** → cerrar la ventana → cuadro "✓ Sesión renovada".
+### Extensión de Chrome (vía principal — el owner no sale de su navegador)
+`install_service.bat` fuerza-instala la extensión **"Renovar sesion WinForce"** en
+el Chrome de la PC. **Reabrir Chrome** una vez tras instalar.
+1. El owner trabaja normal en Chrome (sesión de WinForce abierta como siempre).
+2. Sesión del proxy muerta → **badge rojo `!`** en el icono de la extensión.
+3. **Un clic** → notificación "Sesión del proxy renovada". Listo.
 
-Sin consola, sin F12. El `.lnk` lo crea `install_service.bat`; corre
-`pythonw.exe -m validator_app.proxy.rotate_creds`. La **primera vez** conviene
-iniciar sesión en Chrome (cuenta de Google) o guardar la contraseña de Microsoft
-en esa ventana → luego se autocompleta y solo hay que aprobar el 2FA. Ver
-`docs/rotacion-credenciales.md`.
+La extensión lee la `PHPSESSID` de su sesión (`chrome.cookies`, incl. HttpOnly) y
+la manda a `POST 127.0.0.1:<puerto>/local/renovar` (sin admin key: es local).
 
-### Fallback manual (si Playwright se rompe)
+### Fallbacks (técnico / proxy caído)
 ```powershell
-python -m validator_app.proxy.rotate_creds --manual    # pide pegar PHPSESSID (F12)
-python -m validator_app.proxy.rotate_creds --fresh      # asistido, perfil limpio
-python -m validator_app.proxy.rotate_creds --preview    # probar la ventana, sin guardar nada
-curl http://localhost:8080/admin/status                # verificar: logged_in: true
+# Icono "Renovar sesion WinForce" del Escritorio = login asistido (navegador aparte)
+python -m validator_app.proxy.rotate_creds            # asistido
+python -m validator_app.proxy.rotate_creds --manual   # pegar PHPSESSID a mano (F12)
+python -m validator_app.proxy.rotate_creds --preview  # probar la ventana, sin guardar
+python -m validator_app.proxy.rotate_creds --fresh    # asistido, perfil de navegador limpio
+curl http://localhost:8080/admin/status               # verificar: logged_in: true
 ```
 
 ---
@@ -162,10 +162,13 @@ validator_app/proxy/
 ├── winsw.xml                # Generado auto
 ├── install_service.bat      # Instalador (en repo)
 ├── uninstall_service.bat    # Desinstalador (en repo)
-├── rotate_creds.py          # CLI renovar sesión: asistido (default) / --manual
+├── rotate_creds.py          # CLI renovar sesión (fallback): asistido / --manual
 ├── login_asistido.py        # Captura la PHPSESSID con navegador (Playwright)
-├── .browser_profile/        # GITIGNORED - perfil persistente del login asistido
-├── server.py                # FastAPI app (en repo)
+├── _instalar_extension.py   # Empaqueta + fuerza-instala la extensión de Chrome
+├── extension/               # Extensión MV3 "Renovar sesion WinForce" (plantilla)
+├── .browser_profile/        # GITIGNORED - perfil del login asistido
+├── .extension_build/ · extension.pem · extension.crx · updates.xml  # GITIGNORED
+├── server.py                # FastAPI app + keepalive + endpoints /local/*
 ├── client.py                # Cliente agentes (en repo, va en .exe)
 ├── config.py                # Pydantic Settings (en repo)
 └── __init__.py
@@ -181,8 +184,10 @@ validator_app/proxy/
 | `curl /health` → Connection refused | `sc start JSWinProxy` + firewall rule |
 | Agentes: "401 Unauthorized" | Token distinto en agente vs `config.yaml` |
 | Agentes: "403 Forbidden" | IP no en `allowed_networks` (verifica LAN/VPN) |
-| WinForce: sesión muerta / `session_dead_since` en `/admin/status` | Doble clic en "Renovar sesion WinForce" (o `rotate_creds --manual`) |
-| "Playwright no está instalado" al renovar | `python -m playwright install chromium` (o re-correr `install_service.bat`) |
+| WinForce: sesión muerta / `session_dead_since` en `/admin/status` | Badge rojo en la extensión → 1 clic. Fallback: icono del Escritorio o `rotate_creds --manual` |
+| La extensión no aparece en Chrome | Reabrir Chrome. Si sigue: re-correr `python -m validator_app.proxy._instalar_extension` como Admin y ver que Chrome esté instalado |
+| Extensión: "No se pudo contactar al proxy" | El servicio `JSWinProxy` está parado → `winsw.exe start` |
+| "Playwright no está instalado" al usar el fallback | `python -m playwright install chromium` (o re-correr `install_service.bat`) |
 | `install_service.bat` falla descarga winsw | Descargar manual de GitHub releases → `validator_app/proxy/winsw.exe` |
 
 ---

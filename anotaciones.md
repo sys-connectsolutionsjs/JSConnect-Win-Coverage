@@ -55,6 +55,28 @@ API de bureo de crédito (`api.latam.equifax.com`). WinForce la usa para score.
 - Reporte SOAP: respuesta `score_cliente` viene doble-encodificada (JSON string dentro de JSON)
 - **Proxy NO replica geocoding Equifax**; envía campos geodata vacíos en `score_cliente`
 
+### Extensión de renovación (`validator_app/proxy/extension/`)
+Extensión de Chrome (MV3) que renueva la sesión del proxy **desde el navegador
+cotidiano del owner**, ya logueado en WinForce. Vía principal de renovación
+(el login asistido y `--manual` quedan de fallback).
+- **Por qué extensión y no CDP**: Chrome 136+ **bloquea `--remote-debugging-port`
+  con el perfil por defecto** (anti-robo-de-cookies), así que Playwright no puede
+  "entrar" al Chrome normal del owner.
+- **`background.js`**: `chrome.action.onClicked` → `chrome.cookies.get({url:
+  "https://appwinforce.win.pe", name: "PHPSESSID"})` (**`chrome.cookies` sí lee
+  cookies HttpOnly**) → `POST http://127.0.0.1:<puerto>/local/renovar`.
+  `chrome.alarms` cada 5 min → `GET /local/estado` → badge rojo `!` si la sesión
+  murió.
+- **Endpoints `/local/*`** (`server.py`): solo `127.0.0.1`, **sin admin key** (una
+  petición local ya es de confianza; el proxy igual valida la cookie contra
+  WinForce). `POST /local/renovar` reusa `set_session_cookie`; `GET /local/estado`
+  reusa `get_status`.
+- **Instalación**: `_instalar_extension.py` (lo llama `install_service.bat`)
+  empaqueta un `.crx` firmado (`chrome --pack-extension`, `extension.pem` estable →
+  id estable), escribe `updates.xml` local y la política
+  `HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionSettings\<id>` = `force_installed`.
+  Tras instalar hay que **reabrir Chrome** una vez.
+
 ---
 
 ## F

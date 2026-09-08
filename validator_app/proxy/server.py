@@ -710,6 +710,34 @@ async def admin_status():
     )
 
 
+# ==================== ENDPOINTS LOCALES (EXTENSION DE CHROME) ====================
+# La extension corre en el navegador del owner, en la misma PC del proxy, y renueva
+# la sesion con la PHPSESSID de su login normal de WinForce. Una peticion desde
+# 127.0.0.1 ya es de confianza (no hace falta admin key); ademas el proxy valida
+# la cookie contra WinForce antes de guardarla.
+
+def _es_local(request: Request) -> None:
+    host = request.client.host if request.client else ""
+    if host not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Solo desde la PC del proxy")
+
+
+@app.post("/local/renovar", dependencies=[Depends(_es_local)])
+async def local_renovar(request: AdminCookieRequest):
+    proxy_api = get_proxy_api()
+    proxy_api.set_session_cookie(request.php_sessid)
+    return {"ok": True, "message": "Sesion renovada desde la extension"}
+
+
+@app.get("/local/estado", dependencies=[Depends(_es_local)])
+async def local_estado():
+    status = get_proxy_api().get_status()
+    return {
+        "session_alive": status["session_alive"],
+        "session_dead_since": status["keepalive"]["session_dead_since"],
+    }
+
+
 # ==================== ERROR HANDLERS ====================
 
 @app.exception_handler(core_api.LoginError)
