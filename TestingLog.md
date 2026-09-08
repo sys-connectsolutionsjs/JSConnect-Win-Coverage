@@ -28,6 +28,27 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Incidente: `taskkill` cerró todo Chrome de la máquina
+- **Problema**: al limpiar un Chrome zombie de un smoke test del login asistido /
+  la extensión, se usó `taskkill /F /IM chrome.exe /T` → cerró **todos** los
+  procesos `chrome.exe` de la máquina (incluido el navegador normal del usuario,
+  con sus pestañas). Chrome ofreció restaurar al reabrir; sin pérdida real, pero
+  disruptivo.
+- **Causa**: `/IM chrome.exe` matchea por nombre de imagen, no por el árbol de
+  procesos del test. Playwright con `channel="chrome"` / `launch_persistent_context`
+  deja procesos hijo que a veces sobreviven al script si se mató Python antes de
+  tiempo (`timeout`).
+- **Lección** (para futuros smoke tests con navegador):
+  - Matar **solo el PID** del navegador del test. Si escucha un puerto (proxy):
+    `netstat -ano | findstr :8080` → `taskkill /F /T /PID <pid>`.
+  - Nunca `/IM chrome.exe`.
+  - Los perfiles de prueba (`validator_app/proxy/.browser_profile/`,
+    `.extension_build/`) se borran aparte con `rmdir /s /q` **después** de cerrar
+    ese proceso (si no, "Device or resource busy").
+  - Mejor: dar a `capturar_php_sessid_asistido()` / los smoke un `timeout_min`
+    pequeño y dejar que cierre el contexto por su cuenta (`context.close()`), en
+    vez de matar Python con `timeout`.
+
 ### Sesión 2026-09-08 — Fase 4: cubrir la capa FastAPI del proxy
 - Fixture `client` en `tests/test_proxy.py`: `ProxyConfig` con `proxy_token` /
   `admin_key` conocidos y `allowed_networks=["127.0.0.0/8","10.0.0.0/8"]`;

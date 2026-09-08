@@ -403,39 +403,45 @@ Modificados clave: `validator_app/proxy/server.py` (keepalive + `/local/*`),
 4. **Verificar**: `python -m pytest -q` → **104 passed**; `python -m ruff check .`
    → clean.
 
-### Qué NO viaja (solo vive en esta PC — gitignored o keyring)
-- **Keyring de esta PC**: `JSWinProxy/credentials_cookies` tiene **una `PHPSESSID`
-  muerta** que usé para el smoke del keepalive y de la extensión (por eso
-  `session_alive` da `false` sin más). En la máquina nueva el keyring está vacío →
-  el proxy arranca "sin sesión" (correcto). `JSWinClient/*` y
-  `JSWinCoverage/session_cookie` **no están** ni aquí ni allá.
-- **Gitignored (se regeneran)**: `validator_app/proxy/.browser_profile/`,
-  `.extension_build/`, `extension.pem`, `extension.crx`, `updates.xml`,
-  `.claude/hooks/historial_sync_state.local.json`, `medir_keepalive.log` y demás
-  `*.log`, `config.yaml` (lo genera `install_service.bat`, pero **el server no lo
-  lee** — ver Decisiones).
-- **`extension.pem`** NO viaja → al re-empaquetar la extensión en otra PC el id
-  será **distinto** (`oclimnkhjeeamemdkdkfdliadmkdafkl` es el de esta PC). Es
-  irrelevante salvo que quieras el mismo id en dos sitios (no hace falta).
+### Qué SÍ viaja (todo lo de "cómo trabajar")
+**El repo completo**, incluido:
+- `.claude/settings.json` y `.claude/hooks/historial_sync.py` → el **hook de
+  doc-sync funciona igual al clonar** (verificado con `git ls-files`).
+- Las **reglas de trabajo**: `AGENTS.md` → "Reglas de trabajo (flujo del día)",
+  "Rotación de resúmenes", "Regla de auto-actualización de la documentación (tres
+  momentos)".
+- El **checklist de cierre concreto de hoy**: sección "Cierre de sesión real" al
+  final de este mismo archivo.
+- Todos los docs, tests y código.
+
+### Lo ÚNICO que NO viaja
+1. **Entradas del keyring de Windows** (son del SO, por-máquina):
+   - Esta PC tiene `JSWinProxy/credentials_cookies` con **una `PHPSESSID` muerta**
+     que usé para los smoke del keepalive y la extensión (por eso `session_alive`
+     da `false` sin más). En la máquina nueva el keyring está vacío → el proxy
+     arranca "sin sesión" (correcto).
+   - `JSWinClient/*` (config de proxy en el agente) y `JSWinCoverage/session_cookie`
+     (cookie standalone de la GUI) **no están** ni aquí ni allá.
+2. **Archivos gitignored que se regeneran solos**:
+   `validator_app/proxy/.browser_profile/`, `.extension_build/`, `extension.pem`,
+   `extension.crx`, `updates.xml`, `medir_keepalive.log` y demás `*.log`,
+   `config.yaml` (lo genera `install_service.bat` — pero **el server no lo lee**,
+   ver Decisiones), y `.claude/hooks/historial_sync_state.local.json`
+   (**solo el contador del hook `{last_entry_count, readme_baseline_count}`, no el
+   hook**; en la máquina nueva el hook lo crea con la línea base en la 1ª edición
+   de `HistorialResumenes.md` y sigue funcionando).
+   - Nota: como `extension.pem` no viaja, al re-empaquetar la extensión en otra PC
+     el id será **distinto** (`oclimnkhjeeamemdkdkfdliadmkdafkl` es el de esta PC).
+     Irrelevante salvo que quieras el mismo id en dos sitios (no hace falta).
+3. **Matiz del watcher**: Claude Code solo vigila `.claude/` si el archivo existía
+   al arrancar la sesión. Si al abrir Claude Code en la otra PC (tras el pull) el
+   hook no dispara → abrir `/hooks` una vez o reiniciar.
 
 ### El proxy de prueba está PARADO
 Durante la sesión levanté `python -m validator_app.proxy.server` en segundo plano
 para una demo de la extensión; **ya está parado** (`taskkill` sobre el PID que
-escuchaba en 8080). Los tokens de esa corrida quedaron en el scratchpad de la
-sesión — **no reutilizar**, generar nuevos.
-
-### Incidente a recordar
-Al limpiar un Chrome zombie de una prueba usé `taskkill /F /IM chrome.exe /T`, que
-**cerró TODO Chrome de la máquina** (no solo el de la prueba). Si había pestañas
-abiertas, Chrome las ofrece restaurar. **No repetir** — matar solo el proceso hijo
-del perfil de prueba.
-
-### El hook de doc-sync en la máquina nueva
-`.claude/settings.json` viaja (versionado). En la primera edición de
-`HistorialResumenes.md` allí, el hook siembra su línea base
-(`historial_sync_state.local.json`) y no molesta; a partir de la 2ª entrada nueva
-empieza a recordar. Si no se carga, abrir `/hooks` una vez o reiniciar Claude Code
-(el watcher solo vigila `.claude/` si el archivo existía al arrancar).
+escuchaba en 8080 — ver el incidente en `TestingLog.md`). Los tokens de esa
+corrida quedaron en el scratchpad de la sesión — **no reutilizar**, generar nuevos.
 
 ### Cierre de sesión real (cuando el usuario diga que cierra)
 - Crear `resumenes/2026-09-08.md` = copia de este archivo (H1 → `# Resumen — 2026-09-08`).
