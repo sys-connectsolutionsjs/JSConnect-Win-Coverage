@@ -24,6 +24,9 @@
 error, no hace falta modo desarrollador). Tras instalar, **hay que reabrir Chrome**
 una vez para que aparezca.
 
+> **Para desarrollo/pruebas** (cargarla descomprimida + proxy local + casos de
+> error): ver `README_PROXY.md` → "Probar la extensión en desarrollo".
+
 ### Para el owner
 
 1. Trabaja normal en Chrome, con la sesión de WinForce abierta como siempre.

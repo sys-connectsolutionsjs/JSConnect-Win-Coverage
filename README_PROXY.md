@@ -121,6 +121,42 @@ python -m validator_app.proxy.rotate_creds --fresh    # asistido, perfil de nave
 curl http://localhost:8080/admin/status               # verificar: logged_in: true
 ```
 
+### Probar la extensión en desarrollo (sin la política de fuerza-instalación)
+
+1. **Cargar descomprimida**: `chrome://extensions` → activar "Modo de
+   desarrollador" → "Cargar descomprimida" → `validator_app/proxy/extension`.
+   (Chrome avisará "Desactiva las extensiones en modo de desarrollador" al abrir;
+   normal en pruebas. En producción va fuerza-instalada por política y no pasa.)
+
+2. **Proxy local** (raíz del repo, PowerShell):
+   ```powershell
+   $env:PROXY_PROXY_TOKEN = (python -c "import secrets;print(secrets.token_hex(32))")
+   $env:PROXY_ADMIN_KEY   = (python -c "import secrets;print(secrets.token_hex(32))")
+   python -m validator_app.proxy.server
+   ```
+   Con una `PHPSESSID` muerta en el keyring, `/local/estado` devuelve
+   `session_alive: false` → la extensión pone el badge rojo `!`.
+
+3. **Forzar el sondeo** sin esperar 5 min: `chrome://extensions` → clic en
+   "service worker" de la extensión → en la consola: `revisarEstado()`.
+
+4. **Plomería** (sin login en WinForce), en esa misma consola o con `curl` desde
+   la PC (que es 127.0.0.1):
+   ```js
+   fetch("http://127.0.0.1:8080/local/estado").then(r=>r.json()).then(console.log)
+   fetch("http://127.0.0.1:8080/local/renovar",{method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({php_sessid:"falsa"})}).then(r=>console.log(r.status)) // 401
+   ```
+
+5. **Clic real**: en ese Chrome, login completo en `https://appwinforce.win.pe`
+   (2FA) → clic en el icono → notificación "Sesión del proxy renovada" →
+   `curl -H "X-Admin-Key: $env:PROXY_ADMIN_KEY" http://localhost:8080/admin/status`
+   muestra `session_alive: true`.
+
+6. **Limpieza**: quitar la extensión descomprimida en `chrome://extensions`;
+   Ctrl+C al proxy.
+
 ---
 
 ## Comandos Útiles
