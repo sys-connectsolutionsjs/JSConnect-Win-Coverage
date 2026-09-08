@@ -192,12 +192,17 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   - **20 tests** (`tests/test_login_asistido.py` + `tests/test_proxy.py`
     `/local/*` con FastAPI TestClient + `tests/test_instalar_extension.py`).
     84 pasando, ruff limpio.
-- **Fase 3 (D) — cookie en la GUI (arregla standalone).** `validator_app/gui/session_config.py`
-  (NUEVO) + diálogo `⚙️ Configurar Sesión` en `main_window.py`; la rama standalone deja de
-  usar `api.obtener_cliente()` y usa un `ValidatorAPI` con la cookie inyectada.
-- **Fase 4 — tests.** `tests/test_proxy.py` ya existe (12 tests del keepalive, Fase
-  2A); ampliarlo con FastAPI `TestClient` (endpoints, auth, IP). Añadir
-  `tests/test_session_config.py` (NUEVO, Fase 3) y tests del helper en `tests/test_api.py`.
+- **Fase 3 (D) — cookie en la GUI (arregla standalone). [COMPLETADA 2026-09-08]**
+  `validator_app/gui/session_config.py` NUEVO (keyring `JSWinCoverage`/`session_cookie`,
+  `validar_y_guardar()`, `cliente_standalone()`); menú "⚙ Configurar Sesión
+  (standalone)" + `_abrir_config_sesion()` en `main_window.py`. La rama standalone
+  usa `cliente_standalone()` en vez del `ValidatorAPI` sin sesión de
+  `api.obtener_cliente()`. 6 tests en `tests/test_session_config.py`. 90 pasando,
+  ruff limpio.
+- **Fase 4 — tests.** `tests/test_proxy.py` ya tiene keepalive (2A) + `/local/*`
+  (2.5d, con FastAPI `TestClient`); falta cubrir `/api/cobertura`, `/api/score`,
+  `/health`, `/admin/*` + middleware de auth/IP. `tests/test_session_config.py`
+  ya existe (Fase 3).
 - **Fase 5 — docs.** `docs/proxy-config.md`, `docs/proxy-deploy.md`, `README_PROXY.md`.
 
 ### Análisis de lo ya hecho (piezas reutilizables — NO reimplementar)

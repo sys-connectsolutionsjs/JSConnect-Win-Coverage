@@ -169,9 +169,35 @@ y no cambia el diseño de la Fase 2.
   vez. El perfil persistente es ganancia neta (renovaciones repetidas del mismo
   día son instantáneas) y no empeora la del día siguiente.
 
+#### Fase 3 — Diálogo de cookie en la GUI (arregla el modo standalone) — HECHO
+- **El bug**: la rama standalone de `main_window.py:_validar_en_hilo` llamaba
+  `api.obtener_cliente().validar(...)` sobre un `ValidatorAPI` **sin sesión** →
+  siempre `SessionError`. Standalone estaba roto de raíz.
+- **`validator_app/gui/session_config.py` NUEVO** (lógica pura, testeable):
+  `guardar_cookie` / `cargar_cookie` / `borrar_cookie` (keyring
+  `JSWinCoverage`/`session_cookie`), `validar_y_guardar(php_sessid)` (valida con
+  `core.api.validar_cookie_sesion` y guarda), `cliente_standalone()` (arma un
+  `ValidatorAPI` con la cookie inyectada; `_session_max_idle = 10**9` porque el
+  usuario re-pega la cookie a mano, sin re-login automático).
+- **`main_window.py`**: menú "⚙ Configuración → **Configurar Sesión (standalone)**"
+  + `_abrir_config_sesion()` (diálogo modal clonado del de proxy: un campo
+  `show="•"`, "Mostrar", "Probar y guardar" en hilo, "Quitar sesión guardada").
+  `_load_proxy_config` carga también `cliente_standalone()`; el estado dice
+  "standalone, sesión configurada" o "standalone SIN sesión — menú ⚙…".
+  `_validar_en_hilo` usa `self._session_client`; sin sesión → `SessionError` con
+  el remedio (ir al menú).
+- **`api.obtener_cliente()` se conserva** — lo usan `tools/probar_core.py`,
+  `probar_concurrencia.py`, `gui/prueba_core.py`; solo la rama standalone de
+  `main_window` deja de usarlo.
+- **`tests/test_session_config.py` NUEVO** (6 tests: roundtrip keyring, validar y
+  guardar OK / cookie mala / vacía, `cliente_standalone` con y sin cookie).
+  **90 tests, ruff limpio.** Smoke: la GUI arranca headless, el menú y el diálogo
+  aparecen, el estado sin sesión es el correcto.
+
 #### Pendiente
-- Fase 3 (D) — diálogo de cookie en la GUI del agente. Fase 4 — ampliar
-  `tests/test_proxy.py` (FastAPI TestClient). Fase 5 — barrido final de docs.
+- Fase 4 — completar `tests/test_proxy.py` (endpoints `/api/*`, `/health`,
+  `/admin/*` + auth/IP con FastAPI TestClient). Fase 5 — barrido final de docs.
+- Prueba manual de la GUI standalone con una cookie real.
 - Menor: `config.yaml` no se está leyendo (pydantic-settings sin
   `YamlConfigSettingsSource`); el proxy va por defaults + env `PROXY_*`.
 - Deuda restante: `tests/test_proxy.py` inexistente (= Fase 4); decidir

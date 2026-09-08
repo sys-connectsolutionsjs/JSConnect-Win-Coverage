@@ -344,9 +344,16 @@ Consulta a `POST /controllers/cliente.php` con `accion=score_cliente` + muchos c
 - Payload incluye: tipo_doc (1=DNI, 2=CE, 3=RUC), documento, coordenadas, cobertura, 25 campos geodata vacíos
 
 ### Standalone Mode (Modo Sin Proxy)
-Si el agente **no tiene config de proxy** en keyring → usa `validator_app.core.api.ValidatorAPI` directo contra WinForce.
-- Requiere credenciales WinForce en keyring local (`JSWinCoverage`/`credentials`)
+Si la app **no tiene config de proxy** en keyring → usa
+`validator_app.core.api.ValidatorAPI` directo contra WinForce.
 - **Solo para desarrollo/pruebas/owner** — NO producción (riesgo bloqueo 20 sesiones)
+- El login programático es inviable por el 2FA → se configura pegando la cookie
+  `PHPSESSID` en el diálogo **⚙ Configuración → Configurar Sesión (standalone)**.
+  Se valida contra WinForce (`validar_cookie_sesion`) y se guarda en el keyring
+  `JSWinCoverage`/`session_cookie`. `validator_app/gui/session_config.py`
+  (`cliente_standalone()`) construye el `ValidatorAPI` con esa cookie inyectada.
+- Cuando la cookie expira, `validar` falla con un error de WinForce y el usuario
+  la re-pega (mismo diálogo). No hay re-login automático.
 
 ---
 

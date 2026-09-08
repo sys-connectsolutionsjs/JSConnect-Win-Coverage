@@ -28,6 +28,20 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Fase 3: diálogo de cookie en la GUI (arregla standalone)
+- [TDD rojo] `tests/test_session_config.py` NUEVO (6 tests). Fake de `keyring`
+  (dict) por `monkeypatch` + `core.api.validar_cookie_sesion` mockeado:
+  roundtrip `guardar/cargar/borrar`; `validar_y_guardar` recorta espacios y
+  guarda solo si la validación pasa; cookie mala (`LoginError`) → propaga y NO
+  guarda; cookie vacía → `ValueError`; `cliente_standalone()` devuelve un
+  `ValidatorAPI` con `PHPSESSID` inyectada y `_session_max_idle` grande, o `None`.
+- [TDD verde] `validator_app/gui/session_config.py` + wiring en `main_window.py`
+  (menú + `_abrir_config_sesion` + `_validar_en_hilo` usa `self._session_client`).
+- [Verificación] 90 tests, ruff limpio. **Smoke headless**: `App()` arranca, el
+  menú "⚙ Configuración" tiene "Configurar Sesión (standalone)", el diálogo abre,
+  y sin sesión el estado dice "standalone SIN sesion". (El patrón thread +
+  `self.after` es el mismo del diálogo de proxy; funciona con el mainloop real.)
+
 ### Sesión 2026-09-08 — Fase 2.5d: extensión de Chrome
 - [TDD rojo] `tests/test_proxy.py` estrena **FastAPI `TestClient`** (adelanta parte
   de la Fase 4): `TestClient(server.app, client=("127.0.0.1", N))` para controlar

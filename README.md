@@ -52,6 +52,14 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 4. Ingresa las coordenadas y/o el documento del cliente.
 5. Pulsa **Validar** → resultado de cobertura y score al instante.
 
+### Modo standalone (desarrollo / pruebas / owner — sin proxy)
+Si no configuras proxy, la app va directa a WinForce. Como el login
+usuario/contraseña es inviable por el 2FA de Microsoft: Menú **⚙️ Configuración →
+Configurar Sesión (standalone)** → pega la cookie `PHPSESSID` de un login manual
+en el navegador (F12 → Application → Cookies) → **Probar y guardar**. Se valida
+contra WinForce y se guarda cifrada en el keyring. Cuando expire, vuelve a pegarla.
+**No usar en los 20 agentes** (riesgo de bloqueo por sesiones concurrentes).
+
 ### Desarrollo
 ```powershell
 pip install -r requirements-dev.txt
@@ -158,6 +166,14 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 3. **First time**: Menu **⚙️ Configuración** → **Configurar Proxy** → enter proxy IP:port + token → Test connection → Save.
 4. Enter the coordinates and/or the customer document.
 5. Press **Validate** → coverage and score results instantly.
+
+### Standalone mode (dev / testing / owner — no proxy)
+Without a proxy configured, the app talks to WinForce directly. Since
+username/password login is unfeasible (Microsoft 2FA): menu **⚙️ Configuración →
+Configurar Sesión (standalone)** → paste the `PHPSESSID` cookie from a manual
+browser login (F12 → Application → Cookies) → **Probar y guardar**. It is
+validated against WinForce and stored encrypted in the keyring; re-paste it when
+it expires. **Do not use on the 20 agents** (concurrent-session block risk).
 
 ### Development
 ```powershell

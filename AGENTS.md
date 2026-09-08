@@ -62,13 +62,15 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── test_api.py
 │   ├── test_prueba_core.py
 │   ├── test_medir_keepalive.py
-│   ├── test_proxy.py        # keepalive del proxy (Fase 2A); se amplía en Fase 4
-│   └── test_login_asistido.py  # captura de PHPSESSID + dispatch de rotate_creds
+│   ├── test_proxy.py        # keepalive + endpoints /local/* (FastAPI TestClient)
+│   ├── test_login_asistido.py  # captura de PHPSESSID + dispatch de rotate_creds
+│   ├── test_instalar_extension.py  # _crx_id + updates.xml
+│   └── test_session_config.py  # cookie standalone (Fase 3)
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
     ├── core/                 # api.py (login, score, cobertura) + session.py
-    ├── gui/                  # main_window.py, fields.py
+    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone)
     ├── activation/           # fingerprint.py, signer.py, state.py
     ├── updater/              # check.py, download.py
     └── proxy/                # NUEVO: proxy local para 20 agentes LAN
@@ -269,7 +271,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 6. **FASE 5 DEPLOY & DOCS** [COMPLETADO — verificado 2026-08-26]: `rotate_creds.py`, `README_PROXY.md`, `requirements-proxy.txt` presentes.
 7. **Prueba real del core** con credenciales del usuario [COMPLETADO — verificado 2026-08-27]: login manual (2FA) + cookie inyectada vía `tools/probar_con_cookie.py` → cobertura SI (HORIZONTAL, celda 8764) → score (423, MUY ALTO). Ver Historial "Prueba real end-to-end" para el detalle de los 2 bugs encontrados y corregidos en el camino.
 8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo — **PENDIENTE**.
-9. Conectar GUI a core (keyring para credenciales, resultados del core) end-to-end y ajustar `main_window.py` — **PENDIENTE de verificación real** (la config del proxy sí está conectada; falta confirmar el flujo completo login→cobertura→score contra la GUI).
+9. Conectar GUI a core end-to-end [COMPLETADO — 2026-09-08, Fase 3]: la rama standalone de `main_window.py` usaba `api.obtener_cliente()` (un `ValidatorAPI` sin sesión → siempre `SessionError`). Ahora `validator_app/gui/session_config.py` (NUEVO) + diálogo "⚙ Configurar Sesión (standalone)" guardan/validan la `PHPSESSID` en keyring (`JSWinCoverage`/`session_cookie`) y `_validar_en_hilo` usa ese cliente. Falta la prueba manual con cookie real contra la GUI.
 10. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) — **PENDIENTE**.
 11. **Sistema de códigos de error** [COMPLETADO — verificado 2026-08-26]: excepciones tipadas con `code` + diccionario `ERROR_CODES` en `api.py`, 35 tests pasando, ruff limpio.
 12. **Decisión de geodata del score** [COMPLETADO — verificado 2026-08-27]: **opción C (payload mínimo)** confirmada — el score respondió correctamente enviando solo coordenadas + documento, con todos los campos de geodata vacíos en el payload. No hace falta replicar la geoapi de Equifax ni pedir datos manuales.
@@ -277,7 +279,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 14. **Medición de vida de PHPSESSID** [COMPLETADO — verificado 2026-09-04]: `tools/medir_sesion.py` ejecutado con 4 corridas. Las corridas limpias registraron VIVA a 1155s y MUERTA a 1350s; las corridas de 600s llegaron a 525s. La corrida anómala de 135-210s coincide con recarga/reuse de cookie y no se toma como idle-timeout.
 15. **Investigación de keepalive** [CERRADA — verificado 2026-09-08]: `tools/medir_keepalive.py` **v3** corrigió los dos defectos que invalidaban v1/v2 (no medía la edad real de la sesión; cualquier error cortaba la corrida como "muerte"). Corrida final (arrancó 2026-09-05 21:08, ping fijo 900s, 49 coords; reporte 2026-09-08): **37 pings consecutivos VIVA** hasta ≈ 9 h 16 m de edad de sesión; muerte **limpia** a ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Conclusiones: idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **existe un tope absoluto de sesión ≈ 9.5 h desde el login**. Detalle en `anotaciones.md` ("Dos límites de sesión" + "Revisión del método") y `PlanesAprobados.md` (Fase 0, act. 2026-09-08).
 16. **Fase 2A — keepalive del proxy** [COMPLETADO — 2026-09-08]: `_keepalive_loop` (`asyncio` en `lifespan`) + `ProxyValidatorAPI._keepalive_tick` en `server.py`; config `keepalive_enabled` / `keepalive_interval_seconds` (900s) en `config.py`. "Latido perezoso": pinga `validar_cobertura` (coord pública rotada de `_KEEPALIVE_COORDS`) solo si no hubo tráfico real de agentes en el intervalo. Ping fallido → confirma con `validar_cookie_sesion()`: endpoint caído = transitorio; **sesión muerta = `log.error` con aviso al owner + `session_dead_since` en `/admin/status`, sin reintentar en silencio**. Prerrequisito arreglado: `_get_client()` neutraliza el guard idle de 120s del cliente-core. **12 tests en `tests/test_proxy.py`** (NUEVO), 61 pasando, ruff limpio. Validado end-to-end contra WinForce real. **Falta Fase 2.5**: login asistido (recolectar la `PHPSESSID` con navegador, sin F12).
-17. **Fase 3 — diálogo de cookie en GUI** [PENDIENTE]: implementar después de cerrar la investigación de keepalive.
+17. **Fase 3 — diálogo de cookie en GUI** [COMPLETADO — 2026-09-08]: `validator_app/gui/session_config.py` + `_abrir_config_sesion()` en `main_window.py`. Arregla el modo standalone (antes siempre `SessionError`). 6 tests en `tests/test_session_config.py`. Ver ítem 9.
 18. **Arranque de los scripts de `tools/`** [COMPLETADO — verificado 2026-09-05, commit `82f9a4c`]: los 6 scripts que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
 19. **`tools/coords_prueba.txt`** [NUEVO, 2026-09-05, commit `26e7567`]: 49 coordenadas públicas (10 del usuario + 39 generadas dentro de su polígono) que `medir_keepalive.py` rota por ping para no repetir el mismo query.
 20. **Visibilidad de fallos del proxy** [COMPLETADO — verificado 2026-09-05, commit `5506ed4`]: `_relogin_silent()`/`_load_session_cookies()` ya no tienen `except Exception: pass` — cada fallo se loguea con causa + error + remedio; `/health` cachea `session_alive` 30s (antes pegaba a WinForce en cada request); `logging.basicConfig` en `__main__`.
@@ -562,11 +564,18 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   `/local/renovar`). `_instalar_extension.py` la fuerza-instala por política.
   `tests/test_proxy.py` estrena FastAPI `TestClient` (adelanta parte de la Fase 4).
   Ver ítem 23. Login asistido + `--manual` quedan de fallback.
-- **84 tests, ruff limpio** al cierre de esta parte.
-- **Pendiente real**: Fase 3 (diálogo de cookie en la GUI del agente) → Fase 4
-  (completar `tests/test_proxy.py`: endpoints `/api/*` + auth + IP) → Fase 5
-  (barrido final de docs). Deuda vieja restante: decidir `actualizar_score_cliente`
-  / `newsearch.php`.
+- **Fase 3 — diálogo de cookie en la GUI (6ª parte)**: `validator_app/gui/session_config.py`
+  NUEVO (keyring `JSWinCoverage`/`session_cookie` + `validar_y_guardar` +
+  `cliente_standalone`); menú "⚙ Configurar Sesión (standalone)" +
+  `_abrir_config_sesion()` en `main_window.py`; la rama standalone deja de usar el
+  `ValidatorAPI` sin sesión de `api.obtener_cliente()`. 6 tests
+  (`tests/test_session_config.py`). Smoke: la GUI arranca, el menú y el diálogo
+  aparecen; sin sesión el estado dice "standalone SIN sesion".
+- **90 tests, ruff limpio** al cierre de esta parte.
+- **Pendiente real**: Fase 4 (completar `tests/test_proxy.py`: endpoints `/api/*`
+  + auth + IP) → Fase 5 (barrido final de docs). Deuda vieja restante: decidir
+  `actualizar_score_cliente` / `newsearch.php`; prueba manual de la GUI standalone
+  con cookie real.
 - **Aviso**: durante la sesión, al limpiar un Chrome zombie de una prueba se hizo
   `taskkill /IM chrome.exe` (cerró todo Chrome de la máquina). No repetir — matar
   solo el proceso hijo del perfil de prueba.

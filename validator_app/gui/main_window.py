@@ -7,7 +7,7 @@ from tkinter import messagebox, ttk
 from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
 from validator_app.core import api
-from validator_app.gui import fields
+from validator_app.gui import fields, session_config
 from validator_app.proxy.client import ProxyClient
 from validator_app.updater import check as update_check
 from validator_app.updater import download
@@ -20,6 +20,7 @@ class App(tk.Tk):
         self.geometry("540x580")
         self.resizable(False, False)
         self._proxy_client: ProxyClient | None = None
+        self._session_client: api.ValidatorAPI | None = None
         self._build_ui()
         self._load_proxy_config()
         self.after(200, self._inicio)
@@ -32,6 +33,9 @@ class App(tk.Tk):
         menu_config = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="\u2699 Configuraci\u00f3n", menu=menu_config)
         menu_config.add_command(label="Configurar Proxy", command=self._abrir_config_proxy)
+        menu_config.add_command(
+            label="Configurar Sesión (standalone)", command=self._abrir_config_sesion
+        )
         menu_config.add_separator()
         menu_config.add_command(label="Buscar actualizaciones", command=self._buscar_actualizacion)
 
@@ -63,16 +67,27 @@ class App(tk.Tk):
         self.lbl_estado.grid(row=6, column=0, columnspan=2, sticky="we", pady=(10, 0))
 
     def _load_proxy_config(self) -> None:
-        """Carga configuracion de proxy desde keyring si existe."""
+        """Carga la config de proxy (o la sesion standalone) desde keyring."""
         try:
             self._proxy_client = ProxyClient.from_keyring()
-            if self._proxy_client:
-                self.lbl_estado.config(text=f"Estado: listo (proxy: {self._proxy_client.base_url})")
-            else:
-                self.lbl_estado.config(text="Estado: listo (modo standalone)")
         except Exception:
             self._proxy_client = None
-            self.lbl_estado.config(text="Estado: listo (modo standalone)")
+        if self._proxy_client:
+            self.lbl_estado.config(text=f"Estado: listo (proxy: {self._proxy_client.base_url})")
+            return
+        try:
+            self._session_client = session_config.cliente_standalone()
+        except Exception:
+            self._session_client = None
+        self._actualizar_estado_standalone()
+
+    def _actualizar_estado_standalone(self) -> None:
+        if self._session_client is not None:
+            self.lbl_estado.config(text="Estado: listo (standalone, sesion configurada)")
+        else:
+            self.lbl_estado.config(
+                text="Estado: standalone SIN sesion — menu ⚙ → Configurar Sesion"
+            )
 
     def _inicio(self):
         self._verificar_activacion()
@@ -169,9 +184,15 @@ class App(tk.Tk):
                     "cobertura": cobertura.__dict__,
                     "score": score.__dict__ if score else None,
                 }
+            elif self._session_client is not None:
+                # Modo standalone (core directo, con la cookie configurada)
+                resultado = self._session_client.validar(lat, lon, tipo, numero)
             else:
-                # Modo standalone (core directo)
-                resultado = api.obtener_cliente().validar(lat, lon, tipo, numero)
+                raise api.SessionError(
+                    "No hay sesion configurada. Menu ⚙ Configuracion → "
+                    "Configurar Sesion (standalone).",
+                    "ERR_SESSION",
+                )
         except NotImplementedError:
             self.after(
                 0,
@@ -342,6 +363,91 @@ class App(tk.Tk):
         self.lbl_estado.config(text=f"Estado: listo (proxy: {self._proxy_client.base_url})")
         dialog.destroy()
         messagebox.showinfo("Guardado", "Configuracion de proxy guardada correctamente.")
+
+    def _abrir_config_sesion(self) -> None:
+        """Dialogo modal para pegar la cookie PHPSESSID (modo standalone)."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Configurar Sesion (standalone)")
+        dialog.geometry("460x260")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        frame = ttk.Frame(dialog, padding=16)
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+
+        ttk.Label(
+            frame,
+            text="Inicia sesion en appwinforce.win.pe en el navegador,\n"
+            "copia la cookie PHPSESSID (F12 → Application → Cookies) y pegala aqui:",
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+
+        self.txt_sesion_cookie = ttk.Entry(frame, width=44, show="•")
+        self.txt_sesion_cookie.grid(row=1, column=0, columnspan=2, sticky="we", pady=(0, 4))
+        if session_config.cargar_cookie():
+            self.txt_sesion_cookie.insert(0, session_config.cargar_cookie())
+
+        self._show_sesion = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            frame,
+            text="Mostrar",
+            variable=self._show_sesion,
+            command=lambda: self.txt_sesion_cookie.config(
+                show="" if self._show_sesion.get() else "•"
+            ),
+        ).grid(row=2, column=0, sticky="w", pady=(0, 10))
+
+        self.lbl_sesion_result = ttk.Label(frame, text="", anchor="w")
+        self.lbl_sesion_result.grid(row=3, column=0, columnspan=2, sticky="we", pady=(0, 10))
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=4, column=0, columnspan=2, sticky="e")
+        ttk.Button(btn_frame, text="Cerrar", command=dialog.destroy).pack(
+            side="right", padx=(8, 0)
+        )
+        ttk.Button(
+            btn_frame, text="Quitar sesion guardada",
+            command=lambda: self._quitar_sesion(dialog),
+        ).pack(side="right", padx=(8, 0))
+        self.btn_sesion_test = ttk.Button(
+            btn_frame, text="Probar y guardar",
+            command=lambda: self._probar_y_guardar_sesion(dialog),
+        )
+        self.btn_sesion_test.pack(side="right")
+
+    def _probar_y_guardar_sesion(self, dialog: tk.Toplevel) -> None:
+        cookie = self.txt_sesion_cookie.get().strip()
+        self.btn_sesion_test.config(state="disabled")
+        self.lbl_sesion_result.config(text="Validando contra WinForce...", foreground="gray")
+
+        def do_test():
+            try:
+                session_config.validar_y_guardar(cookie)
+            except Exception as exc:
+                msg = str(exc)
+                self.after(0, lambda m=msg: self._on_sesion_result(False, m, dialog))
+                return
+            self.after(0, lambda: self._on_sesion_result(True, "", dialog))
+
+        threading.Thread(target=do_test, daemon=True).start()
+
+    def _on_sesion_result(self, ok: bool, msg: str, dialog: tk.Toplevel) -> None:
+        self.btn_sesion_test.config(state="normal")
+        if ok:
+            self._session_client = session_config.cliente_standalone()
+            self._actualizar_estado_standalone()
+            dialog.destroy()
+            messagebox.showinfo("Sesion", "Sesion validada y guardada.")
+        else:
+            self.lbl_sesion_result.config(text=f"✗ {msg}", foreground="red")
+
+    def _quitar_sesion(self, dialog: tk.Toplevel) -> None:
+        session_config.borrar_cookie()
+        self._session_client = None
+        self._actualizar_estado_standalone()
+        dialog.destroy()
+        messagebox.showinfo("Sesion", "Sesion guardada eliminada.")
 
     def _buscar_actualizacion(self):
         # Reutilizar el boton del menu (ya no hay boton en la UI principal)
