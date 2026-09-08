@@ -28,6 +28,26 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Fase 2.5: login asistido
+- [TDD rojo] `tests/test_login_asistido.py` NUEVO (10 tests). Playwright
+  interactivo no se testea en CI → se cubre la lógica pura:
+  - `_php_sessid_de_cookies`: filtra la lista de cookies de Playwright por
+    nombre + dominio `appwinforce.win.pe`; ignora la `PHPSESSID` de
+    `login.microsoftonline.com`; devuelve None si vacía o sin valor.
+  - `capturar_php_sessid_asistido` sin Playwright (`_import_sync_playwright`
+    monkeypatcheado a `ImportError`) → `LoginAsistidoError` con "--manual".
+  - Dispatch de `rotate_creds.main`: `--manual` usa `extract_php_sessid_from_input`
+    y NO abre navegador; asistido captura → valida → guarda → `_avisar(ok=True)`;
+    fallo de captura o cookie inválida → `_avisar(ok=False)`, exit 1, keyring
+    intacto; `--fresh` propaga `fresh=True`; `_avisar` sin tkinter cae a stdout.
+- [TDD verde] `login_asistido.py` (perfil persistente, poll de `context.cookies()`,
+  overlay), `rotate_creds.py` v2 (dispatch, `_avisar` con `tkinter.messagebox`,
+  `_verificar_proxy` extraído).
+- [Verificación] 71 tests pasando, ruff limpio. **Smoke real**:
+  `capturar_php_sessid_asistido(timeout_min=0)` abre y cierra Chromium sin error y
+  lanza `LoginAsistidoError` (esperado sin completar login). `.lnk` de prueba
+  creado OK con el one-liner de PowerShell.
+
 ### Sesión 2026-09-08 — Fase 2A: keepalive del proxy
 - [TDD rojo] `tests/test_proxy.py` NUEVO (abre el archivo de la Fase 4). 12 tests
   sobre `ProxyValidatorAPI` con `core.api` monkeypatcheado (sin red, sin FastAPI

@@ -14,60 +14,47 @@
 
 ---
 
-## Procedimiento Actual (v1 — RDP Presencial)
+## Procedimiento — Login Asistido (por defecto)
 
-### Paso a Paso
+> Renovación diaria de la sesión (por el tope absoluto de sesión ≈ 9.5 h). El
+> owner no necesita saber nada técnico.
 
-1. **Owner recibe nuevas credenciales** de WinForce (email/contraseña nueva)
+### Para el owner
 
-2. **Hace RDP a la PC de la oficina** (donde corre el proxy)
+1. En el Escritorio de la PC del proxy, **doble clic en "Renovar sesion WinForce"**.
+2. Se abre una ventana de Chrome en la página de login de WinForce.
+3. **Inicia sesión como siempre.** El primer login de cada jornada incluye el
+   paso de Microsoft (2FA); el resto del día se salta solo.
+4. Cuando la barra superior de la ventana se pone **verde** ("Sesión capturada,
+   ya puedes cerrar esta ventana"), ciérrala.
+5. Aparece un cuadro **"✓ Sesión renovada correctamente"**. Listo.
 
-3. **Abre PowerShell** en la carpeta del proyecto:
-   ```powershell
-   cd C:\ruta\a\JSConnect-Win-Coverage
-   python -m validator_app.proxy.rotate_creds
-   ```
+No hay que abrir consola, ni F12, ni copiar nada.
 
-4. **El script pide interactivamente**:
-   ```
-   ========================================
-   ROTACIÓN DE CREDENCIALES WINFORCE
-   ========================================
-   Usuario (email): nuevo_usuario@empresa.com
-   Contraseña: ****************
-   ========================================
-   Probando login en WinForce...
-   ✓ Login exitoso
-   ✓ Sesión activa verificada
-   ✓ Cookies guardadas en keyring (JSWinProxy/credentials)
-   ========================================
-   Credenciales rotadas correctamente.
-   ```
+### Qué hace por dentro
 
-5. **Verificación opcional**:
-   ```powershell
-   curl http://localhost:8080/admin/status
-   # {"logged_in":true,"session_age":5,"creds_updated":"2026-08-25T14:30:00"}
-   ```
+`python -m validator_app.proxy.rotate_creds` (lo que lanza el icono, vía
+`pythonw.exe` = sin ventana de consola):
+1. `validator_app/proxy/login_asistido.py` abre Chromium con un **perfil
+   persistente** (`.browser_profile/`, gitignored → el SSO de Microsoft recuerda
+   el dispositivo dentro de la jornada).
+2. Sondea `context.cookies()` (ve las cookies **HttpOnly**, a diferencia de
+   `document.cookie`) buscando `PHPSESSID` en `appwinforce.win.pe`.
+3. Cuando la encuentra, la valida con `core.api.validar_cookie_sesion()`
+   (petición real a `operador.php`). Si pasa → capturada.
+4. `save_session_to_keyring()` → `JSWinProxy/credentials_cookies` + timestamp.
+5. El proxy en marcha la recoge en el siguiente request (`_relogin_silent`) o el
+   loop de keepalive; **no hace falta reiniciar el servicio**.
 
-6. **Listo**: Siguientes validaciones de agentes usan credenciales nuevas automáticamente
+### Fallback: `--manual` (para el técnico)
 
----
-
-## Qué Hace `rotate_creds.py` Internamente
-
-```python
-# validator_app/proxy/rotate_creds.py
-def main():
-    # 1. Lee credenciales actuales del keyring (para mostrar info)
-    # 2. Pide nuevo usuario/contraseña (getpass, no se ve en pantalla)
-    # 3. Crea ValidatorAPI temporal → login() → verifica sesión activa
-    # 4. Si OK: extrae cookies de sesión → guarda en keyring JSWinProxy/credentials
-    # 5. Actualiza timestamp "creds_updated" en keyring
-    # 6. Proxy detecta cookies nuevas en siguiente request (auto-relogin)
+Si Playwright/Chromium se rompe en esa PC:
+```powershell
+python -m validator_app.proxy.rotate_creds --manual
 ```
-
-**No requiere reiniciar el servicio** — el proxy lee keyring en cada request (o cachea con TTL corto).
+Pide pegar la `PHPSESSID` a mano (F12 → Application → Cookies). Mismo resto del
+flujo (validar → keyring → verificar). `--fresh` borra el perfil del navegador si
+el asistido se atasca.
 
 ---
 
@@ -123,61 +110,38 @@ curl http://localhost:8080/health
 
 | Problema | Causa | Solución |
 |----------|-------|----------|
-| `rotate_creds.py` → "Login fallido" | Credenciales incorrectas / WinForce caído | Verificar user/pass en web WinForce manualmente |
-| "Sesión no quedó activa" | 2FA Microsoft no completado | **Crítico**: Login WinForce redirige a Microsoft 2FA. El script `rotate_creds.py` **debe** manejar el flujo completo (ver nota abajo) |
-| Agentes siguen fallando tras rotación | Proxy cachea cookies viejas | Reiniciar servicio: `sc stop JSWinProxy && sc start JSWinProxy` |
-| Keyring no accesible | Usuario distinto al del servicio | Ejecutar `rotate_creds.py` como **mismo usuario** que corre el servicio (SYSTEM o usuario admin) |
+| El icono no abre nada / "Playwright no está instalado" | Chromium no descargado en esa PC | `python -m playwright install chromium` (o `install_service.bat`); mientras tanto `rotate_creds --manual` |
+| La ventana no llega a ponerse verde | Login no completado (falta el paso de Microsoft) | Volver a abrir el icono e iniciar sesión **por completo** antes de cerrar |
+| El navegador asistido se queda en un estado raro | Perfil corrupto | `python -m validator_app.proxy.rotate_creds --fresh` (borra `.browser_profile/`) |
+| Agentes siguen fallando tras renovar | Proxy con cookie vieja en memoria | Reiniciar servicio: `winsw.exe restart` (o esperar al siguiente `_relogin_silent` / ping de keepalive) |
+| Keyring no accesible | Usuario distinto al del servicio | Correr `rotate_creds` como el **mismo usuario** que corre el servicio |
 
 ---
 
-## ⚠️ NOTA CRÍTICA: Login WinForce + Microsoft 2FA
+## ⚠️ NOTA: Login WinForce + Microsoft 2FA
 
-**El login de WinForce redirige a `login.microsoftonline.com` para 2FA**.
+El login de WinForce redirige a `login.microsoftonline.com` para 2FA, así que el
+login programático (usuario/contraseña por HTTP) es **inviable**. La `PHPSESSID`
+sale siempre de un login manual en navegador. El **login asistido**
+(`login_asistido.py`, Playwright) automatiza la parte de *extraer* la cookie —
+el owner solo inicia sesión. `context.cookies()` de Playwright ve la `PHPSESSID`
+aunque sea HttpOnly (`document.cookie` no la vería). El perfil persistente hace
+que el SSO de Microsoft se salte el 2FA dentro de la misma jornada.
 
-Esto significa:
-- `rotate_creds.py` **NO puede ser solo HTTP POST** a `acceso.php`
-- Debe usar **Playwright/Selenium** o replicar el flujo completo OAuth2/SAML
-- **Alternativa práctica (v1)**: Owner hace login **manual en navegador** dentro de la PC proxy → copia cookies `PHPSESSID` → script las inyecta en keyring
-
-### Implementación Realista v1 (Híbrida)
-
-```python
-# rotate_creds.py v1 - Híbrido
-def main():
-    print("""
-    PASO 1: Abre Chrome en ESTA PC (la del proxy)
-    PASO 2: Ve a https://appwinforce.win.pe/login
-    PASO 3: Inicia sesión con las NUEVAS credenciales (incluye 2FA Microsoft)
-    PASO 4: Cuando estés en el dashboard, pulsa ENTER aquí
-    """)
-    input("Presiona ENTER cuando hayas iniciado sesión en el navegador... ")
-    
-    # Extraer cookies de la sesión del navegador (via Chrome DevTools Protocol o archivo)
-    # O más simple: que el owner copie PHPSESSID manualmente
-    php_sessid = getpass.getpass("Pega el valor de cookie PHPSESSID: ")
-    
-    # Validar que la cookie funciona
-    api = ValidatorAPI()
-    api._sesion.cookies.set("PHPSESSID", php_sessid, domain="appwinforce.win.pe")
-    api._verificar_sesion_activa(api._sesion)
-    
-    # Guardar en keyring
-    save_session_cookies({"PHPSESSID": php_sessid})
-    print("✓ Credenciales rotadas (via cookie de sesión)")
-```
-
-**Esta es la única forma viable v1** sin replicar Microsoft 2FA. Documentado aquí para que futuros devs no pierdan tiempo intentando automatizar lo imposible.
+Documentado aquí para que futuros devs no pierdan tiempo intentando automatizar
+el login OAuth2/SAML completo — no hace falta.
 
 ---
 
-## Checklist Rotación (Para Owner)
+## Checklist (Para el Owner)
 
-- [ ] Recibí nuevas credenciales WinForce (email)
-- [ ] Hice RDP a PC proxy
-- [ ] Abrí Chrome → login WinForce con nuevas credenciales (incluye 2FA Microsoft)
-- [ ] Copié cookie `PHPSESSID` (F12 → Application → Cookies)
-- [ ] Ejecuté `python -m validator_app.proxy.rotate_creds`
-- [ ] Pegué `PHPSESSID` cuando pidió
-- [ ] Verifiqué `curl /admin/status` → `logged_in: true`
-- [ ] Probé validación desde un agente → funciona
-- [ ] Borré credenciales viejas de mi portapapeles / notas
+Renovación diaria (login asistido):
+- [ ] Doble clic en "Renovar sesion WinForce" (Escritorio de la PC del proxy)
+- [ ] Inicié sesión en la ventana que se abrió (incluye Microsoft el 1er login del día)
+- [ ] La barra se puso verde → cerré la ventana
+- [ ] Salió el cuadro "✓ Sesión renovada"
+
+Cambio de credenciales (cada 1-2 meses, cuando WinForce las rota):
+- [ ] Recibí el nuevo usuario/contraseña de WinForce
+- [ ] Doble clic en "Renovar sesion WinForce" e inicié sesión con las **nuevas**
+- [ ] (Igual que arriba: barra verde → cerrar → "✓")

@@ -111,6 +111,30 @@ Almacén cifrado del SO por usuario. Cada usuario Windows tiene el suyo.
 
 ---
 
+## L
+
+### Login asistido (`validator_app/proxy/login_asistido.py`)
+Forma de renovar la sesión WinForce del proxy sin que el owner toque F12 ni copie
+nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icono
+"Renovar sesion WinForce" del Escritorio (`pythonw.exe`, sin consola).
+- **Cómo**: Playwright abre Chromium con `launch_persistent_context`, el owner
+  inicia sesión normalmente, y el script sondea `context.cookies()` buscando la
+  `PHPSESSID` de `appwinforce.win.pe`. Al encontrarla la valida con
+  `core.api.validar_cookie_sesion()` y la guarda en keyring.
+- **Por qué `context.cookies()` y no `document.cookie`**: la `PHPSESSID` es
+  **HttpOnly** → invisible para JS de página; la API del contexto de Playwright sí
+  la ve.
+- **Perfil persistente** (`.browser_profile/`, gitignored): mantiene la sesión de
+  Microsoft en disco → dentro de la misma jornada el SSO se salta el 2FA en
+  renovaciones sucesivas. A la jornada siguiente vuelve a pedir 2FA (política de
+  Microsoft). `--fresh` borra el perfil.
+- **Fallback**: `rotate_creds --manual` (pegar la cookie a mano) para cuando
+  Playwright/Chromium no está disponible. No arrastra Playwright.
+- **Resultado** al owner: barra verde en la ventana + `tkinter.messagebox`
+  "✓ Sesión renovada". Nada de stdout (corre bajo `pythonw`).
+
+---
+
 ## M
 
 ### Microsoft 2FA (Login WinForce)

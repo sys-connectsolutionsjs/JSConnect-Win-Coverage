@@ -42,3 +42,6 @@ Contexto_Proyecto_JSConnect.docx
 
 # Estado local del hook de sincronizacion de documentacion (.claude/hooks/)
 .claude/hooks/*.local.json
+
+# Perfil del navegador del login asistido (sesion Microsoft/WinForce en disco, PC proxy)
+validator_app/proxy/.browser_profile/

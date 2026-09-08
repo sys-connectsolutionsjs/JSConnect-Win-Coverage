@@ -26,7 +26,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 ```
 - **Proxy Local (Opción B)**: Decidida tras detectar que WinForce redirige a Microsoft 2FA, haciendo inviable la concurrencia multi-máquina.
 - 20 agentes LAN → 1 proxy → 1-2 sesiones WinForce desde una sola IP → sin riesgo de bloqueo.
-- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring); renovarla = un re-login manual del encargado en esa PC (el login programático usuario/contraseña es inviable por el 2FA de Microsoft).
+- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring). Renovarla (≈1 vez por jornada, por el tope de sesión) = **doble clic en el icono "Renovar sesion WinForce" del Escritorio** → el encargado inicia sesión en la ventana que se abre y el script captura la cookie solo (sin F12, sin copiar/pegar). El login programático usuario/contraseña es inviable por el 2FA de Microsoft.
 - Escalable a agentes remotos vía **Tailscale VPN** (mismo token, misma arquitectura, cero cambios de código).
 
 ### Características
@@ -133,7 +133,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 ```
 - **Local Proxy (Option B)**: Decided after discovering WinForce redirects to Microsoft 2FA, making multi-machine concurrency unfeasible.
 - 20 LAN agents → 1 proxy → 1-2 WinForce sessions from single IP → no blocking risk.
-- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring); renewing it = one manual re-login by the manager on that PC (programmatic username/password login is unfeasible due to Microsoft 2FA).
+- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring). Renewing it (≈once per workday, due to the session cap) = **double-click the "Renovar sesion WinForce" desktop icon** → the manager logs in on the window that opens and the script captures the cookie by itself (no F12, no copy/paste). Programmatic username/password login is unfeasible due to Microsoft 2FA.
 - Scalable to remote agents via **Tailscale VPN** (same token, same architecture, zero code changes).
 
 ### Features

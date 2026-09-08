@@ -97,18 +97,24 @@ New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 
 
 ---
 
-## Rotación de Credenciales WinForce (Cada 1-2 Meses)
+## Renovar / Rotar la Sesión WinForce
 
 Ver `docs/rotacion-credenciales.md` para detalles completos.
 
-### Resumen (v1 - RDP Híbrido):
-1. Owner recibe nuevas credenciales WinForce
-2. **RDP a PC proxy**
-3. Abre Chrome → `https://appwinforce.win.pe/login` → Login con NUEVAS credenciales (incluye 2FA Microsoft)
-4. F12 → Application → Cookies → Copia `PHPSESSID` (Value)
-5. Ejecuta: `python -m validator_app.proxy.rotate_creds`
-6. Pega `PHPSESSID` cuando pida
-7. Verifica: `curl http://localhost:8080/admin/status` → `logged_in: true`
+### Login asistido (por defecto — renovación diaria y cambio de credenciales)
+1. En la PC del proxy, **doble clic en "Renovar sesion WinForce"** (Escritorio).
+2. Se abre Chrome → el owner inicia sesión (incluye Microsoft el 1er login del día).
+3. La barra superior se pone **verde** → cerrar la ventana → cuadro "✓ Sesión renovada".
+
+Sin consola, sin F12. El `.lnk` lo crea `install_service.bat`; corre
+`pythonw.exe -m validator_app.proxy.rotate_creds`.
+
+### Fallback manual (si Playwright se rompe)
+```powershell
+python -m validator_app.proxy.rotate_creds --manual   # pide pegar PHPSESSID (F12)
+python -m validator_app.proxy.rotate_creds --fresh     # asistido, perfil limpio
+curl http://localhost:8080/admin/status               # verificar: logged_in: true
+```
 
 ---
 
@@ -129,8 +135,9 @@ sc query JSWinProxy
 # Desinstalar
 .\validator_app\proxy\uninstall_service.bat
 
-# Rotar credenciales (RDP)
-python -m validator_app.proxy.rotate_creds
+# Renovar la sesion WinForce (o doble clic en el icono del Escritorio)
+python -m validator_app.proxy.rotate_creds           # asistido (navegador)
+python -m validator_app.proxy.rotate_creds --manual  # pegar PHPSESSID a mano
 
 # Ver config actual
 type .\validator_app\proxy\config.yaml
@@ -150,7 +157,9 @@ validator_app/proxy/
 ├── winsw.xml                # Generado auto
 ├── install_service.bat      # Instalador (en repo)
 ├── uninstall_service.bat    # Desinstalador (en repo)
-├── rotate_creds.py          # CLI rotación (en repo)
+├── rotate_creds.py          # CLI renovar sesión: asistido (default) / --manual
+├── login_asistido.py        # Captura la PHPSESSID con navegador (Playwright)
+├── .browser_profile/        # GITIGNORED - perfil persistente del login asistido
 ├── server.py                # FastAPI app (en repo)
 ├── client.py                # Cliente agentes (en repo, va en .exe)
 ├── config.py                # Pydantic Settings (en repo)
@@ -167,7 +176,8 @@ validator_app/proxy/
 | `curl /health` → Connection refused | `sc start JSWinProxy` + firewall rule |
 | Agentes: "401 Unauthorized" | Token distinto en agente vs `config.yaml` |
 | Agentes: "403 Forbidden" | IP no en `allowed_networks` (verifica LAN/VPN) |
-| WinForce: "Credenciales incorrectas" | Ejecutar `rotate_creds.py` via RDP |
+| WinForce: sesión muerta / `session_dead_since` en `/admin/status` | Doble clic en "Renovar sesion WinForce" (o `rotate_creds --manual`) |
+| "Playwright no está instalado" al renovar | `python -m playwright install chromium` (o re-correr `install_service.bat`) |
 | `install_service.bat` falla descarga winsw | Descargar manual de GitHub releases → `validator_app/proxy/winsw.exe` |
 
 ---

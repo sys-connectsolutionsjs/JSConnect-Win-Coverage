@@ -11,6 +11,11 @@ uvicorn[standard]>=0.29
 pydantic>=2.7
 pydantic-settings>=2.3
 
+# Login asistido (rotate_creds sin --manual): abre un navegador para que el owner
+# renueve la sesion WinForce sin tocar F12. El binario de Chromium lo descarga
+# `python -m playwright install chromium` en install_service.bat.
+playwright>=1.45
+
 # winsw se descarga como binario en install_service.bat (no via pip)
 
 # Nota para futuros programadores:

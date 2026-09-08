@@ -17,10 +17,10 @@ Fase 0 (medir vida de sesión) COMPLETA. **Investigación de keepalive CERRADA**
 funciona (37 pings VIVA hasta ≈ 9 h 16 m de edad de sesión) y **existe un tope
 absoluto de sesión ≈ 9.5 h desde el login** (muerte limpia a ≈ 9 h 31 m,
 confirmada por `validar_cookie_sesion()`); idle-timeout, anti-bot acumulativo y
-"tope a 40 min" quedan **descartados**. **Fase 2A (keepalive del proxy)
-COMPLETADA 2026-09-08** (`_keepalive_loop` + `_keepalive_tick`, 12 tests en
-`tests/test_proxy.py`, 61 pasando, ruff limpio). Pendiente: Fase 2.5 (login
-asistido para recolectar la `PHPSESSID` sin F12), Fases 3–5.
+"tope a 40 min" quedan **descartados**. **Fases 2A (keepalive del proxy) y 2.5
+(login asistido) COMPLETADAS 2026-09-08** — el proxy mantiene la sesión viva y el
+owner la renueva con doble clic (sin F12). 22 tests nuevos (`tests/test_proxy.py`
++ `tests/test_login_asistido.py`), 71 pasando, ruff limpio. Pendiente: Fases 3–5.
 
 - Fase 0 (captura de la API): COMPLETA.
 - Fase 1 (núcleo core): COMPLETA — 35 tests, ruff limpio.
@@ -174,10 +174,15 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   gestiona la frescura). **12 tests nuevos en `tests/test_proxy.py`** (abre el
   archivo de la Fase 4); 61 pasando, ruff limpio. Validado end-to-end contra
   WinForce real (detectó una sesión muerta y disparó el aviso).
-  **Falta (Fase 2.5)**: recolección automática de la `PHPSESSID` (login asistido
-  con navegador — el owner no toca F12 ni copia/pega). Recomendado: `rotate_creds`
-  v2 con Playwright (`context.cookies()`) + acceso directo en el escritorio de la
-  PC del proxy, dejando `--manual` como fallback.
+- **Fase 2.5 (B) — login asistido. [COMPLETADA 2026-09-08]** `login_asistido.py`
+  (Playwright captura la `PHPSESSID` de `context.cookies()` — ve las HttpOnly —
+  con perfil persistente para el SSO). `rotate_creds.py` v2: sin args = asistido +
+  `tkinter.messagebox`; `--manual` = copiar/pegar (fallback sin Playwright);
+  `--fresh` limpia el perfil. `install_service.bat` descarga Chromium y crea el
+  `.lnk` "Renovar sesion WinForce" en el Escritorio (`pythonw.exe`, sin consola).
+  `playwright>=1.45` → `requirements-proxy.txt`; `.browser_profile/` gitignored.
+  10 tests en `tests/test_login_asistido.py`. El owner renueva la sesión con doble
+  clic, sin F12.
 - **Fase 3 (D) — cookie en la GUI (arregla standalone).** `validator_app/gui/session_config.py`
   (NUEVO) + diálogo `⚙️ Configurar Sesión` en `main_window.py`; la rama standalone deja de
   usar `api.obtener_cliente()` y usa un `ValidatorAPI` con la cookie inyectada.
@@ -215,13 +220,10 @@ Ya hecho, se deja como referencia de qué se tocó:
 
 ## Fuera de alcance de la sesión actual — próxima fase
 
-- **Login asistido con Playwright en la PC del proxy**: un script abre Chrome real, el
-  encargado hace login + 2FA en esa ventana, y el script **extrae la `PHPSESSID`
-  automáticamente** del contexto del navegador y la empuja a `/admin/login`. Elimina el
-  copiar/pegar de F12. Reusa el patrón del proyecto hermano "Captura de API". `playwright`
-  ya está en `requirements-dev.txt`; habría que decidir si entra en `requirements-proxy.txt`.
-  El plan actual deja `/admin/login` listo para recibir el `php_sessid` que este script
-  enviaría.
+- ~~**Login asistido con Playwright**~~ → **IMPLEMENTADO 2026-09-08** (Fase 2.5, ver
+  arriba). `login_asistido.py` extrae la `PHPSESSID` de `context.cookies()` y
+  `rotate_creds.py` la guarda directo en keyring (no vía `/admin/login`, para que
+  funcione aunque el proxy esté caído).
 
 ## Pendientes adicionales (cola activa)
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.

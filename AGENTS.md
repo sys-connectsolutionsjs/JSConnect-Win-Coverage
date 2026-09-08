@@ -62,7 +62,8 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── test_api.py
 │   ├── test_prueba_core.py
 │   ├── test_medir_keepalive.py
-│   └── test_proxy.py        # keepalive del proxy (Fase 2A); se amplía en Fase 4
+│   ├── test_proxy.py        # keepalive del proxy (Fase 2A); se amplía en Fase 4
+│   └── test_login_asistido.py  # captura de PHPSESSID + dispatch de rotate_creds
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
@@ -75,12 +76,14 @@ JS-Win-Coverage/              (raíz del proyecto)
         ├── config.py         # Pydantic Settings (lee config.yaml + env)
         ├── config.yaml       # GITIGNORED (secretos reales)
         ├── config.yaml.example  # plantilla en repo
-        ├── server.py         # FastAPI app + endpoints + ValidatorAPI wrapper
+        ├── server.py         # FastAPI app + endpoints + ValidatorAPI wrapper + keepalive
         ├── client.py         # ProxyClient para agentes .exe
         ├── winsw.xml         # config servicio Windows
-        ├── install_service.bat   # instala servicio (descarga winsw, genera tokens)
+        ├── install_service.bat   # instala servicio (winsw, tokens, Chromium, icono Escritorio)
         ├── uninstall_service.bat # desinstala servicio
-        └── rotate_creds.py   # CLI owner: rota credenciales WinForce (RDP)
+        ├── rotate_creds.py   # CLI owner: renovar sesión WinForce — asistido (default) / --manual
+        ├── login_asistido.py # captura la PHPSESSID con navegador (Playwright, HttpOnly)
+        └── .browser_profile/ # GITIGNORED: perfil persistente del login asistido
 ```
 
 **Informes diarios:** las reglas de creación y la estética de la plantilla están
@@ -286,6 +289,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
       `README_PROXY.md`, `install_service.bat`).
     - Creados `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` (recuperados
       verbatim de git). Sin cambios de código; 49 tests / ruff siguen en verde.
+22. **Fase 2.5 — login asistido** [COMPLETADO — 2026-09-08]: `validator_app/proxy/login_asistido.py` NUEVO — Playwright abre Chromium (perfil persistente `.browser_profile/`, gitignored), el owner inicia sesión normalmente y el script captura la `PHPSESSID` de `context.cookies()` (ve las HttpOnly), la valida con `validar_cookie_sesion()` y la guarda. `rotate_creds.py` pasa a "v2": sin args = asistido + `tkinter.messagebox` de resultado; `--manual` = el copiar/pegar de antes (fallback sin Playwright); `--fresh` limpia el perfil. `install_service.bat` descarga Chromium (`playwright install chromium`) y crea el `.lnk` "Renovar sesion WinForce" en el Escritorio (`pythonw.exe`, sin consola). `playwright>=1.45` → `requirements-proxy.txt`. **10 tests en `tests/test_login_asistido.py`** (NUEVO), 71 pasando, ruff limpio. Smoke real: Chromium abre/cierra limpio y lanza el error esperado sin login.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -541,13 +545,19 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   (`config.py`), "latido perezoso" (no pinga si los agentes ya generan tráfico),
   aviso al owner + `session_dead_since` en `/admin/status` cuando la sesión muere
   pese al keepalive. Fix del guard idle de 120s del cliente-core. `tests/test_proxy.py`
-  NUEVO (12 tests). **61 tests, ruff limpio.** Probado end-to-end contra WinForce
-  real (detectó una sesión muerta y disparó el `ERROR` de aviso). Ver ítem 16.
-- **Pendiente real**: **Fase 2.5** (login asistido — recolectar la `PHPSESSID` con
-  navegador, sin F12; recomendado `rotate_creds` v2 con Playwright + acceso directo
-  en el escritorio del proxy, `--manual` como fallback) → Fase 3 (diálogo de cookie
-  en GUI) → Fase 4 (ampliar `tests/test_proxy.py` con FastAPI TestClient) → Fase 5
-  (docs). Deuda vieja restante: decidir `actualizar_score_cliente` / `newsearch.php`.
+  NUEVO (12 tests). Probado end-to-end contra WinForce real (detectó una sesión
+  muerta y disparó el `ERROR` de aviso). Ver ítem 16.
+- **Fase 2.5 — login asistido (4ª parte de la sesión)**: `login_asistido.py` NUEVO
+  (Playwright captura la `PHPSESSID` de `context.cookies()`); `rotate_creds.py` v2
+  (asistido por defecto + `messagebox`, `--manual` fallback, `--fresh`);
+  `install_service.bat` descarga Chromium + crea el `.lnk` del Escritorio;
+  `playwright` → `requirements-proxy.txt`; `.browser_profile/` gitignored.
+  `tests/test_login_asistido.py` NUEVO (10 tests). Ver ítem 22. Ahora el owner
+  renueva la sesión con **doble clic**, sin F12.
+- **71 tests, ruff limpio** al cierre de esta parte.
+- **Pendiente real**: Fase 3 (diálogo de cookie en la GUI del agente) → Fase 4
+  (ampliar `tests/test_proxy.py` con FastAPI TestClient) → Fase 5 (barrido final de
+  docs). Deuda vieja restante: decidir `actualizar_score_cliente` / `newsearch.php`.
 - **Observación (no bloqueante)**: `config.yaml` **no se está leyendo** —
   pydantic-settings avisa "yaml_file config key ignored, no YamlConfigSettingsSource".
   El proxy hoy funciona por defaults + env vars (`PROXY_*`). Arreglar cuando se

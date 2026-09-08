@@ -105,15 +105,36 @@ y no cambia el diseño de la Fase 2.
   keepalive detectó la `PHPSESSID` muerta del keyring y disparó el `ERROR` de
   aviso al owner — exactamente lo diseñado.
 
+#### Fase 2.5 — Login asistido (renovar la sesión sin F12) — HECHO
+- **`validator_app/proxy/login_asistido.py` NUEVO**: `capturar_php_sessid_asistido()`
+  abre Chromium con `launch_persistent_context` (perfil `.browser_profile/`,
+  gitignored), el owner inicia sesión normalmente y el script sondea
+  `context.cookies()` buscando la `PHPSESSID` de `appwinforce.win.pe` (ve las
+  **HttpOnly**, a diferencia de `document.cookie`). Al encontrarla la valida con
+  `validar_cookie_sesion()` y la devuelve. Overlay verde en la ventana al capturar.
+- **`rotate_creds.py` → v2**: sin argumentos = asistido, resultado por
+  `tkinter.messagebox` ("✓ Sesión renovada"), corre bajo `pythonw.exe` (sin
+  consola). `--manual` = el copiar/pegar de antes (fallback si Playwright se
+  rompe). `--fresh` borra el perfil del navegador.
+- **`install_service.bat`**: paso nuevo `python -m playwright install chromium` +
+  paso nuevo que crea el `.lnk` **"Renovar sesion WinForce"** en el Escritorio
+  (PowerShell/WScript.Shell, target `pythonw.exe`). Renumerados los pasos a `/10`.
+- `playwright>=1.45` → `requirements-proxy.txt` (quitado el suelto de
+  `requirements-dev.txt`). `.browser_profile/` → `.gitignore`.
+- **`tests/test_login_asistido.py` NUEVO** (10 tests: `_php_sessid_de_cookies`,
+  "sin playwright" → mensaje útil, dispatch asistido/`--manual`/`--fresh`, fallo de
+  captura y cookie inválida → avisa y no toca keyring, `_avisar` sin tkinter).
+  **71 tests, ruff limpio.**
+- **Smoke real**: `capturar_php_sessid_asistido(timeout_min=0)` abre/cierra
+  Chromium limpio y lanza `LoginAsistidoError` (esperado sin login).
+- **Perfil persistente + 2FA (según el usuario)**: el SSO de Microsoft se salta el
+  2FA solo **dentro de la misma jornada**; a la siguiente jornada pide 2FA otra
+  vez. El perfil persistente es ganancia neta (renovaciones repetidas del mismo
+  día son instantáneas) y no empeora la del día siguiente.
+
 #### Pendiente
-- **Fase 2.5 — login asistido**: recolectar la `PHPSESSID` automáticamente cuando
-  el owner se loguea (no sabe qué es F12). Recomendado: `rotate_creds` v2 con
-  Playwright (`context.cookies()` evita el HttpOnly) + acceso directo "Renovar
-  sesión" en el escritorio de la PC del proxy; `--manual` (copiar/pegar) como
-  fallback. Perfil de navegador persistente → el SSO de Microsoft suele saltarse
-  el 2FA en renovaciones sucesivas.
-- Fase 3 (D) — diálogo de cookie en la GUI. Fase 4 — ampliar `tests/test_proxy.py`
-  (FastAPI TestClient). Fase 5 — documentación.
+- Fase 3 (D) — diálogo de cookie en la GUI del agente. Fase 4 — ampliar
+  `tests/test_proxy.py` (FastAPI TestClient). Fase 5 — barrido final de docs.
 - Menor: `config.yaml` no se está leyendo (pydantic-settings sin
   `YamlConfigSettingsSource`); el proxy va por defaults + env `PROXY_*`.
 - Deuda restante: `tests/test_proxy.py` inexistente (= Fase 4); decidir
