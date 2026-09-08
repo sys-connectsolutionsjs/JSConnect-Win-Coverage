@@ -59,7 +59,10 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── tests/
 │   ├── test_fields.py
 │   ├── test_captura_guard.py
-│   └── test_api.py
+│   ├── test_api.py
+│   ├── test_prueba_core.py
+│   ├── test_medir_keepalive.py
+│   └── test_proxy.py        # keepalive del proxy (Fase 2A); se amplía en Fase 4
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
@@ -268,7 +271,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 13. **`tools/probar_con_cookie.py`** [NUEVO, 2026-08-27]: herramienta de diagnóstico contra el servidor real (cookie de sesión capturada del navegador). Ya probó su valor detectando 2 bugs reales — conservar para futuras revalidaciones.
 14. **Medición de vida de PHPSESSID** [COMPLETADO — verificado 2026-09-04]: `tools/medir_sesion.py` ejecutado con 4 corridas. Las corridas limpias registraron VIVA a 1155s y MUERTA a 1350s; las corridas de 600s llegaron a 525s. La corrida anómala de 135-210s coincide con recarga/reuse de cookie y no se toma como idle-timeout.
 15. **Investigación de keepalive** [CERRADA — verificado 2026-09-08]: `tools/medir_keepalive.py` **v3** corrigió los dos defectos que invalidaban v1/v2 (no medía la edad real de la sesión; cualquier error cortaba la corrida como "muerte"). Corrida final (arrancó 2026-09-05 21:08, ping fijo 900s, 49 coords; reporte 2026-09-08): **37 pings consecutivos VIVA** hasta ≈ 9 h 16 m de edad de sesión; muerte **limpia** a ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Conclusiones: idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **existe un tope absoluto de sesión ≈ 9.5 h desde el login**. Detalle en `anotaciones.md` ("Dos límites de sesión" + "Revisión del método") y `PlanesAprobados.md` (Fase 0, act. 2026-09-08).
-16. **Fase 2 — keepalive robusto** [LISTA PARA IMPLEMENTAR]: endpoint = `validar_cobertura` (ping válido), rotar coords = sí (49 en `coords_prueba.txt`), **intervalo = 900s fijo**. Diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de agentes, contra `ProxyValidatorAPI._last_activity`). El keepalive NO evita el tope absoluto ≈ 9.5 h: la Fase 2 debe **avisar al owner** cuando la sesión muera igual (no reintentar en silencio) → el owner reinyecta la cookie al inicio del turno.
+16. **Fase 2A — keepalive del proxy** [COMPLETADO — 2026-09-08]: `_keepalive_loop` (`asyncio` en `lifespan`) + `ProxyValidatorAPI._keepalive_tick` en `server.py`; config `keepalive_enabled` / `keepalive_interval_seconds` (900s) en `config.py`. "Latido perezoso": pinga `validar_cobertura` (coord pública rotada de `_KEEPALIVE_COORDS`) solo si no hubo tráfico real de agentes en el intervalo. Ping fallido → confirma con `validar_cookie_sesion()`: endpoint caído = transitorio; **sesión muerta = `log.error` con aviso al owner + `session_dead_since` en `/admin/status`, sin reintentar en silencio**. Prerrequisito arreglado: `_get_client()` neutraliza el guard idle de 120s del cliente-core. **12 tests en `tests/test_proxy.py`** (NUEVO), 61 pasando, ruff limpio. Validado end-to-end contra WinForce real. **Falta Fase 2.5**: login asistido (recolectar la `PHPSESSID` con navegador, sin F12).
 17. **Fase 3 — diálogo de cookie en GUI** [PENDIENTE]: implementar después de cerrar la investigación de keepalive.
 18. **Arranque de los scripts de `tools/`** [COMPLETADO — verificado 2026-09-05, commit `82f9a4c`]: los 6 scripts que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
 19. **`tools/coords_prueba.txt`** [NUEVO, 2026-09-05, commit `26e7567`]: 49 coordenadas públicas (10 del usuario + 39 generadas dentro de su polígono) que `medir_keepalive.py` rota por ping para no repetir el mismo query.
@@ -533,7 +536,20 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   `requires-python` → `>=3.12` + versión unificada en todo el repo; snapshots
   `resumenes/2026-09-04.md` y `2026-09-05.md` creados. Ver Tareas pendientes ítem 21
   y `TestingLog.md`. Sin cambios de código; 49 tests / ruff en verde.
-- **Pendiente real**: implementar Fase 2 (keepalive "latido perezoso" + aviso al
-  owner por el tope ≈ 9.5 h) → Fase 3 (diálogo de cookie en GUI) → Fase 4
-  (`tests/test_proxy.py`) → Fase 5 (docs). Deuda vieja restante: `tests/test_proxy.py`
-  inexistente (= Fase 4); decidir `actualizar_score_cliente` / `newsearch.php`.
+- **Fase 2A — keepalive del proxy (3ª parte de la sesión)**: `_keepalive_loop` +
+  `ProxyValidatorAPI._keepalive_tick` (`server.py`), config `keepalive_*`
+  (`config.py`), "latido perezoso" (no pinga si los agentes ya generan tráfico),
+  aviso al owner + `session_dead_since` en `/admin/status` cuando la sesión muere
+  pese al keepalive. Fix del guard idle de 120s del cliente-core. `tests/test_proxy.py`
+  NUEVO (12 tests). **61 tests, ruff limpio.** Probado end-to-end contra WinForce
+  real (detectó una sesión muerta y disparó el `ERROR` de aviso). Ver ítem 16.
+- **Pendiente real**: **Fase 2.5** (login asistido — recolectar la `PHPSESSID` con
+  navegador, sin F12; recomendado `rotate_creds` v2 con Playwright + acceso directo
+  en el escritorio del proxy, `--manual` como fallback) → Fase 3 (diálogo de cookie
+  en GUI) → Fase 4 (ampliar `tests/test_proxy.py` con FastAPI TestClient) → Fase 5
+  (docs). Deuda vieja restante: decidir `actualizar_score_cliente` / `newsearch.php`.
+- **Observación (no bloqueante)**: `config.yaml` **no se está leyendo** —
+  pydantic-settings avisa "yaml_file config key ignored, no YamlConfigSettingsSource".
+  El proxy hoy funciona por defaults + env vars (`PROXY_*`). Arreglar cuando se
+  toque la config del proxy (añadir `settings_customise_sources` con
+  `YamlConfigSettingsSource`).

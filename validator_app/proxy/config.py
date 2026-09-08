@@ -37,6 +37,11 @@ class ProxyConfig(BaseSettings):
     winforce_cobertura_timeout: int = 30
     winforce_score_timeout: int = 90
 
+    # Keepalive ("latido perezoso"): pinga WinForce solo si no hubo trafico real
+    # de los agentes dentro del intervalo. 900s validado en la corrida v3.
+    keepalive_enabled: bool = True
+    keepalive_interval_seconds: int = 900
+
     # Redes permitidas (LAN + Tailscale CGNAT)
     allowed_networks: list[str] = [
         "192.168.0.0/16",

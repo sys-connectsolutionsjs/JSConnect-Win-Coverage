@@ -30,6 +30,11 @@ winforce_login_timeout: 30         # Login WinForce
 winforce_cobertura_timeout: 30     # Consulta cobertura
 winforce_score_timeout: 90         # Consulta score (más lento, SOAP Equifax)
 
+# Keepalive ("latido perezoso"): pinga WinForce para que la sesión no muera por
+# inactividad, PERO solo si no hubo tráfico real de los agentes en el intervalo.
+keepalive_enabled: true
+keepalive_interval_seconds: 900    # 15 min (validado en la investigación de keepalive)
+
 # Redes permitidas para agentes (CIDR)
 # LAN estándar + Tailscale CGNAT (100.64.0.0/10)
 allowed_networks:

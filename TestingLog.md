@@ -28,6 +28,29 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Fase 2A: keepalive del proxy
+- [TDD rojo] `tests/test_proxy.py` NUEVO (abre el archivo de la Fase 4). 12 tests
+  sobre `ProxyValidatorAPI` con `core.api` monkeypatcheado (sin red, sin FastAPI
+  TestClient todavía): latido perezoso (omitir por tráfico reciente / sin sesión),
+  clasificación de un ping fallido (VIVA / TRANSITORIO / SESION_MUERTA /
+  INDETERMINADO vía `validar_cookie_sesion()`), `set_session_cookie` limpia
+  `session_dead_since`, bloque `keepalive` en `get_status()`, loop async que para
+  limpio y sobrevive a un tick que lanza.
+- [Prerrequisito] `test_proxy_client_sin_guard_idle_de_120s`: el cliente-core del
+  proxy tenía el guard `auto_relogin_if_needed` (`_session_max_idle=120`) que
+  lanza `SessionError` en cada hueco > 120 s **antes de tocar la red**; el
+  reintento del wrapper volvía a lanzar (nadie resetea `_last_activity`) y
+  propagaba. `_get_client()` ahora pone `_session_max_idle = 10**9` (el proxy ya
+  gestiona la frescura). Igual que `tools/medir_keepalive.py`, que usa instancia
+  nueva por ping para esquivar ese guard.
+- [TDD verde] `_keepalive_loop` (`asyncio` en `lifespan`) + `_keepalive_tick`
+  (sync, `asyncio.to_thread`), `KeepaliveStatus`, config `keepalive_*`.
+- [Verificación] 61 tests pasando, ruff limpio. **Prueba real**: al arrancar el
+  proxy en esta PC, el keepalive pingó WinForce con la `PHPSESSID` (muerta) del
+  keyring, confirmó la muerte con `validar_cookie_sesion()` y logueó el `ERROR` de
+  aviso al owner — el camino de "sesión muerta" quedó ejercitado contra el
+  servidor real.
+
 ### Sesión 2026-09-08 — Deuda técnica previa a la Fase 2 (sin cambios de código)
 - [Problema] `pip install -r requirements.txt` + `python main.py` fallaba con
   `ModuleNotFoundError: httpx`: la GUI (`gui/main_window.py`) importa

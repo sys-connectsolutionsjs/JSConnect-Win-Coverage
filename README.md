@@ -33,7 +33,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 - Consulta directa a la API interna (rápido y ligero).
 - Entrada de coordenadas en formato `-11.956037627741102, -77.04065381800075`.
 - Detección automática del tipo de documento (DNI/RUC/CE).
-- Sesión automática: el proxy revalida y recarga la cookie del keyring cuando lleva >120s inactivo, y registra en el log cualquier fallo de recuperación.
+- Sesión automática: el proxy revalida y recarga la cookie del keyring cuando lleva >120s inactivo, mantiene la sesión viva con un *keepalive* "latido perezoso" (pinga WinForce solo si no hubo tráfico real de los agentes), y registra en el log cualquier fallo — con aviso al owner si la sesión muere pese al keepalive (tope absoluto ≈ 9.5 h por login).
 - Credenciales guardadas cifradas con el Administrador de Credenciales de Windows (keyring).
 - Sistema de activación por código RSA (solo personal autorizado).
 - Botón de actualizaciones contra GitHub Releases.
@@ -140,7 +140,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 - Direct internal API calls (fast and lightweight).
 - Coordinates input as `-11.956037627741102, -77.04065381800075`.
 - Automatic document type detection (DNI/RUC/CE).
-- Automatic session management: the proxy revalidates and reloads the keyring cookie when idle >120s, and logs any recovery failure.
+- Automatic session management: the proxy revalidates and reloads the keyring cookie when idle >120s, keeps the session warm with a "lazy heartbeat" keepalive (it pings WinForce only when agents produced no real traffic), and logs any failure — alerting the owner if the session dies despite the keepalive (absolute ≈9.5 h cap per login).
 - Credentials stored encrypted via Windows Credential Manager (keyring).
 - Activation-code licensing (authorized staff only).
 - Update button against GitHub Releases.

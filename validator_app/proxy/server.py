@@ -21,8 +21,11 @@ Auth:
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import ipaddress
 import logging
+import random
 import time
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -40,6 +43,27 @@ log = logging.getLogger(__name__)
 # Segundos que se reutiliza el ultimo resultado de validar la cookie antes de
 # volver a preguntarle a WinForce (evita una peticion de red por cada /health).
 SESSION_ALIVE_TTL_SECONDS = 30
+
+# Coordenadas que el keepalive rota al azar en cada ping, para no martillear
+# siempre el mismo query contra WinForce. Subconjunto de ubicaciones PUBLICAS de
+# Lima (Jesus Maria / Lince / San Isidro) de tools/coords_prueba.txt, donde
+# viven las 49 completas que usa tools/medir_keepalive.py. NO son domicilios de
+# clientes. Embebidas (no leidas de disco) porque el cwd del servicio no es
+# fiable y tools/ puede no estar en el deploy.
+_KEEPALIVE_COORDS: list[tuple[float, float]] = [
+    (-12.0712441748165, -77.03826026511716),
+    (-12.063877213667501, -77.04326554484533),
+    (-12.065493554702455, -77.02953115727665),
+    (-12.057527207575193, -77.0408649786354),
+    (-12.062260862664193, -77.04716154605693),
+    (-12.052716496803216, -77.03354521899678),
+    (-12.058066001705464, -77.04680736412837),
+    (-12.053332272583939, -77.04047144316046),
+    (-12.055987789450054, -77.02547774198794),
+    (-12.050676729437065, -77.04956211237528),
+    (-12.068486573439170, -77.039798169965209),
+    (-12.061203707094689, -77.037233988170613),
+]
 
 
 # Modelos Pydantic para requests/responses
@@ -93,12 +117,21 @@ class AdminCookieRequest(BaseModel):
     php_sessid: str
 
 
+class KeepaliveStatus(BaseModel):
+    enabled: bool
+    last_ping_at: str | None
+    last_ping_ok: bool | None
+    consecutive_failures: int
+    session_dead_since: str | None
+
+
 class AdminStatusResponse(BaseModel):
     logged_in: bool
     session_age: int | None
     creds_updated: str | None
     proxy_version: str
     session_alive: bool
+    keepalive: KeepaliveStatus
 
 
 # Wrapper ValidatorAPI para el proxy (singleton con persistencia)
@@ -111,10 +144,20 @@ class ProxyValidatorAPI:
         self._session_alive: bool = False
         self._session_alive_cookie: str | None = None
         self._session_alive_checked_at: float = 0.0
+        # Estado del keepalive (Fase 2A)
+        self._keepalive_last_ping_at: float = 0.0
+        self._keepalive_last_ping_ok: bool | None = None
+        self._keepalive_consecutive_failures: int = 0
+        self._session_dead_since: float | None = None
 
     def _get_client(self) -> core_api.ValidatorAPI:
         if self._client is None:
             self._client = core_api.ValidatorAPI()
+            # El proxy gestiona la frescura de la sesion por su cuenta
+            # (auto_relogin_if_needed + _relogin_silent + el loop de keepalive).
+            # El guard idle interno del cliente-core lanzaria SessionError en
+            # cada hueco de trafico >120s, antes de tocar la red; se neutraliza.
+            self._client._session_max_idle = 10**9
         return self._client
 
     def auto_relogin_if_needed(self) -> None:
@@ -311,6 +354,10 @@ class ProxyValidatorAPI:
         client.set_session_cookies({"PHPSESSID": php_sessid})
         self._save_session_cookies()
         self._creds_updated = time.strftime("%Y-%m-%dT%H:%M:%S")
+        # El owner renovo la cookie: la sesion vuelve a estar sana.
+        self._session_dead_since = None
+        self._keepalive_consecutive_failures = 0
+        self._invalidate_session_alive_cache()
 
     def _invalidate_session_alive_cache(self) -> None:
         """Fuerza que el proximo get_status() vuelva a preguntarle a WinForce."""
@@ -352,6 +399,96 @@ class ProxyValidatorAPI:
         self._session_alive_checked_at = now
         return alive
 
+    # ---------------------- keepalive ("latido perezoso") ----------------------
+
+    def _keepalive_tick(self) -> dict:
+        """Un ciclo del keepalive. Sincrono y sin estado global: el loop async
+        lo llama con asyncio.to_thread.
+
+        "Latido perezoso": si los agentes ya generaron trafico real dentro del
+        intervalo, no se pinga (su trabajo normal ya mantiene la sesion viva).
+        El ping solo cubre los huecos (almuerzo, primera hora)."""
+        now = time.time()
+        inactivo = now - self._last_activity
+        if self._last_activity and inactivo < self.config.keepalive_interval_seconds:
+            return {"accion": "omitido", "motivo": "trafico_reciente"}
+
+        client = self._get_client()
+        php_sessid = client._sesion.cookies.get("PHPSESSID") if client._sesion else None
+        if not php_sessid:
+            return {"accion": "omitido", "motivo": "sin_sesion"}
+
+        lat, lon = random.choice(_KEEPALIVE_COORDS)
+        try:
+            client.validar_cobertura(lat, lon)
+        except Exception as exc:
+            return self._keepalive_registrar_fallo(php_sessid, exc)
+
+        self._keepalive_last_ping_at = time.time()
+        self._last_activity = self._keepalive_last_ping_at
+        self._keepalive_last_ping_ok = True
+        self._keepalive_consecutive_failures = 0
+        self._session_dead_since = None
+        return {"accion": "ping", "resultado": "VIVA", "coord": (lat, lon)}
+
+    def _keepalive_registrar_fallo(self, php_sessid: str, exc: Exception) -> dict:
+        """Clasifica un ping fallido: muerte de sesion vs. fallo del endpoint vs.
+        indeterminado. Confirma contra WinForce con validar_cookie_sesion(),
+        igual que _confirmar_muerte() de tools/medir_keepalive.py."""
+        self._keepalive_last_ping_at = time.time()
+        self._keepalive_last_ping_ok = False
+        self._keepalive_consecutive_failures += 1
+        try:
+            core_api.validar_cookie_sesion(php_sessid)
+        except core_api.LoginError:
+            primera_vez = self._session_dead_since is None
+            if primera_vez:
+                self._session_dead_since = time.time()
+                log.error(
+                    "keepalive: la sesion WinForce MURIO y el keepalive no puede "
+                    "recuperarla (tope absoluto de sesion ~9.5h desde el login; el "
+                    "re-login programatico es inviable por el 2FA de Microsoft). "
+                    "AVISO AL OWNER: renueva la cookie -> 'Renovar sesion' en la PC "
+                    "del proxy, `python -m validator_app.proxy.rotate_creds`, o "
+                    "POST /admin/rotar. Detalle del ping: %s",
+                    exc,
+                )
+            else:
+                log.warning(
+                    "keepalive: la sesion WinForce sigue muerta (%s fallos "
+                    "seguidos); esperando a que el owner renueve la cookie.",
+                    self._keepalive_consecutive_failures,
+                )
+            return {"accion": "ping", "resultado": "SESION_MUERTA", "error": str(exc)}
+        except Exception as exc2:
+            log.warning(
+                "keepalive: el ping fallo y no se pudo confirmar si la sesion "
+                "sigue viva (%s). Probablemente red/WinForce caido; se reintenta "
+                "en el proximo ciclo. Detalle del ping: %s",
+                exc2,
+                exc,
+            )
+            return {"accion": "ping", "resultado": "INDETERMINADO", "error": str(exc)}
+
+        log.warning(
+            "keepalive: el ping fallo pero la sesion sigue viva -> fallo del "
+            "endpoint, no de la sesion (%s).",
+            exc,
+        )
+        return {"accion": "ping", "resultado": "TRANSITORIO", "error": str(exc)}
+
+    def _keepalive_status(self) -> dict:
+        def _iso(ts: float | None) -> str | None:
+            return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(ts)) if ts else None
+
+        return {
+            "enabled": self.config.keepalive_enabled,
+            "last_ping_at": _iso(self._keepalive_last_ping_at or None),
+            "last_ping_ok": self._keepalive_last_ping_ok,
+            "consecutive_failures": self._keepalive_consecutive_failures,
+            "session_dead_since": _iso(self._session_dead_since),
+        }
+
     def get_status(self) -> dict:
         client = self._get_client()
         session_age = int(time.time() - self._last_activity) if self._last_activity else None
@@ -364,6 +501,7 @@ class ProxyValidatorAPI:
             "creds_updated": self._creds_updated,
             "proxy_version": "dev",
             "session_alive": session_alive,
+            "keepalive": self._keepalive_status(),
         }
 
 
@@ -410,12 +548,50 @@ def _ip_in_allowed_networks(ip_str: str, networks: list[str]) -> bool:
         return False
 
 
+async def _keepalive_loop(
+    proxy_api: ProxyValidatorAPI, interval: float, stop: asyncio.Event
+) -> None:
+    """Corre _keepalive_tick() cada `interval` segundos hasta que se pida parar.
+
+    Cada tick corre en un hilo (asyncio.to_thread) porque el cliente-core es
+    sincrono (requests). Un tick que lanza no mata el loop."""
+    log.info("keepalive: loop iniciado (intervalo %ss)", interval)
+    while not stop.is_set():
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+            break  # se pidio parar
+        except TimeoutError:
+            pass
+        try:
+            resultado = await asyncio.to_thread(proxy_api._keepalive_tick)
+            log.debug("keepalive: %s", resultado)
+        except Exception:
+            log.exception("keepalive: error inesperado en el tick (el loop sigue)")
+    log.info("keepalive: loop detenido")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    get_proxy_api()  # Inicializa singleton
+    proxy_api = get_proxy_api()  # Inicializa singleton
+    config = get_config()
+    task: asyncio.Task | None = None
+    if config.keepalive_enabled:
+        stop = asyncio.Event()
+        task = asyncio.create_task(
+            _keepalive_loop(proxy_api, config.keepalive_interval_seconds, stop)
+        )
+        app.state.keepalive_stop = stop
+        app.state.keepalive_task = task
+
     yield
+
     # Shutdown
+    if task is not None:
+        app.state.keepalive_stop.set()
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
     reset_config()
 
 
@@ -530,6 +706,7 @@ async def admin_status():
         creds_updated=status["creds_updated"],
         proxy_version=status["proxy_version"],
         session_alive=status["session_alive"],
+        keepalive=KeepaliveStatus(**status["keepalive"]),
     )
 
 

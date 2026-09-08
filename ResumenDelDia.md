@@ -81,14 +81,40 @@ y no cambia el diseño de la Fase 2.
   (`44d1132~1` y `3c1baa5`).
 - Sin cambios de código; **49 tests, ruff limpio**. Nota en `TestingLog.md`.
 
+#### Fase 2A — Keepalive del proxy ("latido perezoso") — HECHO
+- **`_keepalive_loop`** (`asyncio` en el `lifespan` de `server.py`) +
+  **`ProxyValidatorAPI._keepalive_tick`** (síncrono, corre en `asyncio.to_thread`).
+  Config `keepalive_enabled` / `keepalive_interval_seconds` (**900**) en `config.py`
+  (+ `config.yaml.example`, `install_service.bat`).
+- **Latido perezoso**: el tick no pinga si `now - _last_activity < intervalo`
+  (los agentes ya mantienen la sesión viva); solo cubre los huecos. Ping =
+  `validar_cobertura` con coord pública rotada al azar (`_KEEPALIVE_COORDS`, 12
+  puntos embebidos; las 49 siguen en `tools/coords_prueba.txt`).
+- **Aviso al owner**: ping fallido → se confirma con `validar_cookie_sesion()`.
+  Endpoint caído → `TRANSITORIO` (warning). Sesión muerta → `log.error` (una vez)
+  con el remedio + `session_dead_since` poblado en `/admin/status` (nuevo bloque
+  `keepalive`). **No reintenta en silencio.**
+- **Prerrequisito arreglado**: `_get_client()` pone `_session_max_idle = 10**9`
+  en el cliente-core — su guard idle de 120 s lanzaba `SessionError` en cada hueco
+  > 120 s (el proxy ya gestiona la frescura por su cuenta). Bug latente que el
+  keepalive habría vuelto constante.
+- **`tests/test_proxy.py` NUEVO** (12 tests: latido perezoso, clasificación de
+  fallos, limpieza al renovar, regresión del guard, loop async). **61 tests, ruff
+  limpio.**
+- **Validado end-to-end contra WinForce real**: al arrancar en esta PC, el
+  keepalive detectó la `PHPSESSID` muerta del keyring y disparó el `ERROR` de
+  aviso al owner — exactamente lo diseñado.
+
 #### Pendiente
-- **Fase 2 (B) — keepalive en el proxy** (desbloqueada): loop `asyncio` en
-  `lifespan`, config `keepalive_enabled` / `keepalive_interval_seconds` = **900**,
-  diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de agentes,
-  contra `ProxyValidatorAPI._last_activity`), **aviso al owner** cuando la sesión
-  muera por el tope absoluto (no reintentar en silencio; el owner reinyecta la
-  cookie con `rotate_creds.py` / `POST /admin/rotar`).
-- Fase 3 (D) — diálogo de cookie en la GUI. Fase 4 — `tests/test_proxy.py`.
-  Fase 5 — documentación.
+- **Fase 2.5 — login asistido**: recolectar la `PHPSESSID` automáticamente cuando
+  el owner se loguea (no sabe qué es F12). Recomendado: `rotate_creds` v2 con
+  Playwright (`context.cookies()` evita el HttpOnly) + acceso directo "Renovar
+  sesión" en el escritorio de la PC del proxy; `--manual` (copiar/pegar) como
+  fallback. Perfil de navegador persistente → el SSO de Microsoft suele saltarse
+  el 2FA en renovaciones sucesivas.
+- Fase 3 (D) — diálogo de cookie en la GUI. Fase 4 — ampliar `tests/test_proxy.py`
+  (FastAPI TestClient). Fase 5 — documentación.
+- Menor: `config.yaml` no se está leyendo (pydantic-settings sin
+  `YamlConfigSettingsSource`); el proxy va por defaults + env `PROXY_*`.
 - Deuda restante: `tests/test_proxy.py` inexistente (= Fase 4); decidir
   `actualizar_score_cliente` / `newsearch.php`.

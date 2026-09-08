@@ -152,6 +152,9 @@ if exist "%CONFIG_YAML%" (
         echo winforce_cobertura_timeout: 30
         echo winforce_score_timeout: 90
         echo.
+        echo keepalive_enabled: true
+        echo keepalive_interval_seconds: 900
+        echo.
         echo allowed_networks:
         echo   - "192.168.0.0/16"
         echo   - "10.0.0.0/8"
