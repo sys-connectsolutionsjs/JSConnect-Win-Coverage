@@ -32,9 +32,10 @@ Pendiente: Fases 3–5.
   core adaptado (`auto_relogin_if_needed`, persistencia cookies), GUI conectada
   (menú "⚙️ Configuración"). Detalle en `AGENTS.md` (Historial → Fase Proxy —
   Implementación).
-- **Gap (parcialmente cerrado 2026-09-08)**: `tests/test_proxy.py` **ya existe**
-  con 12 tests del keepalive (Fase 2A). Falta la capa FastAPI `TestClient`
-  (endpoints/auth/IP) — eso es Fase 4.
+- ~~**Gap: sin tests del proxy**~~ → **CERRADO 2026-09-08 (Fase 4)**:
+  `tests/test_proxy.py` cubre el keepalive (2A), `/local/*` (2.5d) y toda la capa
+  FastAPI — `/api/*`, `/health`, `/admin/*`, middleware de auth y exception
+  handlers. 31 tests en ese archivo.
 - **Prueba real del core**: COMPLETADA 2026-08-27 (ver sección abajo).
 - **Próxima fase (en ejecución, 2026-08-28)**: plan "Sesión WinForce robusta" — keepalive
   del proxy + limpieza del login muerto (el proxy asumía login programático, imposible con
@@ -199,10 +200,11 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   usa `cliente_standalone()` en vez del `ValidatorAPI` sin sesión de
   `api.obtener_cliente()`. 6 tests en `tests/test_session_config.py`. 90 pasando,
   ruff limpio.
-- **Fase 4 — tests.** `tests/test_proxy.py` ya tiene keepalive (2A) + `/local/*`
-  (2.5d, con FastAPI `TestClient`); falta cubrir `/api/cobertura`, `/api/score`,
-  `/health`, `/admin/*` + middleware de auth/IP. `tests/test_session_config.py`
-  ya existe (Fase 3).
+- **Fase 4 — tests. [COMPLETADA 2026-09-08]** `tests/test_proxy.py` cubre
+  keepalive (2A) + `/local/*` (2.5d) + toda la capa FastAPI (`/api/*`, `/health`,
+  `/admin/*`, middleware token/IP/admin-key, exception handlers). 14 tests nuevos,
+  104 pasando, ruff limpio. `tests/test_session_config.py` (Fase 3) y
+  `tests/test_login_asistido.py` / `tests/test_instalar_extension.py` (Fase 2.5).
 - **Fase 5 — docs.** `docs/proxy-config.md`, `docs/proxy-deploy.md`, `README_PROXY.md`.
 
 ### Análisis de lo ya hecho (piezas reutilizables — NO reimplementar)

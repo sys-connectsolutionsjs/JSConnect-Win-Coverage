@@ -295,6 +295,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
       verbatim de git). Sin cambios de código; 49 tests / ruff siguen en verde.
 22. **Fase 2.5 — login asistido** [COMPLETADO — 2026-09-08]: `validator_app/proxy/login_asistido.py` NUEVO — Playwright abre Chromium (perfil persistente `.browser_profile/`, gitignored), el owner inicia sesión normalmente y el script captura la `PHPSESSID` de `context.cookies()` (ve las HttpOnly), la valida con `validar_cookie_sesion()` y la guarda. `rotate_creds.py` pasa a "v2": sin args = asistido + `tkinter.messagebox` de resultado; `--manual` = el copiar/pegar de antes (fallback sin Playwright); `--fresh` limpia el perfil; `--preview` abre la ventana para probarla sin guardar nada ni necesitar `config.yaml`. El navegador es el **Google Chrome instalado** (`channel="chrome"`, sin la infobar de automatización → el gestor de contraseñas autocompleta; fallback a Chromium si no hay Chrome). `install_service.bat` descarga Chromium (`playwright install chromium`) y crea el `.lnk` "Renovar sesion WinForce" en el Escritorio (`pythonw.exe`, sin consola). `playwright>=1.45` → `requirements-proxy.txt`. **10 tests en `tests/test_login_asistido.py`** (NUEVO), 71 pasando, ruff limpio. Smoke real: Chromium abre/cierra limpio y lanza el error esperado sin login.
 23. **Fase 2.5d — extensión de Chrome (renovar con un clic)** [COMPLETADO — 2026-09-08]: la **vía principal** de renovación pasa a ser una extensión MV3 (`validator_app/proxy/extension/`) en el Chrome cotidiano del owner — adjuntarse a ese Chrome con Playwright NO se puede (Chrome 136+ bloquea `--remote-debugging-port` en el perfil por defecto). La extensión: badge rojo cuando la sesión muere → 1 clic → `chrome.cookies.get` (lee HttpOnly) → `POST 127.0.0.1:<puerto>/local/renovar`. Endpoints `/local/renovar` y `/local/estado` en `server.py` (solo `127.0.0.1`, sin admin key; reusan `set_session_cookie` / `get_status`). `_instalar_extension.py` (NUEVO, lo llama `install_service.bat`) empaqueta un `.crx` firmado, escribe `updates.xml` y la política `ExtensionSettings\<id>` = `force_installed` (winreg). `uninstall_service.bat --uninstall` borra la política. **10 tests nuevos** (`tests/test_proxy.py` con FastAPI TestClient — adelanta parte de la Fase 4 — + `tests/test_instalar_extension.py`), 84 pasando, ruff limpio. Smoke real: `_instalar_extension` empaqueta el crx y computa un id estable (`oclimnkhjeeamemdkdkfdliadmkdafkl`). El login asistido (`.lnk` del Escritorio) y `--manual` quedan de fallback.
+24. **Fase 3 — diálogo de cookie en la GUI** [COMPLETADO — 2026-09-08]: `validator_app/gui/session_config.py` NUEVO + menú "⚙ Configurar Sesión (standalone)" + `_abrir_config_sesion()` en `main_window.py`. Arregla el modo standalone (la rama llamaba `api.obtener_cliente().validar()` sobre un `ValidatorAPI` sin sesión → siempre `SessionError`). La cookie se valida (`validar_cookie_sesion`) y se guarda en keyring `JSWinCoverage`/`session_cookie`; `cliente_standalone()` arma el `ValidatorAPI` con ella inyectada. 6 tests (`tests/test_session_config.py`).
+25. **Fase 4 — tests de la capa FastAPI del proxy** [COMPLETADO — 2026-09-08]: `tests/test_proxy.py` cubre ahora `/api/cobertura`, `/api/score`, `/health`, `/admin/config`, `/admin/login`, `/admin/rotar`, `/admin/status` + middleware de auth (`X-Proxy-Token` + IP en `allowed_networks`, `X-Admin-Key`) + los 3 exception handlers (`LoginError`→401, `ScoreError`→502, `APIError`→502) + `_ip_in_allowed_networks`. 14 tests nuevos, **104 pasando, ruff limpio**. No se destapó ningún bug en `server.py`. Cierra el "Gap `tests/test_proxy.py`" del estado del proyecto.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -571,11 +573,16 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   `ValidatorAPI` sin sesión de `api.obtener_cliente()`. 6 tests
   (`tests/test_session_config.py`). Smoke: la GUI arranca, el menú y el diálogo
   aparecen; sin sesión el estado dice "standalone SIN sesion".
-- **90 tests, ruff limpio** al cierre de esta parte.
-- **Pendiente real**: Fase 4 (completar `tests/test_proxy.py`: endpoints `/api/*`
-  + auth + IP) → Fase 5 (barrido final de docs). Deuda vieja restante: decidir
+- **Fase 4 — tests de la capa FastAPI (7ª parte)**: `tests/test_proxy.py` cubre
+  ahora todos los endpoints (`/api/*`, `/health`, `/admin/*`), el middleware de
+  auth (token + IP, admin key) y los 3 exception handlers. 14 tests nuevos; sin
+  bugs en `server.py`. Cierra el gap de "no hay tests del proxy".
+- **104 tests, ruff limpio** al cierre de esta parte.
+- **Pendiente real**: Fase 5 (barrido final de docs: `docs/proxy-config.md`,
+  `docs/proxy-deploy.md`, coherencia general). Deuda vieja restante: decidir
   `actualizar_score_cliente` / `newsearch.php`; prueba manual de la GUI standalone
-  con cookie real.
+  y de la extensión con cookie real; `config.yaml` no se lee (pydantic-settings
+  sin `YamlConfigSettingsSource`).
 - **Aviso**: durante la sesión, al limpiar un Chrome zombie de una prueba se hizo
   `taskkill /IM chrome.exe` (cerró todo Chrome de la máquina). No repetir — matar
   solo el proceso hijo del perfil de prueba.

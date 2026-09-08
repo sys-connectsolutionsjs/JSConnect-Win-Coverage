@@ -28,6 +28,21 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Fase 4: cubrir la capa FastAPI del proxy
+- Fixture `client` en `tests/test_proxy.py`: `ProxyConfig` con `proxy_token` /
+  `admin_key` conocidos y `allowed_networks=["127.0.0.0/8","10.0.0.0/8"]`;
+  `server.get_config` y `server.get_proxy_api` monkeypatcheados;
+  `TestClient(server.app, client=("10.0.0.5", 5000))`.
+- 14 tests: `/health` (público); `/api/cobertura` y `/api/score` OK con
+  `X-Proxy-Token` (proxy mockeado), token malo → 401, IP fuera de
+  `allowed_networks` → 403, documento inválido → 422; `/admin/config` sin key →
+  401 / con key → 200; `/admin/login` y `/admin/rotar` → `set_session_cookie`;
+  `/admin/status` → bloque `keepalive`; los 3 exception handlers
+  (`LoginError`→401, `ScoreError`→502, `APIError`→502); `_ip_in_allowed_networks`
+  (unit directo).
+- **104 tests, ruff limpio.** Ninguno destapó un bug en `server.py` — la capa HTTP
+  del proxy quedó cubierta sin cambios de código.
+
 ### Sesión 2026-09-08 — Fase 3: diálogo de cookie en la GUI (arregla standalone)
 - [TDD rojo] `tests/test_session_config.py` NUEVO (6 tests). Fake de `keyring`
   (dict) por `monkeypatch` + `core.api.validar_cookie_sesion` mockeado:

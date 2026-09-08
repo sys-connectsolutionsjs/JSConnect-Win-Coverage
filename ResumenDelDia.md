@@ -194,11 +194,25 @@ y no cambia el diseño de la Fase 2.
   **90 tests, ruff limpio.** Smoke: la GUI arranca headless, el menú y el diálogo
   aparecen, el estado sin sesión es el correcto.
 
+#### Fase 4 — Cubrir la capa FastAPI del proxy con tests — HECHO
+- `tests/test_proxy.py` estrena un fixture `client` (config con token/admin_key
+  conocidos + `allowed_networks` con `10.0.0.0/8`; `get_config` / `get_proxy_api`
+  monkeypatcheados; `TestClient(client=("10.0.0.5", 5000))`).
+- **14 tests nuevos**: `/health`; `/api/cobertura` y `/api/score` (OK, token malo
+  → 401, IP externa → 403, doc inválido → 422); `/admin/config` (sin key → 401,
+  con key → 200); `/admin/login` + `/admin/rotar` (→ `set_session_cookie`);
+  `/admin/status` (bloque keepalive); los 3 exception handlers (`LoginError`→401,
+  `ScoreError`→502, `APIError`→502); `_ip_in_allowed_networks` directo.
+- **104 tests, ruff limpio.** Ningún bug en `server.py` — la capa HTTP del proxy
+  quedó cubierta sin cambios de código. Cierra el gap histórico "no hay tests del
+  proxy".
+
 #### Pendiente
-- Fase 4 — completar `tests/test_proxy.py` (endpoints `/api/*`, `/health`,
-  `/admin/*` + auth/IP con FastAPI TestClient). Fase 5 — barrido final de docs.
-- Prueba manual de la GUI standalone con una cookie real.
+- Fase 5 — barrido final de docs (`docs/proxy-config.md`, `docs/proxy-deploy.md`,
+  coherencia general del repo).
+- Prueba manual de la GUI standalone y de la extensión con una cookie real.
 - Menor: `config.yaml` no se está leyendo (pydantic-settings sin
   `YamlConfigSettingsSource`); el proxy va por defaults + env `PROXY_*`.
+- Deuda vieja: decidir `actualizar_score_cliente` / `newsearch.php`.
 - Deuda restante: `tests/test_proxy.py` inexistente (= Fase 4); decidir
   `actualizar_score_cliente` / `newsearch.php`.

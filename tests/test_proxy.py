@@ -285,3 +285,172 @@ def test_local_estado(client_local):
 def test_local_estado_rechaza_ip_externa():
     client = TestClient(server.app, client=("192.168.1.5", 1))
     assert client.get("/local/estado").status_code == 403
+
+
+# --------------------------------------------------------------------------
+# Capa FastAPI: /api/*, /health, /admin/* + auth + exception handlers (Fase 4)
+# --------------------------------------------------------------------------
+
+_TOKEN = "t" * 64
+_ADMIN = "k" * 64
+_COBERTURA = {
+    "hay_cobertura": True, "cobertura": "SI", "tipo": "HORIZONTAL",
+    "id_celda": "8764", "comment": "",
+}
+_SCORE = {
+    "valor": 423, "riesgo": "MUY ALTO", "conclusion": "NO APTO",
+    "deuda_total": "0", "nombre": "X Y", "documento": "75020496", "valido": True,
+}
+_STATUS = {
+    "logged_in": True, "session_age": 10, "creds_updated": None,
+    "proxy_version": "dev", "session_alive": True,
+    "keepalive": {
+        "enabled": True, "last_ping_at": None, "last_ping_ok": None,
+        "consecutive_failures": 0, "session_dead_since": None,
+    },
+}
+
+
+@pytest.fixture
+def client(monkeypatch):
+    """TestClient con config conocida (token/admin_key) y proxy mockeado.
+    IP del cliente en 10.0.0.0/8 (permitida)."""
+    cfg = ProxyConfig(
+        proxy_token=_TOKEN, admin_key=_ADMIN,
+        allowed_networks=["127.0.0.0/8", "10.0.0.0/8"],
+    )
+    monkeypatch.setattr(server, "get_config", lambda: cfg)
+    fake = mock.Mock()
+    fake.get_status.return_value = _STATUS
+    monkeypatch.setattr(server, "get_proxy_api", lambda: fake)
+    return TestClient(server.app, client=("10.0.0.5", 5000)), fake
+
+
+def test_health_publico(client):
+    tc, _fake = client
+    r = tc.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["session_alive"] is True
+
+
+def test_api_cobertura_ok(client):
+    tc, fake = client
+    fake.validar_cobertura.return_value = _COBERTURA
+    r = tc.post(
+        "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 200
+    assert r.json()["hay_cobertura"] is True
+    fake.validar_cobertura.assert_called_once_with(-12.05, -77.03)
+
+
+def test_api_cobertura_token_malo_401(client):
+    tc, fake = client
+    r = tc.post(
+        "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": "malo"},
+    )
+    assert r.status_code == 401
+    fake.validar_cobertura.assert_not_called()
+
+
+def test_api_cobertura_ip_no_permitida_403(client, monkeypatch):
+    tc_externo = TestClient(server.app, client=("8.8.8.8", 1))
+    r = tc_externo.post(
+        "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 403
+
+
+def test_api_score_ok(client):
+    tc, fake = client
+    fake.validar_score.return_value = _SCORE
+    r = tc.post(
+        "/api/score",
+        json={"tipo_doc": "DNI", "num_doc": "75020496", "lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 200
+    assert r.json()["valor"] == 423
+
+
+def test_api_score_documento_invalido_422(client):
+    tc, _fake = client
+    r = tc.post(
+        "/api/score",
+        json={"tipo_doc": "PASAPORTE", "num_doc": "1", "lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 422
+
+
+def test_admin_config_requiere_key(client):
+    tc, _fake = client
+    assert tc.get("/admin/config").status_code == 401
+    r = tc.get("/admin/config", headers={"X-Admin-Key": _ADMIN})
+    assert r.status_code == 200
+    assert r.json()["token"] == _TOKEN
+
+
+def test_admin_login_inyecta_cookie(client):
+    tc, fake = client
+    r = tc.post("/admin/login", json={"php_sessid": "abc"}, headers={"X-Admin-Key": _ADMIN})
+    assert r.status_code == 200
+    fake.set_session_cookie.assert_called_once_with("abc")
+
+
+def test_admin_rotar_inyecta_cookie(client):
+    tc, fake = client
+    r = tc.post("/admin/rotar", json={"php_sessid": "xyz"}, headers={"X-Admin-Key": _ADMIN})
+    assert r.status_code == 200
+    fake.set_session_cookie.assert_called_once_with("xyz")
+
+
+def test_admin_status_ok(client):
+    tc, _fake = client
+    r = tc.get("/admin/status", headers={"X-Admin-Key": _ADMIN})
+    assert r.status_code == 200
+    assert r.json()["keepalive"]["enabled"] is True
+
+
+def test_login_error_da_401(client):
+    tc, fake = client
+    fake.validar_cobertura.side_effect = core_api.LoginError("expirada", "ERR_LOGIN_SESSION")
+    r = tc.post(
+        "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 401
+
+
+def test_score_error_da_502(client):
+    tc, fake = client
+    fake.validar_score.side_effect = core_api.ScoreError("reporte roto")
+    r = tc.post(
+        "/api/score",
+        json={"tipo_doc": "DNI", "num_doc": "75020496", "lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 502
+
+
+def test_api_error_generico_da_502(client):
+    tc, fake = client
+    fake.validar_cobertura.side_effect = core_api.APIError("winforce raro")
+    r = tc.post(
+        "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 502
+
+
+def test_ip_in_allowed_networks():
+    redes = ["10.0.0.0/8", "192.168.0.0/16"]
+    assert server._ip_in_allowed_networks("10.1.2.3", redes) is True
+    assert server._ip_in_allowed_networks("192.168.5.5", redes) is True
+    assert server._ip_in_allowed_networks("8.8.8.8", redes) is False
+    assert server._ip_in_allowed_networks("no-es-ip", redes) is False
