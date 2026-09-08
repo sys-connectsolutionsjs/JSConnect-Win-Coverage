@@ -9,7 +9,7 @@
 | Requisito | Versión | Notas |
 |-----------|---------|-------|
 | Windows | 10/11 Pro/Enterprise | PC fija, encendida en horario laboral |
-| Python | 3.13+ | En PATH del sistema (`python --version`) |
+| Python | 3.12+ | En PATH del sistema (`python --version`) |
 | Git | Cualquiera | Para clonar repo |
 | Puerto 8080 | Libre en firewall | `install_service.bat` verifica y permite cambiar |
 | Permisos | Administrador local | Para instalar servicio Windows |
@@ -31,7 +31,7 @@ cd JSConnect-Win-Coverage
 
 ### Qué hace `install_service.bat` (automático)
 
-1. **Verifica Python 3.13+** en PATH
+1. **Verifica Python 3.12+** en PATH
 2. **Instala dependencias**: `pip install -r requirements-proxy.txt`
 3. **Descarga `winsw.exe`** desde GitHub releases (última versión)
 4. **Genera tokens seguros**:

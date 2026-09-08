@@ -28,6 +28,22 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-08 — Deuda técnica previa a la Fase 2 (sin cambios de código)
+- [Problema] `pip install -r requirements.txt` + `python main.py` fallaba con
+  `ModuleNotFoundError: httpx`: la GUI (`gui/main_window.py`) importa
+  `ProxyClient` (`proxy/client.py`, que hace `import httpx`) siempre, y
+  `proxy/__init__.py` también. `httpx` solo estaba en `requirements-proxy.txt`.
+  El build no lo notaba porque `requirements-dev.txt` arrastra el de proxy.
+  → **Solución**: `httpx>=0.27` movido a `requirements.txt`; quitado el duplicado
+  y los comentarios falsos de `requirements-proxy.txt`.
+- [Metadatos] `pyproject.toml` `requires-python` bajado de `>=3.14` a `>=3.12`
+  (piso real: los tests corren en 3.12 desde 2026-08-27, cero sintaxis 3.13/3.14
+  en el código); `ruff target-version = "py312"`. Requisito de versión unificado
+  en `>=3.12` en README, `docs/proxy-*.md`, `README_PROXY.md`, `install_service.bat`.
+- [Docs] Creados los snapshots faltantes `resumenes/2026-09-04.md` y
+  `resumenes/2026-09-05.md` (recuperados verbatim de git).
+- [Verificación] 49 tests pasando, ruff limpio (sin cambios respecto a antes).
+
 ### Sesión 2026-09-04 — Fase 1 (limpiar login muerto del proxy) + helper compartido
 - [TDD rojo] 3 tests nuevos en `tests/test_api.py` para el helper nuevo
   `validar_cookie_sesion()`: cookie válida (no lanza), cookie inválida/

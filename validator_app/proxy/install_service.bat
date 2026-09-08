@@ -34,7 +34,7 @@ echo [1/8] Verificando Python...
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
     echo [ERROR] Python no encontrado en PATH.
-    echo         Instala Python 3.13+ y asegurate de marcar "Add to PATH".
+    echo         Instala Python 3.12+ y asegurate de marcar "Add to PATH".
     pause
     exit /b 1
 )
@@ -43,12 +43,12 @@ for /f "tokens=2 delims=. " %%a in ('python --version 2^>^&1') do set PY_VER=%%a
 for /f "tokens=3 delims=. " %%b in ('python --version 2^>^&1') do set PY_MINOR=%%b
 
 if %PY_VER% LSS 3 (
-    echo [ERROR] Se requiere Python 3.13 o superior. Version detectada: %PY_VER%.%PY_MINOR%
+    echo [ERROR] Se requiere Python 3.12 o superior. Version detectada: %PY_VER%.%PY_MINOR%
     pause
     exit /b 1
 )
-if %PY_VER% EQU 3 if %PY_MINOR% LSS 13 (
-    echo [ERROR] Se requiere Python 3.13 o superior. Version detectada: %PY_VER%.%PY_MINOR%
+if %PY_VER% EQU 3 if %PY_MINOR% LSS 12 (
+    echo [ERROR] Se requiere Python 3.12 o superior. Version detectada: %PY_VER%.%PY_MINOR%
     pause
     exit /b 1
 )

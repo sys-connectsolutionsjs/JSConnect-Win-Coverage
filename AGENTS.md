@@ -9,7 +9,7 @@ llamadas HTTP (JSON) a la API interna del sistema de validación, devolviendo la
 información en milisegundos, sin cargar página, sin mapa ni navegador.
 
 ## Stack
-- Python 3.14+ (usar 3.13 si una librería no soporta 3.14)
+- Python 3.12+ (probado en 3.12 y 3.14; `requires-python = ">=3.12"`)
 - HTTP: `requests` · GUI: `tkinter` (incluido) · Credenciales: `keyring`
 - Licencias/activación: `cryptography` (RSA, firma asimétrica)
 - Empaquetado: `PyInstaller` (un único .exe portable)
@@ -273,6 +273,16 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 18. **Arranque de los scripts de `tools/`** [COMPLETADO — verificado 2026-09-05, commit `82f9a4c`]: los 6 scripts que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
 19. **`tools/coords_prueba.txt`** [NUEVO, 2026-09-05, commit `26e7567`]: 49 coordenadas públicas (10 del usuario + 39 generadas dentro de su polígono) que `medir_keepalive.py` rota por ping para no repetir el mismo query.
 20. **Visibilidad de fallos del proxy** [COMPLETADO — verificado 2026-09-05, commit `5506ed4`]: `_relogin_silent()`/`_load_session_cookies()` ya no tienen `except Exception: pass` — cada fallo se loguea con causa + error + remedio; `/health` cachea `session_alive` 30s (antes pegaba a WinForce en cada request); `logging.basicConfig` en `__main__`.
+21. **Deuda técnica previa a la Fase 2** [COMPLETADO — 2026-09-08]:
+    - `httpx>=0.27` movido a `requirements.txt` (la GUI importa `ProxyClient`
+      siempre → `import httpx`; antes solo estaba en `requirements-proxy.txt` y un
+      `pip install -r requirements.txt` + `python main.py` fallaba).
+    - `pyproject.toml` `requires-python` bajado a `>=3.12` (piso real: tests en
+      3.12 desde 2026-08-27, cero sintaxis 3.13/3.14); `ruff target-version =
+      "py312"`; requisito unificado en `3.12+` (README, `docs/proxy-*.md`,
+      `README_PROXY.md`, `install_service.bat`).
+    - Creados `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` (recuperados
+      verbatim de git). Sin cambios de código; 49 tests / ruff siguen en verde.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -489,9 +499,10 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - **`AGENTS.md` entró al commit con ediciones del usuario** (nota "Informes
   diarios", ítems 14–17 previos, este propio bloque de contexto) además de las
   de la sesión.
-- **Deuda vieja sin cerrar** (no tocada hoy): `resumenes/2026-09-04.md` nunca se
-  creó (la rotación de esa fecha solo hizo la entrada condensada);
-  `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.
+- **Deuda vieja sin cerrar** (no tocada hoy) [→ CERRADA 2026-09-08, ver ese
+  cierre]: `resumenes/2026-09-04.md` nunca se creó (la rotación de esa fecha solo
+  hizo la entrada condensada); `requirements.txt` sin `httpx`; `pyproject.toml`
+  exige Python≥3.14.
 - **Pendiente real**: leer el log → fijar `keepalive_interval_seconds` y
   confirmar el diseño "latido perezoso" → implementar Fase 2 → Fase 3 (diálogo
   de cookie en GUI) → Fase 4 (`tests/test_proxy.py`) → Fase 5 (docs).
@@ -518,8 +529,11 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   `PlanesAprobados.md` / `AGENTS.md`; cada 3 entradas nuevas, también `README.md`.
   Estado local en `.claude/hooks/historial_sync_state.local.json` (gitignored).
   Ver "Regla de auto-actualización de la documentación".
+- **Deuda técnica cerrada (2ª parte de la sesión)**: `httpx` → `requirements.txt`;
+  `requires-python` → `>=3.12` + versión unificada en todo el repo; snapshots
+  `resumenes/2026-09-04.md` y `2026-09-05.md` creados. Ver Tareas pendientes ítem 21
+  y `TestingLog.md`. Sin cambios de código; 49 tests / ruff en verde.
 - **Pendiente real**: implementar Fase 2 (keepalive "latido perezoso" + aviso al
   owner por el tope ≈ 9.5 h) → Fase 3 (diálogo de cookie en GUI) → Fase 4
-  (`tests/test_proxy.py`) → Fase 5 (docs). Deuda vieja sin cerrar:
-  `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` nunca se crearon;
-  `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.
+  (`tests/test_proxy.py`) → Fase 5 (docs). Deuda vieja restante: `tests/test_proxy.py`
+  inexistente (= Fase 4); decidir `actualizar_score_cliente` / `newsearch.php`.

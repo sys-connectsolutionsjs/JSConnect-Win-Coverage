@@ -363,7 +363,7 @@ Herramienta que convierte cualquier exe en servicio Windows nativo.
 - Flujo: Rojo (test falla) → Verde (implementa mínimo) → Refactor
 - Bitácora: `TestingLog.md`
 
-### Typing Moderno (Python 3.14+)
+### Typing Moderno (Python 3.12+)
 ```python
 # Usar builtins, no typing
 list[str]          # no List[str]

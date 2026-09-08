@@ -50,7 +50,7 @@ Usuario:  proxy_token    → "a1b2c3d4e5f6..." (token compartido)
 
 ```powershell
 # Ejecutar en cada máquina (PowerShell como usuario que usa la app)
-# Requiere: Python 3.13+ con keyring instalado (pip install keyring)
+# Requiere: Python 3.12+ con keyring instalado (pip install keyring)
 
 $proxyUrl = "http://192.168.1.50:8080"
 $proxyToken = "a1b2c3d4e5f67890..."  # 64 chars hex

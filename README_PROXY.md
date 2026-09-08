@@ -16,7 +16,7 @@ cd JSConnect-Win-Coverage
 ```
 
 ### Qué hace el instalador automáticamente:
-1. ✅ Verifica Python 3.13+
+1. ✅ Verifica Python 3.12+
 2. ✅ Instala dependencias (`requirements-proxy.txt`)
 3. ✅ Descarga `winsw.exe` (service wrapper)
 4. ✅ Genera tokens seguros (`proxy_token` + `admin_key` = 64 chars hex cada uno)

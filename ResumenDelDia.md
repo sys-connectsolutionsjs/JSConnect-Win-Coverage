@@ -65,6 +65,22 @@ y no cambia el diseño de la Fase 2.
   también `README.md`. Estado local en `historial_sync_state.local.json`
   (gitignored vía `.claude/hooks/*.local.json`).
 
+#### Deuda técnica cerrada (antes de la Fase 2)
+- **`httpx` → `requirements.txt`**: la GUI importa `ProxyClient`
+  (`proxy/client.py` → `import httpx`) siempre, y `proxy/__init__.py` también;
+  `pip install -r requirements.txt` + `python main.py` fallaba con
+  `ModuleNotFoundError: httpx`. Quitado el duplicado y los comentarios falsos de
+  `requirements-proxy.txt`.
+- **`requires-python` → `>=3.12`**: piso real (tests en 3.12 desde 2026-08-27,
+  cero sintaxis 3.13/3.14 en el código). `ruff target-version = "py312"`.
+  Requisito de versión unificado en `3.12+`: `README.md` (ES+EN),
+  `docs/proxy-deploy.md`, `docs/proxy-config.md`, `README_PROXY.md`,
+  `install_service.bat`, `AGENTS.md`, `anotaciones.md`.
+- **Snapshots faltantes creados**: `resumenes/2026-09-04.md` y
+  `resumenes/2026-09-05.md`, recuperados verbatim de git
+  (`44d1132~1` y `3c1baa5`).
+- Sin cambios de código; **49 tests, ruff limpio**. Nota en `TestingLog.md`.
+
 #### Pendiente
 - **Fase 2 (B) — keepalive en el proxy** (desbloqueada): loop `asyncio` en
   `lifespan`, config `keepalive_enabled` / `keepalive_interval_seconds` = **900**,
@@ -74,4 +90,5 @@ y no cambia el diseño de la Fase 2.
   cookie con `rotate_creds.py` / `POST /admin/rotar`).
 - Fase 3 (D) — diálogo de cookie en la GUI. Fase 4 — `tests/test_proxy.py`.
   Fase 5 — documentación.
-- Deuda vieja: `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.
+- Deuda restante: `tests/test_proxy.py` inexistente (= Fase 4); decidir
+  `actualizar_score_cliente` / `newsearch.php`.

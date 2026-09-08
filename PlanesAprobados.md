@@ -230,14 +230,16 @@ Ya hecho, se deja como referencia de qué se tocó:
   (Fase 3)**.
 - ~~Escribir `tests/test_proxy.py`~~ → **absorbido por el plan "Sesión WinForce robusta"
   (Fase 4)**.
-- `requirements.txt` no incluye `httpx`, que sí necesita el `.exe` del agente al empaquetar
-  `proxy/client.py`. (`httpx` sí está en `requirements-proxy.txt`, pero ese archivo es solo
-  para la PC del proxy, no para el build del agente.)
-- `pyproject.toml` exige `Python>=3.14`. Algunas máquinas del proyecto tienen 3.12.
-  El workaround `PYTHONPATH=.` para los scripts de `tools/` **ya no hace falta**
-  (`82f9a4c`: los scripts insertan la raíz en `sys.path` solos). Sigue pendiente
-  decidir si se relaja el requisito de `pyproject.toml` o se documenta como
-  obligatorio.
+- ~~`requirements.txt` no incluye `httpx`~~ → **RESUELTO 2026-09-08**: `httpx>=0.27`
+  movido a `requirements.txt` (la GUI importa `ProxyClient` siempre); quitado el
+  duplicado de `requirements-proxy.txt`.
+- ~~`pyproject.toml` exige `Python>=3.14`~~ → **RESUELTO 2026-09-08**:
+  `requires-python = ">=3.12"` (piso real probado; cero sintaxis 3.13/3.14 en el
+  código), `ruff target-version = "py312"`, requisito de versión unificado en
+  `3.12+` en todo el repo. El workaround `PYTHONPATH=.` para `tools/` tampoco hace
+  falta desde `82f9a4c`.
+- ~~`resumenes/2026-09-04.md` y `2026-09-05.md` sin crear~~ → **RESUELTO
+  2026-09-08**: recuperados verbatim de git.
 - ~~Corrida de keepalive v3~~ → **CERRADA 2026-09-08**: `keepalive_interval_seconds
   = 900` fijado; tope absoluto de sesión ≈ 9.5 h confirmado. Ver Fase 0 (act.
   2026-09-08) y `anotaciones.md`.

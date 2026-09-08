@@ -42,8 +42,8 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 
 ### Requisitos
 - Windows 10.
-- Python 3.14+ (solo para desarrollo; el .exe final no necesita Python).
-- **Para proxy (PC oficina)**: Python 3.13+, puerto 8080 libre, permisos de Administrador.
+- Python 3.12+ (solo para desarrollo; el .exe final no necesita Python).
+- **Para proxy (PC oficina)**: Python 3.12+, puerto 8080 libre, permisos de Administrador.
 
 ### Uso (Agentes)
 1. Ejecuta `JSConnect-Win-Coverage.exe` (o `python main.py` en desarrollo).
@@ -81,7 +81,7 @@ cd JSConnect-Win-Coverage
 .\validator_app\proxy\install_service.bat
 ```
 El instalador:
-- Verifica Python 3.13+ e instala dependencias (`requirements-proxy.txt`)
+- Verifica Python 3.12+ e instala dependencias (`requirements-proxy.txt`)
 - Descarga `winsw.exe` automáticamente
 - Genera `proxy_token` y `admin_key` seguros (auto)
 - Crea `config.yaml` (gitignored) e instala servicio `JSWinProxy`
@@ -149,8 +149,8 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 
 ### Requirements
 - Windows 10.
-- Python 3.14+ (development only; the final .exe does not need Python).
-- **For proxy (office PC)**: Python 3.13+, port 8080 free, Administrator permissions.
+- Python 3.12+ (development only; the final .exe does not need Python).
+- **For proxy (office PC)**: Python 3.12+, port 8080 free, Administrator permissions.
 
 ### Usage (Agents)
 1. Run `JSConnect-Win-Coverage.exe` (or `python main.py` in development).
@@ -188,7 +188,7 @@ cd JSConnect-Win-Coverage
 .\validator_app\proxy\install_service.bat
 ```
 The installer:
-- Verifies Python 3.13+ and installs deps (`requirements-proxy.txt`)
+- Verifies Python 3.12+ and installs deps (`requirements-proxy.txt`)
 - Downloads `winsw.exe` automatically
 - Generates secure `proxy_token` and `admin_key` (auto)
 - Creates `config.yaml` (gitignored) and installs `JSWinProxy` service
