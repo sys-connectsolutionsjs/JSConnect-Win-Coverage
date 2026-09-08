@@ -184,3 +184,25 @@ def test_preview_fallo_captura_avisa():
     assert rc == 1
     save.assert_not_called()
     assert avisar.call_args[0][0] is False
+
+
+# --------------------------------------------------------------------------
+# _lanzar_navegador: Chrome real (autofill) con fallback a Chromium
+# --------------------------------------------------------------------------
+
+def test_lanzar_navegador_prefiere_chrome():
+    ctx = object()
+    p = mock.Mock()
+    p.chromium.launch_persistent_context.return_value = ctx
+    assert login_asistido._lanzar_navegador(p) is ctx
+    assert p.chromium.launch_persistent_context.call_args.kwargs.get("channel") == "chrome"
+
+
+def test_lanzar_navegador_fallback_a_chromium():
+    ctx = object()
+    p = mock.Mock()
+    p.chromium.launch_persistent_context.side_effect = [RuntimeError("no chrome"), ctx]
+    assert login_asistido._lanzar_navegador(p) is ctx
+    calls = p.chromium.launch_persistent_context.call_args_list
+    assert calls[0].kwargs.get("channel") == "chrome"
+    assert "channel" not in calls[1].kwargs

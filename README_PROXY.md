@@ -103,11 +103,15 @@ Ver `docs/rotacion-credenciales.md` para detalles completos.
 
 ### Login asistido (por defecto — renovación diaria y cambio de credenciales)
 1. En la PC del proxy, **doble clic en "Renovar sesion WinForce"** (Escritorio).
-2. Se abre Chrome → el owner inicia sesión (incluye Microsoft el 1er login del día).
+2. Se abre el **Google Chrome instalado** (perfil dedicado) → el owner inicia
+   sesión (incluye Microsoft el 1er login del día).
 3. La barra superior se pone **verde** → cerrar la ventana → cuadro "✓ Sesión renovada".
 
 Sin consola, sin F12. El `.lnk` lo crea `install_service.bat`; corre
-`pythonw.exe -m validator_app.proxy.rotate_creds`.
+`pythonw.exe -m validator_app.proxy.rotate_creds`. La **primera vez** conviene
+iniciar sesión en Chrome (cuenta de Google) o guardar la contraseña de Microsoft
+en esa ventana → luego se autocompleta y solo hay que aprobar el 2FA. Ver
+`docs/rotacion-credenciales.md`.
 
 ### Fallback manual (si Playwright se rompe)
 ```powershell

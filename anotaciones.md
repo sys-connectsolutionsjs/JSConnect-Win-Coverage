@@ -117,10 +117,16 @@ Almacén cifrado del SO por usuario. Cada usuario Windows tiene el suyo.
 Forma de renovar la sesión WinForce del proxy sin que el owner toque F12 ni copie
 nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icono
 "Renovar sesion WinForce" del Escritorio (`pythonw.exe`, sin consola).
-- **Cómo**: Playwright abre Chromium con `launch_persistent_context`, el owner
-  inicia sesión normalmente, y el script sondea `context.cookies()` buscando la
-  `PHPSESSID` de `appwinforce.win.pe`. Al encontrarla la valida con
-  `core.api.validar_cookie_sesion()` y la guarda en keyring.
+- **Cómo**: Playwright abre el **Google Chrome instalado** (`channel="chrome"`,
+  con `ignore_default_args=["--enable-automation"]` +
+  `--disable-blink-features=AutomationControlled` para que el gestor de
+  contraseñas de Chrome autocomplete con normalidad) usando
+  `launch_persistent_context` con perfil dedicado; si no hay Chrome, cae al
+  Chromium empaquetado. El owner inicia sesión (una vez: sign-in de Google o
+  "Guardar contraseña" → autofill en adelante), y el script sondea
+  `context.cookies()` buscando la `PHPSESSID` de `appwinforce.win.pe`. Al
+  encontrarla la valida con `core.api.validar_cookie_sesion()` y la guarda en
+  keyring.
 - **Por qué `context.cookies()` y no `document.cookie`**: la `PHPSESSID` es
   **HttpOnly** → invisible para JS de página; la API del contexto de Playwright sí
   la ve.

@@ -6,9 +6,15 @@ jornada) en una ventana de Chromium que abre este modulo; el script lee la
 HttpOnly, a diferencia de `document.cookie`), la valida contra WinForce y la
 devuelve. Sin F12, sin copiar/pegar.
 
-El perfil del navegador es PERSISTENTE (`.browser_profile/`, gitignored): dentro
-de la misma jornada el SSO de Microsoft se salta el 2FA en renovaciones
-sucesivas. `fresh=True` lo borra si algo se atasca.
+Abre el **Google Chrome instalado** (`channel="chrome"`) para que el gestor de
+contraseñas de Chrome funcione — el owner inicia sesión en Chrome con su cuenta
+de Google una vez en esa ventana y desde entonces la contraseña se autocompleta
+(solo queda aprobar el 2FA). Si Chrome no está, cae al Chromium empaquetado.
+
+El perfil del navegador es PERSISTENTE y **dedicado** (`.browser_profile/`,
+gitignored, separado del Chrome normal del owner): dentro de la misma jornada el
+SSO de Microsoft se salta el 2FA en renovaciones sucesivas. `fresh=True` lo borra
+si algo se atasca.
 
 Lo usa `rotate_creds.py` (sin argumentos). Playwright se importa de forma
 perezosa: si no esta instalado, `--manual` sigue funcionando.
@@ -67,6 +73,24 @@ def _overlay(page, mensaje: str, color: str = "#0a3d91") -> None:
         page.evaluate(_OVERLAY_JS, {"mensaje": mensaje, "color": color})
 
 
+def _lanzar_navegador(p):
+    """Abre Chrome real (gestor de contraseñas nativo) con perfil persistente
+    dedicado; si Chrome no está instalado, cae al Chromium empaquetado."""
+    kwargs = {
+        "user_data_dir": str(_PROFILE_DIR),
+        "headless": False,
+        "args": ["--start-maximized", "--disable-blink-features=AutomationControlled"],
+        "no_viewport": True,
+        # Quita la infobar de "controlado por automatización" y deja que el
+        # gestor de contraseñas de Chrome autocomplete con normalidad.
+        "ignore_default_args": ["--enable-automation"],
+    }
+    try:
+        return p.chromium.launch_persistent_context(channel="chrome", **kwargs)
+    except Exception:
+        return p.chromium.launch_persistent_context(**kwargs)
+
+
 def capturar_php_sessid_asistido(timeout_min: int = 10, fresh: bool = False) -> str:
     """Abre el navegador, espera a que el owner inicie sesion y devuelve una
     PHPSESSID ya validada contra WinForce. Lanza LoginAsistidoError si no se
@@ -88,12 +112,7 @@ def capturar_php_sessid_asistido(timeout_min: int = 10, fresh: bool = False) -> 
     php: str | None = None
 
     with sync_playwright() as p:
-        context = p.chromium.launch_persistent_context(
-            user_data_dir=str(_PROFILE_DIR),
-            headless=False,
-            args=["--start-maximized"],
-            no_viewport=True,
-        )
+        context = _lanzar_navegador(p)
         page = context.pages[0] if context.pages else context.new_page()
         with contextlib.suppress(Exception):
             page.goto(LOGIN_URL)

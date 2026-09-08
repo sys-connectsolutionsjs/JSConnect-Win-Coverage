@@ -31,6 +31,23 @@
 
 No hay que abrir consola, ni F12, ni copiar nada.
 
+### Configuración de una vez — autocompletar la contraseña
+
+La ventana abre el **Google Chrome instalado** con un perfil propio (separado del
+Chrome normal). Para que la contraseña se autocomplete y solo quede aprobar el
+2FA en el teléfono, la **primera vez** haz una de estas dos:
+
+- **Iniciar sesión en Chrome** en esa ventana (menú ⋮ arriba a la derecha →
+  "Activar la sincronización" con la cuenta de Google del owner). Quedan
+  disponibles todas las contraseñas guardadas de esa cuenta.
+- O simplemente **pulsar "Guardar"** cuando Chrome ofrezca guardar la contraseña
+  de Microsoft tras el primer login.
+
+Desde entonces: doble clic → contraseña autocompletada → aprobar 2FA → listo.
+
+> Si esa PC no tiene Google Chrome, la ventana usa el navegador empaquetado
+> (Chromium), que tiene su propio "Guardar contraseña" local pero sin sync.
+
 ### Qué hace por dentro
 
 `python -m validator_app.proxy.rotate_creds` (lo que lanza el icono, vía

@@ -117,6 +117,14 @@ y no cambia el diseño de la Fase 2.
   consola). `--manual` = el copiar/pegar de antes (fallback si Playwright se
   rompe). `--fresh` borra el perfil del navegador. `--preview` (añadido después)
   abre la ventana para inspeccionarla sin guardar nada ni necesitar `config.yaml`.
+- **Chrome real + autofill (añadido después)**: `_lanzar_navegador` abre el
+  **Google Chrome instalado** (`channel="chrome"`) con
+  `ignore_default_args=["--enable-automation"]` +
+  `--disable-blink-features=AutomationControlled` → el gestor de contraseñas de
+  Chrome autocompleta. El owner inicia sesión en Chrome (Google) o guarda la
+  contraseña una vez y luego solo aprueba el 2FA. Fallback a Chromium si no hay
+  Chrome. (Se descartó un flag `--extension` para cargar Bitwarden — el gestor de
+  Chrome basta.) 76 tests, ruff limpio.
 - **`install_service.bat`**: paso nuevo `python -m playwright install chromium` +
   paso nuevo que crea el `.lnk` **"Renovar sesion WinForce"** en el Escritorio
   (PowerShell/WScript.Shell, target `pythonw.exe`). Renumerados los pasos a `/10`.

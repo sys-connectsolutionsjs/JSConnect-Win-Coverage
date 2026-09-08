@@ -50,6 +50,11 @@ credenciales y hace peticiones reales); se valida con `ruff` e import.
 - [Añadido] `rotate_creds --preview`: 3 tests (no guarda ni verifica, gana sobre
   `--manual`, fallo de captura avisa). 74 tests, ruff limpio. Abre la ventana sin
   tocar keyring ni `config.yaml` — para probar la UX en desarrollo.
+- [Añadido] Chrome real + autofill: `_lanzar_navegador` con `channel="chrome"` y
+  fallback a Chromium (2 tests: prefiere Chrome, fallback tras excepción). Se
+  probó un flag `--extension` (Bitwarden) y se descartó — el gestor de Chrome
+  basta. 76 tests, ruff limpio. Smoke: `_lanzar_navegador` abre Chrome 152 (el
+  instalado, no el Chromium empaquetado); UA normal.
 
 ### Sesión 2026-09-08 — Fase 2A: keepalive del proxy
 - [TDD rojo] `tests/test_proxy.py` NUEVO (abre el archivo de la Fase 4). 12 tests
