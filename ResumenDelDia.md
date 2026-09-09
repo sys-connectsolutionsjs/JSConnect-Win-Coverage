@@ -97,9 +97,40 @@ una promesa sin verificar (última corrida en 3.12: 2026-08-27, ~40 tests).
 
 ## Pendiente
 
+### Etapa B — sesión viva + validación real end-to-end — HECHO
+- **Login asistido**: el flujo `rotate_creds --preview` con `capturar_php_sessid_asistido`
+  **no capturó** (el owner cerró la ventana justo en el redirect de OAuth, antes de
+  que WinForce activara la sesión PHP). Recuperado reabriendo el perfil persistente
+  `.browser_profile/` (el SSO de Microsoft ya estaba guardado → sin 2FA) y dejando
+  que completara el redirect: la `PHPSESSID` se activó en la 1ª/2ª iteración.
+  → **Bug de UX a anotar**: el poller de `login_asistido` no detecta "ventana
+  cerrada" de forma fiable (siguió sondeando 15 min tras cerrarla); y si el owner
+  cierra antes de tiempo, no hay recuperación automática. Candidato para Fase 5 /
+  mejora del login asistido.
+- Cookie inyectada vía `POST /admin/login` (`X-Admin-Key`) → `{"ok":true}`;
+  `/health` → `session_alive:true`.
+- **Validación real contra WinForce** (documento `75020496`, coords del README):
+  - `/api/cobertura` → `hay_cobertura:true, SI, HORIZONTAL, id_celda 8764`
+    (idéntico a la prueba de 2026-08-27).
+  - `/api/score` → **primero HTTP 500** (bug real): `ScoreResponse.deuda_total:
+    str|None` reventaba porque WinForce manda `DeudaTotal: 0` (int) cuando no hay
+    deuda. **Arreglado** (commit `3f63e8f`): `_parsear_score` normaliza a str +
+    `ScoreResponse` con `coerce_numbers_to_str`. Tras el fix: `valor:423,
+    riesgo:MUY ALTO, deuda_total:"0", valido:true` (idéntico a 2026-08-27).
+- **Descubrimiento operativo**: reabrir el login asistido / el perfil persistente
+  **mientras el proxy tiene sesión viva** puede invalidar la sesión inyectada
+  (WinForce rota / re-autentica). Anotar en el runbook: renovar cuando el proxy
+  reporta la sesión muerta, no "por si acaso".
+- Keepalive: se bajó el intervalo a 120s en `config.yaml` (temporal) para observar
+  un ciclo real. [pendiente de anotar el resultado]
+
+## Pendiente
+
 ### De la puesta en marcha
-- **Etapa B** (bloqueada por: necesito que el owner haga el login WinForce + 2FA y
-  me pase la `PHPSESSID`), C, 0.5, D. Etapa E = runbook (oficina no accesible hoy).
+- **Etapa C** (GUI contra el proxy — necesita al owner clicando el menú ⚙),
+  **0.5** (rotate_creds vía HTTP), **D** (servicio). Etapa E = runbook (oficina no
+  accesible hoy).
+- Restaurar `keepalive_interval_seconds: 900` en `config.yaml` al terminar la prueba.
 
 ### Fase 5 — Barrido final de docs (última del plan "Sesión WinForce robusta")
 - `docs/proxy-config.md`, `docs/proxy-deploy.md`, `docs/rotacion-credenciales.md`,
