@@ -259,7 +259,7 @@ echo.
 echo [10/11] Iniciando servicio...
 "%WINSW_PATH%" start
 if %errorLevel% neq 0 (
-    echo [ERROR] Fallo al iniciar el servicio. Revisa logs en Visor de Eventos -> JSWinProxy
+    echo [ERROR] Fallo al iniciar el servicio. Revisa los logs en %BASE_DIR%\..\..\logs\ (archivos rotados de winsw)
     pause
     exit /b 1
 )
