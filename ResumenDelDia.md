@@ -95,8 +95,6 @@ una promesa sin verificar (última corrida en 3.12: 2026-08-27, ~40 tests).
   keyring devuelve 502 + error claro con remedio. Pipeline OK, falta sesión viva.
 - El proxy quedó corriendo en segundo plano para la Etapa B.
 
-## Pendiente
-
 ### Etapa B — sesión viva + validación real end-to-end — HECHO
 - **Login asistido**: el flujo `rotate_creds --preview` con `capturar_php_sessid_asistido`
   **no capturó** (el owner cerró la ventana justo en el redirect de OAuth, antes de
@@ -122,26 +120,104 @@ una promesa sin verificar (última corrida en 3.12: 2026-08-27, ~40 tests).
   (WinForce rota / re-autentica). Anotar en el runbook: renovar cuando el proxy
   reporta la sesión muerta, no "por si acaso".
 - Keepalive: se bajó el intervalo a 120s en `config.yaml` (temporal) para observar
-  un ciclo real. [pendiente de anotar el resultado]
+  ciclos reales. Resultado: `/health` reportó `session_alive:true` de forma
+  sostenida durante toda la sesión con ciclos de 120s. Evidencia suficiente →
+  restaurado a **900** al cerrar la Etapa C.
+
+### Etapa C — GUI (Tkinter) contra el proxy — HECHO (pasos 10-11; 12 no aplica)
+
+- **Paso 10 — configurar el proxy en la GUI.** ⚙ → Configurar Proxy con
+  `http://127.0.0.1:8090` + el token de `proxy_token.txt`. "Probar conexión"
+  verde, "Guardar" OK, barra de estado → `listo (proxy: http://127.0.0.1:8090)`.
+  Verificado: keyring `JSWinClient` con `proxy_url` (sin barra final) y
+  `proxy_token` idénticos al `config.yaml` del proxy.
+- **Paso 11 — validación real desde la GUI.** Cobertura **SI**; score **valor
+  423, riesgo MUY ALTO** — idéntico al baseline de 2026-08-27 y a la Etapa B por
+  `curl`. El owner probó además un **segundo DNI** distinto → también OK.
+  `/health` con `session_alive:true` antes y después: la GUI no tumbó la sesión.
+  Es la **confirmación por GUI** del fix `3f63e8f` (score / `DeudaTotal: 0` int).
+- **Paso 12 (modo standalone) — NO aplica ya.** El modo proxy siempre gana y no
+  hay forma de deshacerlo desde la UI: `_load_proxy_config()` (`main_window.py:75-77`)
+  y `_validar_en_hilo()` (`main_window.py:175`) prueban `from_keyring()` primero
+  y hacen `return`; el diálogo de proxy no tiene botón de borrar (el de standalone
+  sí). Con la config de proxy guardada, probar standalone exige borrar a mano
+  `JSWinClient/proxy_url` y `JSWinClient/proxy_token`. Se pospone; no bloquea nada.
+
+#### Hallazgos de la Etapa C
+
+1. **[CRÍTICO — corregido] La suite de tests envenenaba la sesión del proxy.**
+   `test_set_session_cookie_limpia_session_dead_since` (`tests/test_proxy.py:169`)
+   llamaba a `set_session_cookie("cookie-nueva")` sin mockear keyring →
+   `_save_session_cookies()` escribía `{"PHPSESSID": "cookie-nueva"}` en el
+   Credential Manager real bajo `JSWinProxy/credentials_cookies`, la misma clave
+   que `server._load_session_cookies()` lee al arrancar. Efecto: tras cualquier
+   `pytest`, un reinicio del proxy restauraba esa cookie de pega, `/health` decía
+   `logged_in:true` y todo `/api/*` devolvía el HTML de login. **Esto es lo que
+   pasó** al reiniciar el proxy para tomar el `keepalive_interval: 900`.
+   → Arreglado en `ffc5296`: `tests/conftest.py` nuevo con fixture autouse que
+   aísla `keyring.{get,set,delete}_password` en un dict por test. Entrada real
+   `JSWinProxy/credentials_cookies` borrada a mano (estaba con `cookie-nueva`).
+   La sesión viva del proxy se perdió en el proceso — **se deja muerta a
+   propósito** (la Etapa C ya se validó end-to-end antes); se renueva por
+   `/admin/login` cuando haga falta.
+2. **[revisar antes de Etapa D] El arranque restaura la cookie sin validarla.**
+   `_load_session_cookies()` (`server.py:269-321`) inyecta la cookie del keyring y
+   loguea "Sesión restaurada" sin comprobar que siga viva → `logged_in:true`
+   aunque esté muerta (solo `session_alive` lo delata, y requiere pegarle a
+   WinForce). Con winsw en `onfailure restart`, un servicio que se reinicia solo
+   puede quedar "logueado" con una cookie muerta y sin avisar. Relacionado:
+   `_save_session_cookies()` solo corre en `/admin/login` y `/admin/rotar`
+   (`server.py:359`), nunca tras un request normal; si WinForce llegara a rotar
+   la `PHPSESSID` en caliente, el keyring quedaría desactualizado. Arreglo a
+   evaluar antes de la D: validar al restaurar (y degradar el log a warning si
+   falla) + re-persistir tras cada validación/keepalive OK.
+3. **[producto — v1.1] La GUI exige coordenadas Y documento** para habilitar
+   VALIDAR. El owner quiere poder consultar solo cobertura sin DNI. Backlog v1.1.
+4. **No hay `logs/` y es correcto.** winsw crea `logs/` solo con el proxy como
+   servicio (`winsw.xml.example:21`); en primer plano `server.py:771-774` loguea
+   a stdout.
+5. **[corregido] `install_service.bat:262`** (rama de error de "[10/11] Iniciando
+   servicio") seguía mandando al "Visor de Eventos"; el commit `ffa213a` había
+   arreglado solo la ayuda final (`:338`). Fix en `b70dacf`.
 
 ## Pendiente
 
 ### De la puesta en marcha
-- **Etapa C** (GUI contra el proxy — necesita al owner clicando el menú ⚙),
-  **0.5** (rotate_creds vía HTTP), **D** (servicio). Etapa E = runbook (oficina no
-  accesible hoy).
-- Restaurar `keepalive_interval_seconds: 900` en `config.yaml` al terminar la prueba.
+- **0.5** (coherencia del almacén de la cookie con LocalSystem — antes de la D),
+  **C.12** (standalone — solo si se necesita, exige borrar keyring de proxy),
+  **D** (servicio Windows — bloqueada por el hallazgo C.2), **E** = runbook
+  oficina (no accesible hoy).
+- **Renovar la sesión del proxy** por `/admin/login` cuando se vaya a retomar
+  trabajo que la necesite (hoy está muerta a propósito).
 
 ### Fase 5 — Barrido final de docs (última del plan "Sesión WinForce robusta")
 - `docs/proxy-config.md`, `docs/proxy-deploy.md`, `docs/rotacion-credenciales.md`,
   `docs/arquitectura.md` — coherencia general (extensión = principal, login
   asistido + `--manual` = fallback).
-- 11 incoherencias doc↔código localizadas en la exploración de hoy (rotación por
-  usuario/contraseña inexistente, `version` = `"dev"` vs commit SHA, ejemplos de
-  `/admin/status` sin `X-Admin-Key`, `session_age_seconds` vs `session_age`,
-  "IP:puerto" sin esquema vs la GUI que exige `http://`, keyring standalone,
-  "logs en el Visor de Eventos", `/admin/config` "público", `config.yaml` no se
-  lee, dos referencias a `py314`).
+- 11 incoherencias doc↔código localizadas antes (rotación por usuario/contraseña
+  inexistente, `version` = `"dev"` vs commit SHA, ejemplos de `/admin/status` sin
+  `X-Admin-Key`, `session_age_seconds` vs `session_age`, "IP:puerto" sin esquema
+  vs la GUI que exige `http://`, keyring standalone, "logs en el Visor de
+  Eventos", `/admin/config` "público", `config.yaml` no se lee, dos referencias a
+  `py314`).
+- **+8 de la Etapa C** (config de la GUI contra el proxy):
+  1. `docs/proxy-config.md:26`, `README_PROXY.md:69`, `docs/proxy-deploy.md:95`
+     muestran `192.168.1.50:8080` sin esquema; el código lo rechaza
+     (`main_window.py:337-341`).
+  2. La etiqueta "IP:puerto del proxy" espera una URL completa y no normaliza
+     (`main_window.py:240`).
+  3. Los docs prometen *"Conexión OK (45 ms)"*; el código nunca mide latencia
+     (`docs/proxy-config.md:35` vs `main_window.py:310-312`).
+  4. `docs/proxy-config.md:104` dice que standalone usa `JSWinCoverage/credentials`
+     (credenciales); el código usa `JSWinCoverage/session_cookie` (una PHPSESSID).
+  5. `PlanesAprobados.md:219` planificó el usuario de keyring `win_sessid`; se
+     implementó `session_cookie` (`session_config.py:21`).
+  6. `docs/proxy-config.md:100-106` no menciona el diálogo "Configurar Sesión
+     (standalone)" añadido en la Fase 3.
+  7. Bug latente: `main_window.py:362-363` hace `.base_url` sobre el retorno de
+     `from_keyring()` sin comprobar `None` → `AttributeError` si el keyring falla.
+  8. "Probar conexión" traga la excepción real (`main_window.py:316-317`); el
+     usuario final no distingue 401 / 403 / timeout / DNS.
 
 ### Deuda vieja (no de hoy)
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`
