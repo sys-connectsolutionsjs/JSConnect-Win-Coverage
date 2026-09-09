@@ -59,10 +59,47 @@ una promesa sin verificar (última corrida en 3.12: 2026-08-27, ~40 tests).
 
 ---
 
+### Etapa 0 — desbloquear el arranque — HECHO (0.5 pospuesta)
+- **0.1 `config.py`** (commit `d9c1ef7`): `settings_customise_sources` con
+  `YamlConfigSettingsSource` + `yaml_file` a ruta absoluta (`_CONFIG_YAML`, junto
+  al módulo) + `pyyaml` → `requirements-proxy.txt`. `tests/test_config.py` NUEVO
+  (5 tests). El warning de pydantic-settings desapareció. 109 tests, ruff limpio.
+- **0.2/0.3/0.4 `install_service.bat` + `winsw.xml`** (commit `ffa213a`):
+  - `[2/11]` buscaba `requirements-proxy.txt` en `validator_app\proxy\` (está en la
+    raíz) → `%REPO_ROOT%`.
+  - `[5/11]` `python -c` multilínea (cmd.exe lo rompía → tokens vacíos) → una línea.
+  - `[6/11]` `%PROXY_PORT%` se expandía vacío dentro del bloque `( )` → delayed
+    expansion `!PROXY_PORT!`; la rama "config.yaml ya existe" relee puerto y tokens
+    sin comillas (subrutina `:trim_quotes`).
+  - `[8/11]` `where python` podía coger el stub de Store → `sys.executable`.
+  - **`winsw.xml` sacado del control de versiones** → `winsw.xml.example` (plantilla);
+    `winsw.xml` y `winsw.exe` gitignored. Elimina el "repo sucio tras instalar".
+  - **ACL de `config.yaml`**: nuevo paso `icacls /inheritance:r` + grant solo a
+    SYSTEM + Administradores (también `proxy_token.txt` / `admin_key.txt`).
+  - Ayuda corregida: los logs van a `<repo>\logs\`, no al Visor de Eventos.
+- **0.5 (coherencia del almacén de la cookie con LocalSystem)** → **POSPUESTA a
+  después de la Etapa C** (no bloquea A–C; queda mejor informada tras ver
+  `/local/renovar` con cookie real; se hace antes de la Etapa D).
+- **0.6 versión de Python**: decidido no tocar `pyproject.toml` (piso `>=3.12` es
+  un seguro); producción se estandariza en 3.14.7. Nota para `docs/proxy-deploy.md`
+  y las 2 refs a `py314` → Fase 5.
+
+### Etapa A — proxy en primer plano en esta PC — HECHO
+- `config.yaml` local creado (gitignored, puerto **8090** ≠ default 8080 a
+  propósito). El proxy arranca y escucha en 8090 → **prueba en vivo de que
+  `config.yaml` se lee**. Sin el warning `yaml_file ... ignored`.
+- `GET /health` → `{"status":"ok", ...}`. Keepalive loop iniciado (intervalo 900s).
+- Auth verificada: `/api/cobertura` sin token → 401, token malo → 401;
+  `/admin/status` sin `X-Admin-Key` → 401, con key → 200 (con bloque `keepalive`).
+- Token válido → la petición llega a WinForce; con la `PHPSESSID` muerta del
+  keyring devuelve 502 + error claro con remedio. Pipeline OK, falta sesión viva.
+- El proxy quedó corriendo en segundo plano para la Etapa B.
+
 ## Pendiente
 
 ### De la puesta en marcha
-- Etapas 0 → E del plan aprobado.
+- **Etapa B** (bloqueada por: necesito que el owner haga el login WinForce + 2FA y
+  me pase la `PHPSESSID`), C, 0.5, D. Etapa E = runbook (oficina no accesible hoy).
 
 ### Fase 5 — Barrido final de docs (última del plan "Sesión WinForce robusta")
 - `docs/proxy-config.md`, `docs/proxy-deploy.md`, `docs/rotacion-credenciales.md`,
