@@ -30,7 +30,7 @@ echo [INFO] Directorio base: %BASE_DIR%
 
 REM Verificar Python
 echo.
-echo [1/11] Verificando Python...
+echo [1/12] Verificando Python...
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
     echo [ERROR] Python no encontrado en PATH.
@@ -56,7 +56,7 @@ echo [OK] Python %PY_VER%.%PY_MINOR% detectado.
 
 REM Instalar dependencias
 echo.
-echo [2/11] Instalando dependencias (requirements-proxy.txt)...
+echo [2/12] Instalando dependencias (requirements-proxy.txt)...
 REM requirements-proxy.txt vive en la RAIZ del repo (dos niveles arriba), y su
 REM "-r requirements.txt" interno se resuelve relativo a ese archivo.
 set "REPO_ROOT=%BASE_DIR%\..\.."
@@ -75,7 +75,7 @@ echo [OK] Dependencias instaladas.
 
 REM Descargar el navegador para el login asistido (rotate_creds sin --manual)
 echo.
-echo [3/11] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
+echo [3/12] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
 python -m playwright install chromium
 if %errorLevel% neq 0 (
     echo [WARN] No se pudo descargar Chromium. El icono "Renovar sesion WinForce"
@@ -85,7 +85,7 @@ if %errorLevel% neq 0 (
 
 REM Descargar winsw.exe
 echo.
-echo [4/11] Descargando winsw.exe (Windows Service Wrapper)...
+echo [4/12] Descargando winsw.exe (Windows Service Wrapper)...
 set "WINSW_URL=https://github.com/winsw/winsw/releases/download/v3.0.0/WinSW.NET4.exe"
 set "WINSW_PATH=%BASE_DIR%\winsw.exe"
 powershell -Command "Invoke-WebRequest -Uri '%WINSW_URL%' -OutFile '%WINSW_PATH%' -UseBasicParsing" 2>nul
@@ -105,7 +105,7 @@ echo [OK] winsw.exe descargado en %WINSW_PATH%
 
 REM Generar / reutilizar tokens
 echo.
-echo [5/11] Tokens de seguridad...
+echo [5/12] Tokens de seguridad...
 set "CONFIG_YAML=%BASE_DIR%\config.yaml"
 if exist "%CONFIG_YAML%" (
     echo [INFO] config.yaml ya existe: se reutilizan sus tokens y puerto.
@@ -140,7 +140,7 @@ if exist "%CONFIG_YAML%" (
 
 REM Verificar/crear config.yaml
 echo.
-echo [6/11] Configurando config.yaml...
+echo [6/12] Configurando config.yaml...
 if exist "%CONFIG_YAML%" (
     echo [INFO] Se mantiene el config.yaml existente.
 ) else (
@@ -204,14 +204,14 @@ echo [OK] Permisos aplicados (si fallo, revisa que corres como Administrador).
 
 REM Instalar la extension de Chrome "Renovar sesion WinForce" (force-install por politica)
 echo.
-echo [7/11] Instalando la extension de Chrome "Renovar sesion WinForce"...
+echo [7/12] Instalando la extension de Chrome "Renovar sesion WinForce"...
 cd /d "%BASE_DIR%\..\.."
 python -m validator_app.proxy._instalar_extension
 cd /d "%BASE_DIR%"
 
 REM Generar winsw.xml con paths absolutos
 echo.
-echo [8/11] Generando winsw.xml con paths absolutos...
+echo [8/12] Generando winsw.xml con paths absolutos...
 REM El interprete REAL que corre ahora (no el primero del PATH, que puede ser el
 REM stub de Microsoft Store).
 for /f "delims=" %%i in ('python -c "import sys; print(sys.executable)"') do set "PYTHON_EXE=%%i"
@@ -244,7 +244,7 @@ echo [OK] winsw.xml generado.
 
 REM Instalar servicio
 echo.
-echo [9/11] Instalando servicio Windows...
+echo [9/12] Instalando servicio Windows...
 cd /d "%BASE_DIR%"
 "%WINSW_PATH%" install
 if %errorLevel% neq 0 (
@@ -256,7 +256,7 @@ echo [OK] Servicio instalado.
 
 REM Iniciar servicio
 echo.
-echo [10/11] Iniciando servicio...
+echo [10/12] Iniciando servicio...
 "%WINSW_PATH%" start
 if %errorLevel% neq 0 (
     echo [ERROR] Fallo al iniciar el servicio. Revisa los logs en %BASE_DIR%\..\..\logs\ (archivos rotados de winsw)
@@ -289,9 +289,26 @@ if %errorLevel% neq 0 (
 )
 del health_check.tmp 2>nul
 
+REM Tarea programada: popup al owner cuando el proxy avise que la sesion murio.
+REM El servicio corre como LocalSystem (sesion 0, sin escritorio) y escribe un
+REM evento de Windows (origen JSWinProxy, ID 101); esta tarea lo convierte en un
+REM aviso visible en la sesion interactiva del owner.
+echo.
+echo [11/12] Registrando la tarea de aviso "sesion caducada"...
+schtasks /create /tn "JSWinProxy-AvisoSesion" /f /ru INTERACTIVE ^
+  /sc ONEVENT /ec Application ^
+  /mo "*[System[Provider[@Name='JSWinProxy'] and EventID=101]]" ^
+  /tr "msg * La sesion de WinForce del proxy caduco. Abre Chrome y pulsa el icono 'Renovar sesion' (badge rojo)." 2>nul
+if %errorLevel% equ 0 (
+    echo [OK] Tarea de aviso registrada. El owner vera un popup cuando la sesion caduque.
+) else (
+    echo [WARN] No se pudo registrar la tarea de aviso. El badge de la extension
+    echo        y el Visor de Eventos siguen funcionando; registra la tarea a mano si quieres el popup.
+)
+
 REM Crear el acceso directo "Renovar sesion WinForce" en el Escritorio
 echo.
-echo [11/11] Creando el icono "Renovar sesion WinForce" en el Escritorio...
+echo [12/12] Creando el icono "Renovar sesion WinForce" en el Escritorio...
 for /f "delims=" %%p in ('where pythonw.exe 2^>nul') do set "PYTHONW_EXE=%%p"
 if not defined PYTHONW_EXE set "PYTHONW_EXE=pythonw.exe"
 set "REPO_ROOT=%BASE_DIR%\..\.."
@@ -339,10 +356,14 @@ echo   Ver logs:       %BASE_DIR%\..\..\logs\  (archivos rotados de winsw)
 echo   Detener:        %BASE_DIR%\winsw.exe stop
 echo   Reiniciar:      %BASE_DIR%\winsw.exe restart
 echo   Desinstalar:    %BASE_DIR%\uninstall_service.bat
-echo   Renovar sesion: la EXTENSION de Chrome pone un badge rojo y el owner
-echo                   hace 1 clic (reabre Chrome tras instalar para que aparezca).
+echo   Renovar sesion: cuando la sesion caduca sale un POPUP automatico (tarea
+echo                   JSWinProxy-AvisoSesion) y la EXTENSION de Chrome pone un
+echo                   badge rojo -> el owner hace 1 clic (reabre Chrome tras
+echo                   instalar para que aparezca).
 echo                   Fallback: icono "Renovar sesion WinForce" del Escritorio,
 echo                   o python -m validator_app.proxy.rotate_creds [--manual]
+echo   Ver avisos:     Visor de Eventos -^> Registros de Windows -^> Aplicacion,
+echo                   origen "JSWinProxy" (ID 101 = caduco, 102 = renovada)
 echo.
 echo CONFIGURACION AGENTES (en cada una de las 20 maquinas):
 echo   1. Ejecutar JSConnect-Win-Coverage.exe

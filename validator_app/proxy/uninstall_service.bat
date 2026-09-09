@@ -48,6 +48,9 @@ if %errorLevel% neq 0 (
     echo [OK] Servicio desinstalado.
 )
 
+echo [INFO] Quitando la tarea de aviso "sesion caducada"...
+schtasks /delete /tn "JSWinProxy-AvisoSesion" /f 2>nul
+
 echo [INFO] Quitando la extension de Chrome "Renovar sesion WinForce"...
 cd /d "%BASE_DIR%\..\.."
 python -m validator_app.proxy._instalar_extension --uninstall 2>nul

@@ -70,10 +70,10 @@ borrar a mano el keyring de proxy porque el modo proxy siempre gana
 (`main_window.py:75-77`). No bloquea nada.
 
 ### 4. Etapa D — Servicio de Windows en la PC de oficina
-`install_service.bat` como Administrador, los 11 pasos verificados uno a uno; el
-servicio sobrevive a un reinicio y recupera la cookie del keyring; logs en
-`<repo>\logs\` sin secretos; regla de firewall solo hacia la LAN. Registra
-también la Tarea programada de aviso de la Etapa R (Capa B).
+`install_service.bat` como Administrador, los 12 pasos verificados uno a uno
+(incluye la Tarea programada de aviso de la Etapa R); el servicio sobrevive a un
+reinicio y recupera la cookie del keyring; logs en `<repo>\logs\` sin secretos;
+regla de firewall solo hacia la LAN. Verificar el popup de "sesión caducada".
 **Bloqueada por las Etapas R y 0.5.**
 
 ### 5. Etapa E — Runbook de la PC de oficina

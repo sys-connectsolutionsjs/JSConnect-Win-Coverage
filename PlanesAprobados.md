@@ -310,9 +310,9 @@ y en `~/.claude/plans/steady-crunching-music.md` (Etapa R). Vista de conjunto en
   `~/.claude/plans/shimmying-skipping-mochi.md:145-158`. **Bloquea la D.**
 - **Etapa C.12 — modo standalone en la GUI. [EN COLA, opcional]** Exige borrar a
   mano el keyring de proxy (`main_window.py:75-77`).
-- **Etapa D — servicio de Windows en la PC de oficina. [EN COLA]** Los 11 pasos de
-  `install_service.bat`, sobrevive a reinicio, firewall LAN, Tarea programada de
-  aviso de la Etapa R. **Bloqueada por R y 0.5.**
+- **Etapa D — servicio de Windows en la PC de oficina. [EN COLA]** Los 12 pasos de
+  `install_service.bat` (el 11 registra la tarea de aviso de la Etapa R),
+  sobrevive a reinicio, firewall LAN. **Bloqueada por R y 0.5.**
 - **Etapa E — runbook de la oficina. [EN COLA]** El procedimiento verificado en la
   D, en `docs/proxy-deploy.md`. **Bloqueada por acceso físico.**
 - Luego: **Fase 5 — barrido de docs** (arriba en este archivo).
