@@ -5,6 +5,7 @@ Proporciona interfaz simple con retries, timeouts y errores tipados.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from dataclasses import dataclass
 
@@ -36,6 +37,13 @@ class ProxyTimeoutError(ProxyError):
     pass
 
 
+class ProxySesionCaducadaError(ProxyError):
+    """El proxy respondio 503: su sesion con WinForce caduco. El owner ya fue
+    avisado; el agente solo tiene que reintentar en unos minutos. NO se
+    reintenta automaticamente (no serviria de nada y solo genera ruido)."""
+    pass
+
+
 @dataclass
 class CoberturaResult:
     hay_cobertura: bool
@@ -62,6 +70,7 @@ class HealthResult:
     version: str
     session_age: int | None
     logged_in: bool
+    session_alive: bool = False
 
 
 class ProxyClient:
@@ -129,6 +138,16 @@ class ProxyClient:
                     raise ProxyAuthError(
                         "IP no permitida en el proxy (verifica allowed_networks)"
                     )
+                if resp.status_code == 503:
+                    # Sesion del proxy con WinForce caducada. Es terminal: el
+                    # owner ya fue avisado y reintentar ahora no sirve de nada.
+                    detalle = ""
+                    with contextlib.suppress(Exception):
+                        detalle = resp.json().get("detail", "")
+                    raise ProxySesionCaducadaError(
+                        detalle
+                        or "La sesion del proxy con WinForce caduco. Reintenta en unos minutos."
+                    )
                 if 500 <= resp.status_code < 600:
                     raise ProxyServerError(
                         f"Error del proxy: HTTP {resp.status_code} - {resp.text[:200]}"
@@ -168,6 +187,7 @@ class ProxyClient:
             version=data.get("version", "unknown"),
             session_age=data.get("session_age"),
             logged_in=data.get("logged_in", False),
+            session_alive=data.get("session_alive", False),
         )
 
     def validar_cobertura(self, lat: float, lon: float) -> CoberturaResult:

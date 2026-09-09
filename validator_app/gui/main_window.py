@@ -8,7 +8,7 @@ from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
 from validator_app.core import api
 from validator_app.gui import fields, session_config
-from validator_app.proxy.client import ProxyClient
+from validator_app.proxy.client import ProxyClient, ProxySesionCaducadaError
 from validator_app.updater import check as update_check
 from validator_app.updater import download
 
@@ -199,6 +199,25 @@ class App(tk.Tk):
                 lambda: self._fin_validar("Estado: el nucleo aun no esta listo"),
             )
             return
+        except ProxySesionCaducadaError:
+            # No es un error del agente: la sesion del proxy con WinForce caduco y
+            # el owner ya fue avisado. Mensaje suave, no el dialogo rojo.
+            self.after(
+                0,
+                lambda: messagebox.showinfo(
+                    "Sesion del proxy caducada",
+                    "La sesion del proxy con WinForce caduco.\n\n"
+                    "El administrador ya fue notificado. Vuelve a intentarlo en "
+                    "2-3 minutos.",
+                ),
+            )
+            self.after(
+                0,
+                lambda: self._fin_validar(
+                    "Estado: sesion del proxy caducada - reintenta en unos minutos"
+                ),
+            )
+            return
         except Exception as exc:
             msg = str(exc)
             self.after(0, lambda m=msg: messagebox.showerror("Error", m))
@@ -304,26 +323,27 @@ class App(tk.Tk):
                 client = ProxyClient(base_url=url, token=token, timeout=10.0)
                 health = client.health_check()
                 client.close()
-                if health.status == "ok" and health.logged_in:
-                    msg = f"OK ({health.session_age}s, logged_in)"
-                    self.after(0, lambda: self._on_test_result(True, msg))
-                elif health.status == "ok":
-                    msg = "OK (proxy vivo, sesion WinForce inactiva)"
-                    self.after(0, lambda: self._on_test_result(True, msg))
+                if health.status != "ok":
+                    self.after(0, lambda: self._on_test_result("mal", f"Status: {health.status}"))
+                elif health.session_alive:
+                    msg = f"OK (sesion WinForce viva, {health.session_age}s)"
+                    self.after(0, lambda: self._on_test_result("ok", msg))
+                elif health.logged_in:
+                    msg = "proxy vivo, pero la sesion WinForce esta caida"
+                    self.after(0, lambda: self._on_test_result("aviso", msg))
                 else:
-                    msg = f"Status: {health.status}"
-                    self.after(0, lambda: self._on_test_result(False, msg))
+                    msg = "proxy vivo, sin sesion WinForce configurada"
+                    self.after(0, lambda: self._on_test_result("aviso", msg))
             except Exception:
-                self.after(0, lambda: self._on_test_result(False, "Error de conexion"))
+                self.after(0, lambda: self._on_test_result("mal", "Error de conexion"))
 
         threading.Thread(target=do_test, daemon=True).start()
 
-    def _on_test_result(self, success: bool, msg: str):
+    def _on_test_result(self, estado: str, msg: str):
         self.btn_test.config(state="normal")
-        if success:
-            self.lbl_test_result.config(text=f"\u2713 {msg}", foreground="green")
-        else:
-            self.lbl_test_result.config(text=f"\u2717 {msg}", foreground="red")
+        marca = {"ok": "\u2713", "aviso": "\u26a0", "mal": "\u2717"}.get(estado, "\u2717")
+        color = {"ok": "green", "aviso": "#b8860b", "mal": "red"}.get(estado, "red")
+        self.lbl_test_result.config(text=f"{marca} {msg}", foreground=color)
 
     def _save_proxy_config(self, dialog: tk.Toplevel) -> None:
         """Guarda configuracion de proxy en keyring y recarga cliente."""
