@@ -10,6 +10,7 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.7
 pydantic-settings>=2.3
+pyyaml>=6.0          # YamlConfigSettingsSource en config.py lee config.yaml
 
 # Login asistido (rotate_creds sin --manual): abre un navegador para que el owner
 # renueve la sesion WinForce sin tocar F12. El binario de Chromium lo descarga

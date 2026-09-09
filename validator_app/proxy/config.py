@@ -10,7 +10,16 @@ from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
+
+# config.yaml vive JUNTO a este modulo, no en el cwd. El servicio de Windows
+# arranca con cwd = raiz del repo, asi que una ruta relativa no lo encontraria.
+_CONFIG_YAML = Path(__file__).resolve().parent / "config.yaml"
 
 
 def _expand_path(value: str) -> Path:
@@ -55,11 +64,29 @@ class ProxyConfig(BaseSettings):
     winforce_controllers: str = "https://appwinforce.win.pe/controllers"
 
     model_config = SettingsConfigDict(
-        yaml_file="config.yaml",
+        yaml_file=_CONFIG_YAML,
         yaml_file_encoding="utf-8",
         env_prefix="PROXY_",
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Precedencia: kwargs de init > variables PROXY_* > config.yaml > defaults.
+        # (docstring del modulo: "env > yaml > defaults")
+        return (
+            init_settings,
+            env_settings,
+            YamlConfigSettingsSource(settings_cls),
+            file_secret_settings,
+        )
 
     @field_validator("allowed_networks", mode="before")
     @classmethod
