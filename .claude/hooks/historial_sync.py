@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HISTORIAL = ROOT / "HistorialResumenes.md"
 STATE = Path(__file__).resolve().parent / "historial_sync_state.local.json"
 ENTRY_RE = re.compile(r"^### \d{4}-\d{2}-\d{2}", re.MULTILINE)
-DOCS = "anotaciones.md, PlanesAprobados.md y AGENTS.md"
+DOCS = "Roadmap.md, anotaciones.md, PlanesAprobados.md y AGENTS.md"
 
 
 def _read_state() -> dict:

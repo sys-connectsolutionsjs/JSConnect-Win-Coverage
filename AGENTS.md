@@ -228,23 +228,26 @@ Estos archivos son el punto de partida de cualquier persona (o IA) que retome el
 proyecto. Leerlos en este orden ANTES de tocar código:
 1. **AGENTS.md** (este archivo): reglas del proyecto, contexto, historial y tareas
    pendientes. Es la puerta de entrada.
-2. **PlanesAprobados.md**: **cola** de trabajo con los planes YA aprobados, el
+2. **Roadmap.md**: vista única de qué se hizo, qué falta y en qué orden (línea de
+   tiempo + cola aprobada + backlog v1.1 + bloqueos). Leer para ubicarse rápido
+   antes de decidir en qué trabajar.
+3. **PlanesAprobados.md**: **cola** de trabajo con los planes YA aprobados, el
    razonamiento y las decisiones tomadas (ej: decisión de autenticación). Contiene
    además diseños listos para implementar. Leer antes de empezar una fase para no repetir
    análisis ni ignorar decisiones. Se actualiza SACANDO de la cola lo implementado.
-3. **TestingLog.md**: metodología TDD del proyecto (test rojo -> verde), inventario de
+4. **TestingLog.md**: metodología TDD del proyecto (test rojo -> verde), inventario de
    tests y bitácora de problemas -> causa -> solución. Leer antes de escribir o
    modificar tests.
-4. **README.md**: documentación pública del proyecto (español primero, luego inglés).
+5. **README.md**: documentación pública del proyecto (español primero, luego inglés).
    Mantenerla actualizada ANTES de subir a GitHub.
-5. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
+6. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
    trabajar). Fuente del resumen de cierre de sesión.
-6. **Escalabilidad.md**: guía para futuros programadores (cómo escalar a remotos).
-7. **anotaciones.md**: glosario técnico para términos que futuros devs desconozcan.
-8. **docs/**: documentación técnica permanente (arquitectura, deploy, config, rotación, escalabilidad).
-9. **HistorialResumenes.md**: índice cronológico condensado de resúmenes pasados (lo
+7. **Escalabilidad.md**: guía para futuros programadores (cómo escalar a remotos).
+8. **anotaciones.md**: glosario técnico para términos que futuros devs desconozcan.
+9. **docs/**: documentación técnica permanente (arquitectura, deploy, config, rotación, escalabilidad).
+10. **HistorialResumenes.md**: índice cronológico condensado de resúmenes pasados (lo
    más nuevo arriba). Ver ahí si se necesita ubicar rápido en qué sesión pasó algo.
-10. **resumenes/**: snapshots COMPLETOS e inmutables de cada sesión pasada
+11. **resumenes/**: snapshots COMPLETOS e inmutables de cada sesión pasada
     (`resumenes/<fecha>.md`), con el detalle íntegro que tenía `ResumenDelDia.md` al
     cerrar esa sesión.
 

@@ -205,7 +205,56 @@ El detalle completo (fases, verificación, archivos) vive en el plan aprobado
   `/admin/*`, middleware token/IP/admin-key, exception handlers). 14 tests nuevos,
   104 pasando, ruff limpio. `tests/test_session_config.py` (Fase 3) y
   `tests/test_login_asistido.py` / `tests/test_instalar_extension.py` (Fase 2.5).
-- **Fase 5 — docs.** `docs/proxy-config.md`, `docs/proxy-deploy.md`, `README_PROXY.md`.
+- **Fase 5 — barrido final de la documentación. [LA ÚLTIMA del plan]** Coherencia
+  general (extensión = vía principal, login asistido + `--manual` = fallback) y
+  las **19 incoherencias doc↔código** verificadas el 2026-09-09, cada una con
+  `archivo:línea`. **No se ejecuta hasta cerrar R / 0.5 / C.12 / D / E.**
+
+  _Las 11 previas (todas vigentes):_
+  1. Rotación por usuario/contraseña inexistente — `docs/rotacion-credenciales.md:3,10,190`,
+     `anotaciones.md:319,322` vs `server.py:120-121,686,692-694` (`server.py:12`).
+  2. `version="dev"` vs commit SHA — `server.py:655,681,506` (y `:604` dice `1.0.0`)
+     vs `docs/proxy-deploy.md:78`, `anotaciones.md:122`, `docs/rotacion-credenciales.md:139,146`,
+     `docs/proxy-config.md:156`, `Escalabilidad.md:36`, `docs/escalabilidad-remota.md:62`,
+     `README_PROXY.md:54`.
+  3. Ejemplos de `/admin/status` sin `X-Admin-Key` — `docs/rotacion-credenciales.md:133-134`,
+     `README_PROXY.md:121` vs `server.py:700-703,539-544`.
+  4. `session_age_seconds` vs `session_age` — `docs/rotacion-credenciales.md:137`
+     vs `server.py:134,504,709`.
+  5. "IP:puerto" sin esquema vs la GUI que exige `http://` — `docs/proxy-config.md:25-26`,
+     `README_PROXY.md:71`, `docs/proxy-deploy.md:95`, `README.md:51`,
+     `docs/arquitectura.md:40`, `AGENTS.md:270,412` vs `main_window.py:337-341` (etiqueta `:240`).
+  6. Keyring standalone — `docs/proxy-config.md:104` (`JSWinCoverage/credentials`)
+     vs `session_config.py:20-21` (`JSWinCoverage/session_cookie`, una PHPSESSID).
+  7. "Logs en el Visor de Eventos" — `README_PROXY.md:169,219`, `docs/proxy-deploy.md:83-84,165`,
+     `docs/arquitectura.md:158`, `anotaciones.md:399`, `Escalabilidad.md:54` vs
+     `winsw.xml.example:21` + stdout (`server.py:766-777`). Ojo: la Etapa R (Capa B)
+     hace que parte de esto pase a ser verdad — coordinar el texto.
+  8. `/admin/config` "público" — `docs/proxy-config.md:163`,
+     `docs/escalabilidad-remota.md:78,189`, `Escalabilidad.md:38`, `anotaciones.md:45`,
+     `docs/arquitectura.md:51` vs `server.py:663-667` (`Depends(verify_admin_key)`,
+     y devuelve el token en claro).
+  9. "`config.yaml` no se lee" — **invertida**: el código ya lo lee
+     (`config.py:13-18,22,74-89`, `d9c1ef7`, `tests/test_config.py`); ahora mienten
+     `AGENTS.md:584,589-593`, `HistorialResumenes.md:26,28`.
+  10-12. Tres refs a `py314` — `TestingLog.md:11,257`, `SkillsPropuestas.md:53`
+     vs `pyproject.toml:10` (`py312`).
+
+  _Las 8 de la Etapa C (todas vigentes):_
+  13. `192.168.1.50:8080` sin esquema — `docs/proxy-config.md:26`, `README_PROXY.md:71`,
+      `docs/proxy-deploy.md:95` (+ `README.md:51`, `docs/arquitectura.md:40`) vs `main_window.py:337-341`.
+  14. Etiqueta "IP:puerto del proxy" no normaliza — `main_window.py:240`.
+  15. "Conexión OK (45 ms)" — `docs/proxy-config.md:35`, `README_PROXY.md:73`,
+      `docs/proxy-deploy.md:97` vs `main_window.py:308` (muestra `session_age`, no latencia).
+  16. `PlanesAprobados.md:219` `win_sessid` vs `session_config.py:21` `session_cookie`
+      (y `:197` de este archivo ya dice `session_cookie` — se contradice a sí mismo).
+  17. `docs/proxy-config.md:100-106` no menciona el diálogo "Configurar Sesión (standalone)".
+  18. `main_window.py:362-363` hace `.base_url` sobre `from_keyring()` sin comprobar `None`.
+  19. "Probar conexión" traga la excepción real — `main_window.py:316-317` (`"Error de conexion"`).
+
+  Notas de edición: `docs/rotacion-credenciales.md:51` y `:53` son dos encabezados
+  casi idénticos; `resumenes/*.md` son snapshots inmutables (`AGENTS.md:249-252`) —
+  **no tocar**.
 
 ### Análisis de lo ya hecho (piezas reutilizables — NO reimplementar)
 
@@ -233,6 +282,40 @@ Ya hecho, se deja como referencia de qué se tocó:
   `ensure_session_fresh` como decía el plan); el early-return por
   `_last_activity == 0` sigue siendo lo que necesita un cliente con cookie
   inyectada.
+
+## Plan aprobado — Puesta en marcha del proxy (2026-09-09)
+
+Activar end-to-end todo lo construido. Detalle en `~/.claude/plans/shimmying-skipping-mochi.md`
+y en `~/.claude/plans/steady-crunching-music.md` (Etapa R). Vista de conjunto en
+`Roadmap.md`. Estado:
+
+- **Etapa 0 — desbloquear el arranque. [COMPLETADA 2026-09-09]** `config.yaml` se
+  lee (`d9c1ef7`); 3 bugs de `install_service.bat` + `winsw.xml` fuera de git
+  (`ffa213a`); `install_service.bat:262` (`b70dacf`). 0.5 pospuesta.
+- **Etapa A — proxy en primer plano + auth. [COMPLETADA 2026-09-09]** (`7992e01`).
+- **Etapa B — sesión viva + validación real end-to-end. [COMPLETADA 2026-09-09]**
+  cobertura SI / score 423 MUY ALTO contra WinForce real; fix `deuda_total` int
+  (`3f63e8f`, `898b9ab`).
+- **Etapa C — GUI (Tkinter) contra el proxy. [COMPLETADA 2026-09-09]** pasos 10-11
+  validados; la suite envenenaba el keyring del proxy → `tests/conftest.py`
+  (`ffc5296`); paso 12 (standalone) no aplica ya (el modo proxy siempre gana).
+  Ver `ResumenDelDia.md`.
+- **Etapa R — robustez de sesión del proxy. [EN COLA]** El proxy puede quedarse
+  sin sesión WinForce sin avisar. R1 detección fiable · R2 fail-fast HTTP 503 ·
+  R3 aviso al owner por 3 vías (GUI del agente · Evento Windows + Tarea programada
+  · toast de la extensión · webhook opcional) · R4 `/health` honesto. Plan:
+  `~/.claude/plans/steady-crunching-music.md`. **Desbloquea la D.**
+- **Etapa 0.5 — almacén de la cookie con LocalSystem. [EN COLA]** `rotate_creds.py`
+  debe empujar la cookie por HTTP, no escribir el keyring del owner.
+  `~/.claude/plans/shimmying-skipping-mochi.md:145-158`. **Bloquea la D.**
+- **Etapa C.12 — modo standalone en la GUI. [EN COLA, opcional]** Exige borrar a
+  mano el keyring de proxy (`main_window.py:75-77`).
+- **Etapa D — servicio de Windows en la PC de oficina. [EN COLA]** Los 11 pasos de
+  `install_service.bat`, sobrevive a reinicio, firewall LAN, Tarea programada de
+  aviso de la Etapa R. **Bloqueada por R y 0.5.**
+- **Etapa E — runbook de la oficina. [EN COLA]** El procedimiento verificado en la
+  D, en `docs/proxy-deploy.md`. **Bloqueada por acceso físico.**
+- Luego: **Fase 5 — barrido de docs** (arriba en este archivo).
 
 ## Fuera de alcance de la sesión actual — próxima fase
 
