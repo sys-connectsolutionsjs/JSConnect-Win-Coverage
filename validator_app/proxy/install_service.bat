@@ -295,6 +295,9 @@ REM evento de Windows (origen JSWinProxy, ID 101); esta tarea lo convierte en un
 REM aviso visible en la sesion interactiva del owner.
 echo.
 echo [11/12] Registrando la tarea de aviso "sesion caducada"...
+REM Registrar la fuente de eventos (una vez, elevado) para que el servicio
+REM LocalSystem pueda escribir en el Registro de Windows sin "Acceso denegado".
+powershell -NoProfile -Command "if (-not [System.Diagnostics.EventLog]::SourceExists('JSWinProxy')) { New-EventLog -LogName Application -Source JSWinProxy }" 2>nul
 schtasks /create /tn "JSWinProxy-AvisoSesion" /f /ru INTERACTIVE ^
   /sc ONEVENT /ec Application ^
   /mo "*[System[Provider[@Name='JSWinProxy'] and EventID=101]]" ^
