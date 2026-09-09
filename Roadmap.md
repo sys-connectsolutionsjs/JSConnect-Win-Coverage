@@ -46,10 +46,10 @@ servicio de Windows en la PC de oficina (D/E) y barrer la documentación (Fase 5
 ## Aprobado y pendiente — en orden de ejecución
 
 ### 1. Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem
-Texto aprobado: `~/.claude/plans/shimmying-skipping-mochi.md:145-158`.
-`rotate_creds.py` escribe la `PHPSESSID` en el keyring **del owner**; el servicio
-corre como **LocalSystem** y lee otro almacén. Cambiar `rotate_creds.py` para que
-empuje la cookie por HTTP (`/local/renovar` local · `/admin/rotar` con
+**Spec completa en `PlanesAprobados.md`** ("Puesta en marcha del proxy" → Etapa 0.5).
+En corto: `rotate_creds.py` escribe la `PHPSESSID` en el keyring **del owner**;
+el servicio corre como **LocalSystem** y lee otro almacén. Cambiar `rotate_creds.py`
+para que empuje la cookie por HTTP (`/local/renovar` local · `/admin/rotar` con
 `X-Admin-Key` si no), dejando el keyring del servicio como única fuente de verdad.
 **Bloquea la Etapa D.**
 

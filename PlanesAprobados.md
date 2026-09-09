@@ -115,9 +115,9 @@ pedir datos manuales (B).
 
 ## Plan aprobado — Sesión WinForce robusta (2026-08-28)
 
-**En ejecución.** Keepalive del proxy + limpieza del login muerto + cookie en la GUI.
-El detalle completo (fases, verificación, archivos) vive en el plan aprobado
-`~/.claude/plans/perfecto-ahora-tenemos-acceso-vivid-cake.md`. Resumen de la cola:
+**Fases 0–4 COMPLETADAS; queda la Fase 5 (barrido de docs, la última).** Keepalive
+del proxy + limpieza del login muerto + cookie en la GUI + tests. El plan de
+trabajo original quedó archivado localmente; el estado vigente es este. Resumen:
 
 - **Fase 0 — medir vida de la `PHPSESSID`** (`tools/medir_sesion.py`, NUEVO).
   **[COMPLETADA 2026-09-04]**. 4 corridas (`medir_sesion.log`): dos con `--max` por
@@ -285,9 +285,10 @@ Ya hecho, se deja como referencia de qué se tocó:
 
 ## Plan aprobado — Puesta en marcha del proxy (2026-09-09)
 
-Activar end-to-end todo lo construido. Detalle en `~/.claude/plans/shimmying-skipping-mochi.md`
-y en `~/.claude/plans/steady-crunching-music.md` (Etapa R). Vista de conjunto en
-`Roadmap.md`. Estado:
+Activar end-to-end todo lo construido. Vista de conjunto en `Roadmap.md`. Los
+planes de trabajo originales (`shimmying-skipping-mochi.md`, `steady-crunching-music.md`)
+están archivados localmente en `~/.claude/plans/` de la PC donde se generaron —
+**su contenido vigente está resumido aquí**. Estado:
 
 - **Etapa 0 — desbloquear el arranque. [COMPLETADA 2026-09-09]** `config.yaml` se
   lee (`d9c1ef7`); 3 bugs de `install_service.bat` + `winsw.xml` fuera de git
@@ -308,17 +309,88 @@ y en `~/.claude/plans/steady-crunching-music.md` (Etapa R). Vista de conjunto en
   · toast de la extensión en la transición · webhook opcional) · R4
   (`HealthResult.session_alive`). Commits `82f3604`→`67ec0e4`. 124 tests.
   La parte del instalador se verifica en la Etapa D.
-- **Etapa 0.5 — almacén de la cookie con LocalSystem. [EN COLA]** `rotate_creds.py`
-  debe empujar la cookie por HTTP, no escribir el keyring del owner.
-  `~/.claude/plans/shimmying-skipping-mochi.md:145-158`. **Bloquea la D.**
-- **Etapa C.12 — modo standalone en la GUI. [EN COLA, opcional]** Exige borrar a
-  mano el keyring de proxy (`main_window.py:75-77`).
-- **Etapa D — servicio de Windows en la PC de oficina. [EN COLA]** Los 12 pasos de
-  `install_service.bat` (el 11 registra la tarea de aviso de la Etapa R),
-  sobrevive a reinicio, firewall LAN. **Bloqueada por 0.5** (R ya está hecha).
-- **Etapa E — runbook de la oficina. [EN COLA]** El procedimiento verificado en la
-  D, en `docs/proxy-deploy.md`. **Bloqueada por acceso físico.**
-- Luego: **Fase 5 — barrido de docs** (arriba en este archivo).
+### Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem  [EN COLA — SIGUIENTE, bloquea la D]
+
+**Problema.** El servicio de Windows correrá como **LocalSystem** (winsw sin
+`<serviceaccount>`, `winsw.xml.example:13-28`). El Credential Manager es **por
+usuario**: LocalSystem y el owner ven almacenes distintos.
+- `/local/renovar` y `/admin/rotar` → `set_session_cookie()` → `_save_session_cookies()`
+  escribe en el keyring **del proceso del proxy** = LocalSystem. ✅ Correcto.
+- `rotate_creds.py` (icono del Escritorio / `--manual`) escribe **directo** al
+  keyring **del owner** (`save_session_to_keyring()`, `rotate_creds.py:71-83`).
+  El servicio LocalSystem **nunca la vería** → tras un reinicio,
+  `_load_session_cookies()` no encuentra nada o encuentra una cookie vieja.
+
+**Solución aprobada.** Cambiar `rotate_creds.py` para que **empuje la cookie por
+HTTP**, no la escriba en keyring:
+- proxy local vivo → `POST /local/renovar` (sin admin key, es `127.0.0.1`).
+- si no → `POST /admin/rotar` con `X-Admin-Key`.
+- El keyring del **servicio** queda como única fuente de verdad.
+- `_verificar_proxy()` (`rotate_creds.py:86-106`) ya hace un `GET /admin/status`
+  best-effort; reusar esa plomería.
+
+**Por qué así** (no la alternativa): evita configurar winsw con
+`<serviceaccount>` + una contraseña de Windows del owner en el XML del servicio.
+La extensión de Chrome ya funciona bien (inyecta por HTTP en el proceso vivo);
+esto alinea `rotate_creds.py` con ese modelo.
+
+**Ojo — bug latente relacionado**: `rotate_creds._verificar_proxy` construye
+`config.proxy_url` = `http://{proxy_host}:{proxy_port}` (`config.py:98-100`); en
+la PC de oficina `proxy_host` será `0.0.0.0` → `http://0.0.0.0:8080/...` falla en
+Windows (silencioso, es best-effort). Arreglar de paso: usar `127.0.0.1` para las
+llamadas locales.
+
+**Verificación**: renovar por el icono del Escritorio con el servicio corriendo
+como LocalSystem → `/admin/status` refleja `creds_updated` reciente → reiniciar
+el servicio → `/health` sigue `session_alive:true` (la cookie sobrevivió).
+
+### Etapa C.12 — Modo standalone en la GUI  [EN COLA, opcional]
+
+Probar el modo standalone pegando la `PHPSESSID`. Hoy exige borrar a mano
+`JSWinClient/proxy_url` + `JSWinClient/proxy_token` del keyring, porque el modo
+proxy siempre gana (`main_window.py:75-77`, `:175`) y el diálogo de proxy no
+tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalone.
+
+### Etapa D — Servicio de Windows en la PC de oficina  [EN COLA — bloqueada por 0.5]
+
+13. `install_service.bat` **como Administrador**, recorrer los **12 pasos**
+    verificando cada uno (Python, deps, Chromium, `winsw.exe`, tokens,
+    `config.yaml`, extensión, `winsw.xml`, install, start, health, **tarea de
+    aviso `JSWinProxy-AvisoSesion` + fuente de eventos JSWinProxy**, icono `.lnk`).
+14. El servicio **sobrevive a un reinicio** y recupera la cookie del keyring —
+    prueba de fuego de la Etapa 0 (config.yaml se lee) y la 0.5 (keyring
+    coherente) juntas.
+15. Revisar `<repo>\logs\` (ahí escribe winsw, **no** el Visor de Eventos) y
+    confirmar que **ningún token aparece en los logs**.
+16. Verificar el aviso de la Etapa R end-to-end: forzar sesión muerta → evento
+    101 en el Visor de Eventos + popup de la tarea programada + badge/toast de la
+    extensión. (En foreground sin elevar `eventcreate` da "Acceso denegado"; bajo
+    LocalSystem funciona.)
+17. Regla de firewall para el puerto, **solo hacia la LAN** (`-Profile Domain,Private`).
+
+### Etapa E — Runbook de la PC de oficina  [EN COLA — bloqueada por acceso físico]
+
+La máquina está definida pero no es accesible. Dejar en `docs/proxy-deploy.md` el
+procedimiento **verificado en la Etapa D**, no el teórico: prerrequisitos
+(**Python 3.14.7**, ver 0.6), instalador corregido, ACL, cuenta del servicio
+(LocalSystem), firewall, alta de los 20 agentes y el ritual diario de renovación
+de la cookie del owner (extensión = principal; icono del Escritorio = fallback).
+
+### 0.6 — Versión de Python (decisión registrada 2026-09-09)
+
+**No tocar `pyproject.toml`.** `requires-python = ">=3.12"` es un **piso mínimo,
+no una versión fijada** — un seguro barato para la PC de oficina, cuya versión no
+controlamos aún (si subiéramos a `>=3.14` y esa PC tuviera 3.12,
+`install_service.bat` abortaría en `[1/12]`). Pero **producción se estandariza en
+Python 3.14.7**, igual que desarrollo, para que dev y prod no diverjan — anotarlo
+en `docs/proxy-deploy.md` (hoy dice "3.12+"). Cabos para la Fase 5: `TestingLog.md`
+y `SkillsPropuestas.md:53` dicen `py314` vs `pyproject.toml:10` (`py312`); y
+`>=3.12` está sin verificar desde 2026-08-27 (~40 tests entonces, 124 hoy).
+
+### Luego — Fase 5
+
+**Barrido de docs** (checklist de las 19 incoherencias, arriba en este archivo).
+Es **la última** — después de 0.5 / C.12 / D / E.
 
 ## Fuera de alcance de la sesión actual — próxima fase
 

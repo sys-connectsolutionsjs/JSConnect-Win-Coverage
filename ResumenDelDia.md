@@ -2,27 +2,32 @@
 
 Fecha: 2026-09-09
 
-## Objetivo del día
+> **Estado al cierre**: todo pusheado a `origin/main` (hasta `f93e5c0` +
+> el commit de sincronización de docs). Working tree limpio, 124 tests, ruff
+> limpio. **Se continúa en otra PC. Lo siguiente: Etapa 0.5** — spec completa en
+> `PlanesAprobados.md` ("Puesta en marcha del proxy"). La sesión del proxy quedó
+> muerta a propósito (se renueva por la extensión / `/admin/rotar` al retomar).
 
-**Poner en marcha todo lo construido: activar el proxy end-to-end.** Hasta ahora
+## Objetivo del día — HECHO
+
+**Poner en marcha todo lo construido: activar el proxy end-to-end.** Hasta hoy
 cada pieza (keepalive, login asistido, extensión de Chrome, diálogo de la GUI) se
-validó por separado con mocks y smoke tests; el sistema completo nunca ha corrido
-contra una sesión WinForce viva y el instalador nunca se ha ejecutado de verdad.
+había validado por separado con mocks y smoke tests; el sistema completo nunca
+había corrido contra una sesión WinForce viva y el instalador nunca se había
+ejecutado de verdad.
 
-Plan aprobado: `~/.claude/plans/shimmying-skipping-mochi.md`. Orden:
-1. Rotar el resumen 2026-09-08 (hecho, ver abajo).
-2. **Etapa 0** — desbloquear el arranque: `config.yaml` no se lee (`config.py`
-   sin `settings_customise_sources`), `install_service.bat` tiene 3 bugs que lo
-   detienen, `winsw.xml` está trackeado, incoherencia del almacén de la cookie.
-3. **Etapa A** — proxy en primer plano en esta PC + auth.
-4. **Etapa B** — sesión WinForce viva (2FA disponible ahora) + renovación por
-   extensión + primera validación real de cobertura/score + keepalive real.
-5. **Etapa C** — GUI contra el proxy + modo standalone.
-6. **Etapa D** — servicio de Windows en esta PC (sobrevive a reinicio).
-7. **Etapa E** — runbook para la PC de oficina (hoy NO accesible → solo se
-   documenta, no se ejecuta).
-8. **Fase 5** (barrido de docs) — solo si sobra tiempo; hay 11 incoherencias
-   doc↔código ya localizadas.
+Lo que se hizo, en orden (detalle abajo; vista de conjunto en `Roadmap.md`):
+1. Rotar el resumen 2026-09-08 → `resumenes/2026-09-08.md`.
+2. **Etapa 0** — desbloquear el arranque (`config.yaml` no se leía;
+   `install_service.bat` con 3 bugs; `winsw.xml` trackeado).
+3. **Etapa A** — proxy en primer plano + auth.
+4. **Etapa B** — sesión WinForce viva + primera validación real cobertura/score.
+5. **Etapa C** — GUI (Tkinter) contra el proxy.
+6. **Etapa R** (no estaba en el plan original; nació del hallazgo C.2) —
+   robustez de la detección de sesión muerta + aviso al owner.
+7. `Roadmap.md` nuevo + registro del plan en `PlanesAprobados.md`.
+
+Pendiente del plan original (no se tocó hoy): **0.5 → C.12 → D → E → Fase 5**.
 
 ---
 
@@ -182,8 +187,9 @@ una promesa sin verificar (última corrida en 3.12: 2026-08-27, ~40 tests).
 
 ### Etapa R — robustez de la detección de sesión muerta — HECHA (código; instalador se verifica en la D)
 
-Plan: `~/.claude/plans/steady-crunching-music.md`. Nace del hallazgo C.2. La
-exploración encontró que el problema tenía 4 capas.
+Nace del hallazgo C.2. La exploración encontró que el problema tenía 4 capas.
+(El plan de trabajo quedó archivado localmente; lo vigente está aquí y en
+`PlanesAprobados.md`.)
 
 - **Roadmap** (`82f3604`): `Roadmap.md` nuevo (línea de tiempo + cola aprobada
   C→R→0.5→C.12→D→E→Fase 5), registrado en `AGENTS.md` (mapa de conocimiento +

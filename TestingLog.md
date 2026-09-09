@@ -8,25 +8,63 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
   de fallar y, al final, refactorizar. El test ya no genera el error (verde).
 - Este proyecto usa este flujo: 1) test rojo, 2) implementación, 3) test verde.
 - Comando de tests: `pytest` (o `python -m pytest -q`).
-- Comando de lint: `ruff check .` (config en pyproject.toml, target py314).
+- Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (40 en total)
+## Inventario de tests (124 en total, a 2026-09-09)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
-| tests/test_fields.py | varios | parseo de coordenadas y detección DNI/RUC/CE |
+| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) |
+| tests/test_fields.py | 7 | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
-| tests/test_api.py | 17 | núcleo: login, cobertura, score, su parser y `validar_cookie_sesion()` |
-| tests/test_prueba_core.py | 6 | lógica del arnés gráfico (flujo, errores, mocks) |
+| tests/test_api.py | 22 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding |
+| tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
+| tests/test_proxy.py | 43 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
+| tests/test_client.py | 3 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`) |
+| tests/test_config.py | 5 | `ProxyConfig` lee `config.yaml` de verdad (`YamlConfigSettingsSource`); precedencia init > env > yaml > defaults |
+| tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
+| tests/test_login_asistido.py | 15 | `rotate_creds` dispatch (`--manual`/`--preview`/`--fresh`), `capturar_php_sessid_asistido` |
+| tests/test_instalar_extension.py | 3 | empaquetado del `.crx`, id estable |
+| tests/test_medir_keepalive.py | 9 | clasificación muerte/transitorio/indeterminado del medidor |
 
-Nota: `tests/test_proxy.py` (FastAPI `TestClient` para las rutas `/admin/*`
-y `/health` del proxy) todavía no existe — queda para la Fase 4 del plan
-"Sesión WinForce robusta" (`PlanesAprobados.md`).
-
-Nota: `tools/probar_concurrencia.py` NO tiene tests automáticos a propósito (pide
-credenciales y hace peticiones reales); se valida con `ruff` e import.
+Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
+tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
+validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-09 — Incidente: la suite envenenaba el keyring real
+
+- **Problema**: `test_proxy.py::test_set_session_cookie_limpia_session_dead_since`
+  llamaba a `pa.set_session_cookie("cookie-nueva")` sin mockear `keyring`.
+  `set_session_cookie` → `_save_session_cookies()` → `keyring.set_password(...)`
+  escribía `{"PHPSESSID": "cookie-nueva"}` en el **Credential Manager real** bajo
+  `JSWinProxy/credentials_cookies` — exactamente la clave que
+  `server._load_session_cookies()` lee al arrancar el proxy.
+- **Síntoma**: tras cualquier `pytest`, reiniciar el proxy restauraba esa cookie
+  de pega, `/health` decía `logged_in:true` y todo `/api/*` devolvía el HTML de
+  login de WinForce. Se descubrió al restaurar `keepalive_interval` a 900.
+- **Fix**: `tests/conftest.py` NUEVO — fixture **autouse** `keyring_en_memoria`
+  que sustituye `keyring.{get,set,delete}_password` por un dict por test. Nadie
+  más tocaba el keyring real (`test_session_config` ya lo mockeaba;
+  `test_login_asistido` mockea `save_session_to_keyring`). Bonus: la suite bajó
+  de 5.3s a 2.1s (las llamadas reales al Credential Manager de Windows son lentas).
+
+### Sesión 2026-09-09 — Patrón: aislar los efectos de sistema de la Etapa R
+
+- El aviso de "sesión muerta" escribe en el **Registro de Eventos de Windows**
+  (`eventcreate`) y hace un POST a un webhook — efectos de sistema reales, la
+  misma clase de fuga que el keyring.
+- `conftest.py` gana un 2º fixture autouse: `avisos_capturados` sustituye
+  `ProxyValidatorAPI._disparar_aviso` por un registrador síncrono
+  (`list[(evento, detalle)]`, sin hilos, sin subprocess, sin red). Los tests que
+  verifican el aviso piden el fixture y assertan sobre la lista.
+- `tests/test_client.py` NUEVO: usa `httpx.MockTransport` para simular respuestas
+  del proxy sin servidor. Contrato clave verificado: **un 503 es terminal**
+  (`ProxySesionCaducadaError`, 1 sola petición, sin reintentos).
+- Regla reforzada: **cualquier test que ejerza código con efectos de sistema
+  (keyring, Event Log, red, ficheros fuera de tmp) se aísla en `conftest.py`,
+  no test por test.**
 
 ### Sesión 2026-09-08 — Incidente: `taskkill` cerró todo Chrome de la máquina
 - **Problema**: al limpiar un Chrome zombie de un smoke test del login asistido /
@@ -254,7 +292,7 @@ Proceso seguido para cada caso:
 | `RUF059` variable desempaquetada sin uso | `metodo, url, kwargs = ...` sin usar `metodo`/`url` en algunos asserts | Usar `_` (dummy) en el desempaquetado |
 | `W292` sin salto de línea al final | Write sin newline final | `ruff check . --fix` |
 | `SIM117` `with` anidados | Dos `with` consecutivos | Combinar en un solo `with (...)` con paréntesis |
-| `UP006/UP035/UP045/UP037` | ruff target py314 exige typing moderno: `dict` en vez de `Dict`, `X \| None` en vez de `Optional`, sin comillas en anotaciones | `from __future__ import annotations` + `dict[str, ...]` + `Any \| None` |
+| `UP006/UP035/UP045/UP037` | ruff (`target-version = "py312"`) exige typing moderno: `dict` en vez de `Dict`, `X \| None` en vez de `Optional`, sin comillas en anotaciones | `from __future__ import annotations` + `dict[str, ...]` + `Any \| None` |
 | `B904` | `raise` dentro de `except` sin encadenar | Añadir `from None` |
 
 ### Descubrimiento técnico clave (parser del score)

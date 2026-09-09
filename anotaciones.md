@@ -13,6 +13,14 @@ El sistema del ISP (`appwinforce.win.pe`) expone una API JSON interna en `/contr
 
 ### Auto-relogin Silencioso
 Mecanismo en `ValidatorAPI` (proxy y standalone) que detecta sesión expirada o >120s sin uso → hace login automático en background → reintenta la petición original. El agente/cliente no ve error.
+- **Ojo (Etapa R, 2026-09-09)**: en el proxy, `auto_relogin_if_needed()` ya NO refresca `_last_activity` — solo lo hace una llamada real y exitosa a WinForce. Antes lo refrescaba en toda petición (incluso las fallidas), y con 20 agentes reintentando contra una sesión muerta el keepalive nunca pinchaba → nadie se enteraba de la muerte.
+
+### Aviso de sesión muerta (Etapa R, 3 capas)
+Cuando el proxy confirma que la sesión WinForce murió (`_marcar_sesion_muerta()`), avisa por tres vías independientes, cada una degrada sola:
+1. **HTTP 503 al agente** — ver "Sesión caducada (HTTP 503)".
+2. **Evento de Windows + tarea programada** — el proxy escribe un evento (`eventcreate`, origen `JSWinProxy`, ID **101** = caducó / **102** = renovada) en el Registro de Aplicación; `install_service.bat` registra la tarea `JSWinProxy-AvisoSesion` (`schtasks /sc ONEVENT`) que le saca un `msg *` al owner en su escritorio. Es la vía nativa para que un servicio **LocalSystem** (sesión 0, sin escritorio) alcance a un humano. En foreground sin elevar, `eventcreate` da "Acceso denegado" (esperado; bajo el servicio funciona).
+3. **Toast de la extensión de Chrome** — `background.js` dispara `chrome.notifications` solo en la transición viva↔muerta (estado previo en `chrome.storage.session`), no cada sondeo.
+4. **Webhook opcional** — `config.alert_webhook_url` (vacío = desactivado): POST `{"text": ...}`, forma que aceptan Teams/Slack/Discord. Para owner remoto o varias oficinas.
 
 ---
 
@@ -342,6 +350,13 @@ Consulta a `POST /controllers/cliente.php` con `accion=score_cliente` + muchos c
 - Respuesta: `{"response":"success","data":"<JSON-string con reporte SOAP Equifax>"}`
 - Parseo: `json.loads(data)` → busca recursivamente `ns3ResumenScoreRP3.Puntaje` (ej: 423), `NivelRiesgo` (ej: MUY ALTO), `ResumenDeuda.DeudaTotal`
 - Payload incluye: tipo_doc (1=DNI, 2=CE, 3=RUC), documento, coordenadas, cobertura, 25 campos geodata vacíos
+- `deuda_total` puede llegar como **int `0`** (no string) cuando no hay deuda → `_parsear_score` lo normaliza a str y `ScoreResponse` usa `coerce_numbers_to_str` (fix `3f63e8f`, hallado en la validación real de la Etapa B).
+
+### Sesión caducada (HTTP 503, Etapa R)
+Cuando el proxy ya sabe que su sesión con WinForce murió (`_session_dead_since` está puesto), `validar_cobertura`/`validar_score` lanzan `SesionCaducadaError` **antes de tocar WinForce** → el handler responde **HTTP 503** + `Retry-After: 120` + `{"detail": ..., "codigo": "ERR_SESION_CADUCADA", "owner_avisado": true}`.
+- Es "servicio temporalmente no disponible", no un error del agente. Se resuelve solo cuando el owner renueva la cookie (extensión / `/admin/rotar`), que limpia `_session_dead_since`.
+- **No se reintenta**: `ProxyClient` trata el 503 como terminal (`ProxySesionCaducadaError`), sin backoff. La GUI del agente muestra un aviso suave ("reintenta en 2-3 minutos"), no el diálogo rojo de error.
+- Antes de la Etapa R el proxy llamaba a WinForce igual → recibía el HTML de login → HTTP 502 opaco, y no había forma de que el agente supiera que era la sesión.
 
 ### Standalone Mode (Modo Sin Proxy)
 Si la app **no tiene config de proxy** en keyring → usa

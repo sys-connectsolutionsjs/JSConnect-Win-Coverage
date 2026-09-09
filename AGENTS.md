@@ -300,6 +300,11 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 23. **Fase 2.5d — extensión de Chrome (renovar con un clic)** [COMPLETADO — 2026-09-08]: la **vía principal** de renovación pasa a ser una extensión MV3 (`validator_app/proxy/extension/`) en el Chrome cotidiano del owner — adjuntarse a ese Chrome con Playwright NO se puede (Chrome 136+ bloquea `--remote-debugging-port` en el perfil por defecto). La extensión: badge rojo cuando la sesión muere → 1 clic → `chrome.cookies.get` (lee HttpOnly) → `POST 127.0.0.1:<puerto>/local/renovar`. Endpoints `/local/renovar` y `/local/estado` en `server.py` (solo `127.0.0.1`, sin admin key; reusan `set_session_cookie` / `get_status`). `_instalar_extension.py` (NUEVO, lo llama `install_service.bat`) empaqueta un `.crx` firmado, escribe `updates.xml` y la política `ExtensionSettings\<id>` = `force_installed` (winreg). `uninstall_service.bat --uninstall` borra la política. **10 tests nuevos** (`tests/test_proxy.py` con FastAPI TestClient — adelanta parte de la Fase 4 — + `tests/test_instalar_extension.py`), 84 pasando, ruff limpio. Smoke real: `_instalar_extension` empaqueta el crx y computa un id estable (`oclimnkhjeeamemdkdkfdliadmkdafkl`). El login asistido (`.lnk` del Escritorio) y `--manual` quedan de fallback.
 24. **Fase 3 — diálogo de cookie en la GUI** [COMPLETADO — 2026-09-08]: `validator_app/gui/session_config.py` NUEVO + menú "⚙ Configurar Sesión (standalone)" + `_abrir_config_sesion()` en `main_window.py`. Arregla el modo standalone (la rama llamaba `api.obtener_cliente().validar()` sobre un `ValidatorAPI` sin sesión → siempre `SessionError`). La cookie se valida (`validar_cookie_sesion`) y se guarda en keyring `JSWinCoverage`/`session_cookie`; `cliente_standalone()` arma el `ValidatorAPI` con ella inyectada. 6 tests (`tests/test_session_config.py`).
 25. **Fase 4 — tests de la capa FastAPI del proxy** [COMPLETADO — 2026-09-08]: `tests/test_proxy.py` cubre ahora `/api/cobertura`, `/api/score`, `/health`, `/admin/config`, `/admin/login`, `/admin/rotar`, `/admin/status` + middleware de auth (`X-Proxy-Token` + IP en `allowed_networks`, `X-Admin-Key`) + los 3 exception handlers (`LoginError`→401, `ScoreError`→502, `APIError`→502) + `_ip_in_allowed_networks`. 14 tests nuevos, **104 pasando, ruff limpio**. No se destapó ningún bug en `server.py`. Cierra el "Gap `tests/test_proxy.py`" del estado del proyecto.
+26. **Etapa 0 — desbloquear el arranque del proxy** [COMPLETADO — verificado 2026-09-09]: `config.yaml` ahora se lee (`config.py` con `settings_customise_sources` + `YamlConfigSettingsSource` + `_CONFIG_YAML` absoluto; `pyyaml` a `requirements-proxy.txt`; `tests/test_config.py` NUEVO, 5 tests) — cierra la "Observación" del cierre 2026-09-08. `install_service.bat`: 3 bugs que lo detenían (`requirements-proxy.txt` en la raíz, `python -c` multilínea, `!PROXY_PORT!` con delayed expansion) + `where python` → `sys.executable` + el mensaje `:262` que mandaba al Visor de Eventos. `winsw.xml` → `winsw.xml.example` (plantilla) + gitignore; ACL `icacls` de `config.yaml`/`proxy_token.txt`/`admin_key.txt`. Commits `d9c1ef7`, `ffa213a`, `b70dacf`.
+27. **Etapas A/B/C — validación end-to-end del proxy** [COMPLETADO — verificado 2026-09-09]: A) proxy en primer plano + auth (401/403 donde toca). B) sesión WinForce viva (perfil `.browser_profile/`, sin 2FA) → **validación real**: cobertura `SI/HORIZONTAL/8764`, score `423/MUY ALTO` (= baseline 2026-08-27). Bug real `3f63e8f`: `deuda_total` reventaba con HTTP 500 porque WinForce manda `DeudaTotal: 0` (int). C) la GUI Tkinter contra el proxy (keyring `JSWinClient`) validando cobertura+score reales — cierra la prueba manual de la Fase 3. C.12 (standalone) ya no es alcanzable desde la UI (el modo proxy siempre gana). **Incidente**: la suite escribía `cookie-nueva` en el keyring real `JSWinProxy/credentials_cookies` (`test_proxy.py:169` sin mock) → `tests/conftest.py` NUEVO (aísla keyring en memoria, autouse). Commits `3f63e8f`, `898b9ab`, `ffc5296`, `f91b9fb`.
+28. **Etapa R — robustez de la detección de sesión muerta** [COMPLETADO — verificado 2026-09-09]: el proxy podía quedarse sin sesión WinForce sin avisar. R1: `auto_relogin_if_needed()` ya NO refresca `_last_activity` (solo el éxito real cuenta — ese era el bug que cegaba la alarma bajo carga) + validación de la cookie al arrancar (`_load_session_cookies`) + primer keepalive a 60s + `_marcar_sesion_muerta/viva()` centralizado. R2: `SesionCaducadaError` → HTTP 503 + `Retry-After`, lanzado antes de tocar WinForce; `ProxyClient` lo trata como terminal; GUI con aviso suave; `HealthResult.session_alive`. R3: aviso al owner por 3 capas — evento de Windows ID 101/102 + tarea `schtasks JSWinProxy-AvisoSesion` (`install_service.bat` paso 11/12) · toast de la extensión en la transición (permiso `storage`) · webhook opcional `config.alert_webhook_url`. `tests/test_client.py` NUEVO; `conftest.py` gana `avisos_capturados`. Commits `82f3604`→`67ec0e4`. **124 tests**. La parte del instalador se verifica en la Etapa D.
+29. **`Roadmap.md` NUEVO** [2026-09-09]: vista única del proyecto — línea de tiempo de lo entregado + cola aprobada en orden (R→0.5→C.12→D→E→Fase 5) + backlog v1.1 + bloqueos. Registrado en el mapa de conocimiento (punto 2 del orden de lectura) y en `.claude/hooks/historial_sync.py`. Hasta ahora el estado se narraba en 4 sitios distintos y esa duplicación multiplicaba las incoherencias.
+30. **`PlanesAprobados.md` — cola actualizada** [2026-09-09]: añadido el "Plan de puesta en marcha del proxy" (Etapas 0/A–E con estado; antes solo vivía en `~/.claude/plans/`, contra la regla de que es una COLA). El one-liner "Fase 5 — docs" pasó a ser el **checklist completo de las 19 incoherencias doc↔código** (11 previas + 8 de la Etapa C), cada una con `archivo:línea` del doc y del código. **La Fase 5 sigue siendo la última** — se ejecuta después de 0.5/C.12/D/E.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -581,16 +586,91 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   auth (token + IP, admin key) y los 3 exception handlers. 14 tests nuevos; sin
   bugs en `server.py`. Cierra el gap de "no hay tests del proxy".
 - **104 tests, ruff limpio** al cierre de esta parte.
-- **Pendiente real**: Fase 5 (barrido final de docs: `docs/proxy-config.md`,
-  `docs/proxy-deploy.md`, coherencia general). Deuda vieja restante: decidir
-  `actualizar_score_cliente` / `newsearch.php`; prueba manual de la GUI standalone
-  y de la extensión con cookie real; `config.yaml` no se lee (pydantic-settings
-  sin `YamlConfigSettingsSource`).
+- **Pendiente real** (al cierre 2026-09-08): Fase 5 (barrido de docs). Deuda
+  vieja: decidir `actualizar_score_cliente` / `newsearch.php`; prueba manual de la
+  GUI standalone y de la extensión con cookie real; `config.yaml` no se lee.
+  → **La prueba de la GUI y el `config.yaml` se cerraron en la sesión 2026-09-09
+  (Etapas C y 0). Ver el cierre de abajo.**
 - **Aviso**: durante la sesión, al limpiar un Chrome zombie de una prueba se hizo
   `taskkill /IM chrome.exe` (cerró todo Chrome de la máquina). No repetir — matar
   solo el proceso hijo del perfil de prueba.
-- **Observación (no bloqueante)**: `config.yaml` **no se está leyendo** —
-  pydantic-settings avisa "yaml_file config key ignored, no YamlConfigSettingsSource".
-  El proxy hoy funciona por defaults + env vars (`PROXY_*`). Arreglar cuando se
-  toque la config del proxy (añadir `settings_customise_sources` con
-  `YamlConfigSettingsSource`).
+- **Observación** (al cierre 2026-09-08; **RESUELTA 2026-09-09**, commit `d9c1ef7`):
+  `config.yaml` no se estaba leyendo (pydantic-settings sin
+  `YamlConfigSettingsSource`). Arreglado en la Etapa 0 con
+  `settings_customise_sources` + `_CONFIG_YAML` absoluto + `tests/test_config.py`.
+
+### Cierre de la sesión 2026-09-09 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Inicio**: se retomó tras la Fase 4 (`e13a778`), working tree limpio.
+  Objetivo del día: **poner en marcha el proxy end-to-end** (nunca había corrido
+  contra una sesión WinForce viva; el instalador nunca se había ejecutado).
+- **Etapa 0 — desbloquear el arranque** (`d9c1ef7`, `ffa213a`, `b70dacf`):
+  `config.yaml` ahora se lee de verdad (`YamlConfigSettingsSource` +
+  `_CONFIG_YAML` absoluto; `tests/test_config.py` NUEVO, 5 tests). 3 bugs de
+  `install_service.bat` que lo detenían + el mensaje de error `:262` que mandaba
+  al "Visor de Eventos". `winsw.xml` sacado del control de versiones →
+  `winsw.xml.example` + gitignore. ACL de `config.yaml` (SYSTEM + Administradores).
+- **Etapas A / B / C — validación end-to-end**:
+  - A: proxy en primer plano en esta PC (puerto 8090 ≠ default, para demostrar
+    que lee el YAML); auth verificada (401/403 donde toca).
+  - B: sesión WinForce viva (perfil persistente `.browser_profile/`, SSO de
+    Microsoft ya guardado → sin 2FA); **validación real**: cobertura `SI /
+    HORIZONTAL / celda 8764`, score `423 / MUY ALTO` — idéntico al baseline de
+    2026-08-27. Bug real encontrado y arreglado (`3f63e8f`):
+    `ScoreResponse.deuda_total` reventaba con HTTP 500 porque WinForce manda
+    `DeudaTotal: 0` como int cuando no hay deuda.
+  - C: **la GUI Tkinter contra el proxy** (⚙ → Configurar Proxy → keyring
+    `JSWinClient`) validando cobertura y score reales. Cierra la prueba manual
+    que arrastraba la Fase 3. El paso "standalone" (C.12) ya no es alcanzable
+    desde la UI (el modo proxy siempre gana); se pospone.
+  - **Incidente de tests** (`ffc5296`): `test_proxy.py:169` llamaba a
+    `set_session_cookie("cookie-nueva")` sin mockear keyring → la suite escribía
+    `{"PHPSESSID": "cookie-nueva"}` en `JSWinProxy/credentials_cookies` **real**,
+    la clave que el proxy lee al arrancar → tras cualquier `pytest`, el proxy
+    restauraba una cookie de pega. `tests/conftest.py` NUEVO aísla el keyring en
+    memoria (fixture autouse). Bonus: la suite bajó de 5.3s a 2.1s.
+- **Etapa R — robustez de la detección de sesión muerta** (`82f3604`→`67ec0e4`):
+  la Etapa C destapó que el proxy podía quedarse sin sesión WinForce **sin que
+  nadie se entere**. 4 frentes:
+  - **R1** — el bug de fondo: `auto_relogin_if_needed()` refrescaba
+    `_last_activity` en toda petición (incluso las fallidas) → con 20 agentes
+    reintentando contra una sesión muerta, el keepalive nunca pinchaba y el
+    `log.error` "AVISO AL OWNER" **no se emitía jamás**. Ahora solo cuenta el
+    éxito real. + validación de la cookie **al arrancar** (`session_dead_since`
+    se fija desde el segundo 0, antes: 900s de ceguera con `logged_in:true`
+    mintiendo). + primer keepalive a 60s. + `_marcar_sesion_muerta/viva()`
+    centralizado e idempotente.
+  - **R2** — fail-fast: `SesionCaducadaError` → **HTTP 503** + `Retry-After: 120`,
+    lanzado ANTES de tocar WinForce. `ProxyClient` lo trata como terminal
+    (`ProxySesionCaducadaError`, sin reintentos). La GUI muestra un aviso suave.
+    `HealthResult.session_alive` ahora se parsea; "Probar conexión" pinta ámbar.
+  - **R3** — aviso al owner por 3 capas: (A) el 503 con mensaje accionable al
+    agente; (B) **evento de Windows** (`eventcreate`, origen JSWinProxy, ID
+    101/102) + **tarea programada** `JSWinProxy-AvisoSesion` (`install_service.bat`
+    paso 11/12 nuevo) que le saca un `msg *` al owner — vía nativa para un
+    servicio LocalSystem; (C) **toast de la extensión** en la transición
+    (`chrome.storage.session`, permiso `storage` nuevo); (D) **webhook opcional**
+    `config.alert_webhook_url` (`{"text": ...}`, Teams/Slack/Discord).
+  - `tests/test_client.py` NUEVO (el cliente no tenía tests). `conftest.py` gana
+    `avisos_capturados` (el aviso toca el Event Log real → se aísla como el
+    keyring).
+- **`Roadmap.md` NUEVO** — vista única de qué se hizo / qué falta / en qué orden.
+  Registrado en el mapa de conocimiento de este archivo (punto 2) y en
+  `historial_sync.py`. `PlanesAprobados.md` recibió el plan de puesta en marcha
+  (Etapas 0/A–E, antes solo en `~/.claude/plans/`) y el **checklist completo de
+  las 19 incoherencias doc↔código** con `archivo:línea`.
+- **Estado al cierre**: **124 tests, ruff limpio, TODO pusheado a `origin/main`**
+  (hasta el commit de este cierre). Working tree limpio.
+- **Lo que sigue — Etapa 0.5** (spec completa en `PlanesAprobados.md`, "Puesta en
+  marcha del proxy"): `rotate_creds.py` debe empujar la cookie por HTTP, no
+  escribir el keyring del owner — el servicio corre como LocalSystem y lee otro
+  almacén. Bloquea la Etapa D.
+- **Avisos operativos para la otra PC**:
+  - La sesión del proxy quedó **muerta a propósito** (se perdió al reiniciarlo
+    para el `keepalive_interval`); se renueva por la extensión / `/admin/rotar`
+    cuando se retome trabajo que la necesite.
+  - `eventcreate` sin privilegios elevados da "Acceso denegado" (probar en
+    foreground). Bajo el servicio LocalSystem funciona; se verifica en la Etapa D.
+  - `config.yaml`, `proxy_token.txt`, `admin_key.txt` son gitignored → **no
+    están en git**; en la otra PC hay que regenerarlos (o correr
+    `install_service.bat`). El `config.yaml` local de esta PC usa puerto 8090.
