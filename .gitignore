@@ -29,6 +29,11 @@ validator_app/proxy/config.yaml
 validator_app/proxy/proxy_token.txt
 validator_app/proxy/admin_key.txt
 
+# Proxy: generados por install_service.bat con rutas absolutas de la maquina.
+# La plantilla versionada es winsw.xml.example. winsw.exe es un binario descargado.
+validator_app/proxy/winsw.xml
+validator_app/proxy/winsw.exe
+
 # Windows
 Thumbs.db
 Desktop.ini

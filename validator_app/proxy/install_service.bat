@@ -57,13 +57,15 @@ echo [OK] Python %PY_VER%.%PY_MINOR% detectado.
 REM Instalar dependencias
 echo.
 echo [2/11] Instalando dependencias (requirements-proxy.txt)...
-cd /d "%BASE_DIR%"
-if not exist "requirements-proxy.txt" (
-    echo [ERROR] No se encuentra requirements-proxy.txt en %BASE_DIR%
+REM requirements-proxy.txt vive en la RAIZ del repo (dos niveles arriba), y su
+REM "-r requirements.txt" interno se resuelve relativo a ese archivo.
+set "REPO_ROOT=%BASE_DIR%\..\.."
+if not exist "%REPO_ROOT%\requirements-proxy.txt" (
+    echo [ERROR] No se encuentra requirements-proxy.txt en %REPO_ROOT%
     pause
     exit /b 1
 )
-pip install -r requirements-proxy.txt --quiet
+pip install -r "%REPO_ROOT%\requirements-proxy.txt" --quiet
 if %errorLevel% neq 0 (
     echo [ERROR] Fallo al instalar dependencias. Revisa tu conexion a internet.
     pause
@@ -101,39 +103,53 @@ if %errorLevel% neq 0 (
 )
 echo [OK] winsw.exe descargado en %WINSW_PATH%
 
-REM Generar tokens seguros
+REM Generar / reutilizar tokens
 echo.
-echo [5/11] Generando tokens de seguridad...
-python -c "
-import secrets, sys
-proxy_token = secrets.token_hex(32)
-admin_key = secrets.token_hex(32)
-with open('%BASE_DIR%\\proxy_token.txt', 'w') as f: f.write(proxy_token)
-with open('%BASE_DIR%\\admin_key.txt', 'w') as f: f.write(admin_key)
-print('PROXY_TOKEN=' + proxy_token)
-print('ADMIN_KEY=' + admin_key)
-" > tokens_gen.tmp
-for /f "tokens=1* delims==" %%a in (tokens_gen.tmp) do set "%%a=%%b"
-del tokens_gen.tmp
-echo [OK] Tokens generados (64 chars hex cada uno).
+echo [5/11] Tokens de seguridad...
+set "CONFIG_YAML=%BASE_DIR%\config.yaml"
+if exist "%CONFIG_YAML%" (
+    echo [INFO] config.yaml ya existe: se reutilizan sus tokens y puerto.
+    echo        Para regenerar, borra config.yaml y vuelve a ejecutar.
+    for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^proxy_token:" "%CONFIG_YAML%"`) do call :trim_quotes PROXY_TOKEN %%b
+    for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^admin_key:" "%CONFIG_YAML%"`) do call :trim_quotes ADMIN_KEY %%b
+    for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^proxy_port:" "%CONFIG_YAML%"`) do set "PROXY_PORT=%%b"
+    if "!PROXY_TOKEN!"=="" (
+        echo [ERROR] No pude leer proxy_token de config.yaml. Revisalo o borralo.
+        pause
+        exit /b 1
+    )
+    if "!PROXY_PORT!"=="" set "PROXY_PORT=8080"
+    echo [OK] Tokens y puerto (!PROXY_PORT!) leidos de config.yaml.
+) else (
+    REM Una sola linea: cmd.exe no soporta cadenas multilinea en python -c.
+    python -c "import secrets,pathlib; d=pathlib.Path(r'%BASE_DIR%'); (d/'proxy_token.txt').write_text(secrets.token_hex(32)); (d/'admin_key.txt').write_text(secrets.token_hex(32))"
+    if errorlevel 1 (
+        echo [ERROR] Fallo al generar los tokens.
+        pause
+        exit /b 1
+    )
+    set /p PROXY_TOKEN=<"%BASE_DIR%\proxy_token.txt"
+    set /p ADMIN_KEY=<"%BASE_DIR%\admin_key.txt"
+    if "!PROXY_TOKEN!"=="" (
+        echo [ERROR] proxy_token.txt quedo vacio.
+        pause
+        exit /b 1
+    )
+    echo [OK] Tokens generados (64 chars hex cada uno^).
+)
 
 REM Verificar/crear config.yaml
 echo.
 echo [6/11] Configurando config.yaml...
-set "CONFIG_YAML=%BASE_DIR%\config.yaml"
 if exist "%CONFIG_YAML%" (
-    echo [INFO] config.yaml ya existe. Se mantendra el existente.
-    echo        Si quieres regenerar tokens, borra config.yaml y vuelve a ejecutar.
-    REM Leer tokens existentes del config.yaml
-    for /f "tokens=2 delims=: " %%a in ('findstr /R "^proxy_token:" "%CONFIG_YAML%"') do set PROXY_TOKEN=%%a
-    for /f "tokens=2 delims=: " %%a in ('findstr /R "^admin_key:" "%CONFIG_YAML%"') do set ADMIN_KEY=%%a
+    echo [INFO] Se mantiene el config.yaml existente.
 ) else (
     echo [INFO] Creando config.yaml nuevo con tokens generados...
     set "PROXY_PORT=8080"
-    echo Verificando puerto %PROXY_PORT%...
-    netstat -an | findstr ":%PROXY_PORT% " >nul
+    echo Verificando puerto !PROXY_PORT!...
+    netstat -an | findstr ":!PROXY_PORT! " >nul
     if not errorlevel 1 (
-        echo [WARN] Puerto %PROXY_PORT% ya esta en uso.
+        echo [WARN] Puerto !PROXY_PORT! ya esta en uso.
         set /p PROXY_PORT="Ingresa otro puerto (ej: 8081, 9000): "
         if "!PROXY_PORT!"=="" set PROXY_PORT=8081
         netstat -an | findstr ":!PROXY_PORT! " >nul
@@ -177,6 +193,15 @@ if exist "%CONFIG_YAML%" (
     echo [OK] config.yaml creado en %CONFIG_YAML%
 )
 
+REM Restringir config.yaml: contiene proxy_token + admin_key en texto plano.
+REM .gitignore protege de GitHub; esta ACL protege de otros usuarios de la PC.
+echo [INFO] Restringiendo permisos de config.yaml (SYSTEM + Administradores)...
+icacls "%CONFIG_YAML%" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administradores:F" >nul 2>&1
+if errorlevel 1 icacls "%CONFIG_YAML%" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administrators:F" >nul 2>&1
+icacls "%BASE_DIR%\proxy_token.txt" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administradores:F" >nul 2>&1
+icacls "%BASE_DIR%\admin_key.txt" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administradores:F" >nul 2>&1
+echo [OK] Permisos aplicados (si fallo, revisa que corres como Administrador).
+
 REM Instalar la extension de Chrome "Renovar sesion WinForce" (force-install por politica)
 echo.
 echo [7/11] Instalando la extension de Chrome "Renovar sesion WinForce"...
@@ -187,10 +212,13 @@ cd /d "%BASE_DIR%"
 REM Generar winsw.xml con paths absolutos
 echo.
 echo [8/11] Generando winsw.xml con paths absolutos...
-set "PYTHON_EXE=%BASE_DIR%\..\..\python.exe"
+REM El interprete REAL que corre ahora (no el primero del PATH, que puede ser el
+REM stub de Microsoft Store).
+for /f "delims=" %%i in ('python -c "import sys; print(sys.executable)"') do set "PYTHON_EXE=%%i"
 if not exist "%PYTHON_EXE%" (
-    where python >nul 2>&1
-    for /f "delims=" %%i in ('where python') do set "PYTHON_EXE=%%i"
+    echo [ERROR] No se pudo resolver el ejecutable de Python (%PYTHON_EXE%).
+    pause
+    exit /b 1
 )
 echo [INFO] Usando Python: %PYTHON_EXE%
 
@@ -307,7 +335,7 @@ echo %BASE_DIR%\winsw.xml
 echo.
 echo COMANDOS UTILES:
 echo   Ver estado:     sc query JSWinProxy
-echo   Ver logs:       Visor de Eventos -> Applications and Services Logs -> JSWinProxy
+echo   Ver logs:       %BASE_DIR%\..\..\logs\  (archivos rotados de winsw)
 echo   Detener:        %BASE_DIR%\winsw.exe stop
 echo   Reiniciar:      %BASE_DIR%\winsw.exe restart
 echo   Desinstalar:    %BASE_DIR%\uninstall_service.bat
@@ -327,3 +355,14 @@ echo FIREWALL (si agentes no conectan):
 echo   New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort %PROXY_PORT% -Protocol TCP -Action Allow -Profile Domain,Private
 echo.
 pause
+exit /b 0
+
+REM ---------------------------------------------------------------------
+REM Subrutinas
+REM ---------------------------------------------------------------------
+:trim_quotes
+REM %1 = nombre de variable a setear; %2 = valor (posiblemente entre comillas)
+set "_tq_val=%~2"
+set "%1=%_tq_val%"
+set "_tq_val="
+goto :eof

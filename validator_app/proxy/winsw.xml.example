@@ -1,3 +1,15 @@
+<!--
+  PLANTILLA de referencia del servicio winsw. NO se usa tal cual.
+
+  install_service.bat [8/11] genera el winsw.xml real (gitignored) con rutas
+  ABSOLUTAS de la maquina:
+    - <executable>  = el interprete que resuelve `python -c "import sys; print(sys.executable)"`
+    - <workingdirectory> = raiz del repo (config.py necesita cwd estable; ver _CONFIG_YAML)
+    - <logpath>     = <raiz del repo>\logs   (archivos rotados de winsw, NO el Visor de Eventos)
+
+  Los %BASE% de abajo son marcadores; el .bat no hace sustitucion de texto sobre
+  este archivo, lo regenera entero.
+-->
 <service>
   <id>JSWinProxy</id>
   <name>JSConnect Win Proxy</name>
