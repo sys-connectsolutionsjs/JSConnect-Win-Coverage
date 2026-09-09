@@ -10,6 +10,7 @@ import time
 import types
 from unittest import mock
 
+import keyring
 import pytest
 from fastapi.testclient import TestClient
 
@@ -24,7 +25,7 @@ def _mk_proxy_api(**overrides) -> server.ProxyValidatorAPI:
 
 
 class FakeCore:
-    """Cliente-core mínimo: cookies + validar_cobertura configurable."""
+    """Cliente-core mínimo: cookies + validar_cobertura/score configurable."""
 
     def __init__(self, *, php="sess-1", resultado=None, excepcion=None):
         if php is None:
@@ -40,6 +41,17 @@ class FakeCore:
         if self._excepcion is not None:
             raise self._excepcion
         return self._resultado
+
+    def validar_score(self, tipo, numero, lat, lon, cobertura="SI"):
+        self.llamadas += 1
+        if self._excepcion is not None:
+            raise self._excepcion
+        return {"valor": 1, "riesgo": "BAJO", "valido": True}
+
+    def set_session_cookies(self, cookies):
+        if self._sesion is None:
+            self._sesion = types.SimpleNamespace(cookies={})
+        self._sesion.cookies.update(cookies)
 
 
 # --------------------------------------------------------------------------
@@ -186,6 +198,148 @@ def test_get_status_incluye_bloque_keepalive():
     assert ka["enabled"] is True
     assert ka["session_dead_since"] is None
     assert ka["consecutive_failures"] == 0
+
+
+# --------------------------------------------------------------------------
+# Etapa R — robustez de la deteccion de sesion muerta
+# --------------------------------------------------------------------------
+
+def test_last_activity_no_se_refresca_en_peticion_fallida():
+    """El bug que cegaba la alarma: si `_last_activity` se refresca en TODA
+    peticion (incluso las que fallan), 20 agentes reintentando contra una
+    sesion muerta lo mantienen fresco para siempre y el keepalive nunca pincha."""
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(excepcion=core_api.APIError("HTTP 200 text/html", "ERR_NETWORK"))
+    pa._last_activity = 0
+
+    with pytest.raises(core_api.APIError):
+        pa.validar_cobertura(-12.05, -77.03)
+
+    assert pa._last_activity == 0  # la peticion fallo -> no cuenta como actividad
+
+
+def test_last_activity_se_refresca_en_peticion_exitosa():
+    pa = _mk_proxy_api()
+    pa._client = FakeCore()
+    pa._last_activity = 0
+
+    pa.validar_cobertura(-12.05, -77.03)
+
+    assert time.time() - pa._last_activity < 5
+
+
+def test_keepalive_pincha_aunque_haya_trafico_si_la_sesion_esta_muerta():
+    """Con la sesion ya marcada muerta, las peticiones de los agentes fallan y NO
+    refrescan `_last_activity`, asi que el keepalive deja de saltarse el ping."""
+    pa = _mk_proxy_api(keepalive_interval_seconds=900)
+    pa._client = FakeCore(excepcion=core_api.APIError("HTTP 200 text/html", "ERR_NETWORK"))
+    pa._session_dead_since = time.time() - 10
+    pa._last_activity = time.time() - 5000  # nadie lo refresco: las peticiones abortan antes
+
+    err = core_api.LoginError("sesion no activa", "ERR_LOGIN_SESSION")
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=err):
+        res = pa._keepalive_tick()
+
+    assert res["accion"] == "ping"
+    assert res["resultado"] == "SESION_MUERTA"
+
+
+def test_marcar_sesion_muerta_es_idempotente_y_avisa_una_vez(avisos_capturados):
+    pa = _mk_proxy_api()
+
+    pa._marcar_sesion_muerta("motivo 1")
+    primera = pa._session_dead_since
+    pa._marcar_sesion_muerta("motivo 2")  # ya estaba muerta
+
+    assert pa._session_dead_since == primera
+    assert avisos_capturados == [("sesion_caducada", "motivo 1")]
+
+
+def test_marcar_sesion_viva_avisa_solo_si_venia_de_muerta(avisos_capturados):
+    pa = _mk_proxy_api()
+
+    pa._marcar_sesion_viva()  # ya estaba viva -> nada
+    assert avisos_capturados == []
+
+    pa._session_dead_since = time.time() - 100
+    pa._marcar_sesion_viva()
+    assert pa._session_dead_since is None
+    assert avisos_capturados == [("sesion_renovada", "")]
+
+
+def test_validar_cobertura_aborta_rapido_si_sesion_muerta():
+    pa = _mk_proxy_api()
+    pa._client = FakeCore()
+    pa._session_dead_since = time.time() - 10
+
+    with pytest.raises(server.SesionCaducadaError):
+        pa.validar_cobertura(-12.05, -77.03)
+
+    assert pa._client.llamadas == 0  # no se tocó WinForce
+
+
+def test_validar_score_aborta_rapido_si_sesion_muerta():
+    pa = _mk_proxy_api()
+    pa._client = FakeCore()
+    pa._session_dead_since = time.time() - 10
+
+    with pytest.raises(server.SesionCaducadaError):
+        pa.validar_score("DNI", "75020496", -12.05, -77.03)
+
+    assert pa._client.llamadas == 0
+
+
+def test_load_session_cookies_marca_muerta_si_la_cookie_del_keyring_ya_no_vale(
+    avisos_capturados,
+):
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(php=None)
+    keyring.set_password(
+        pa.config.win_keyring_service,
+        pa.config.win_keyring_user + "_cookies",
+        '{"PHPSESSID": "vieja"}',
+    )
+
+    err = core_api.LoginError("sesion no activa", "ERR_LOGIN_SESSION")
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=err):
+        pa._load_session_cookies()  # no debe propagar
+
+    assert pa._session_dead_since is not None
+    assert avisos_capturados == [
+        ("sesion_caducada", "cookie del keyring caducada al arrancar")
+    ]
+
+
+def test_load_session_cookies_verifica_y_marca_actividad_si_la_cookie_vale():
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(php=None)
+    keyring.set_password(
+        pa.config.win_keyring_service,
+        pa.config.win_keyring_user + "_cookies",
+        '{"PHPSESSID": "buena"}',
+    )
+
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._load_session_cookies()
+
+    assert pa._session_dead_since is None
+    assert time.time() - pa._last_activity < 5
+
+
+def test_load_session_cookies_no_marca_muerta_si_es_fallo_de_red(avisos_capturados):
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(php=None)
+    keyring.set_password(
+        pa.config.win_keyring_service,
+        pa.config.win_keyring_user + "_cookies",
+        '{"PHPSESSID": "quiza-buena"}',
+    )
+
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=OSError("red caida")):
+        pa._load_session_cookies()
+
+    assert pa._session_dead_since is None  # indeterminado, no muerto
+    assert avisos_capturados == []
 
 
 # --------------------------------------------------------------------------
@@ -461,6 +615,20 @@ def test_api_error_generico_da_502(client):
         headers={"X-Proxy-Token": _TOKEN},
     )
     assert r.status_code == 502
+
+
+def test_sesion_caducada_da_503_con_retry_after(client):
+    tc, fake = client
+    fake.validar_cobertura.side_effect = server.SesionCaducadaError()
+    r = tc.post(
+        "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 503
+    assert r.headers["Retry-After"] == "120"
+    body = r.json()
+    assert body["codigo"] == "ERR_SESION_CADUCADA"
+    assert body["owner_avisado"] is True
 
 
 def test_ip_in_allowed_networks():

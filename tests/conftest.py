@@ -30,3 +30,25 @@ def keyring_en_memoria(monkeypatch):
     )
 
     return store
+
+
+@pytest.fixture(autouse=True)
+def avisos_capturados(monkeypatch):
+    """El aviso al owner (Etapa R) escribe en el Registro de Eventos de Windows
+    (`eventcreate`) y hace POST a un webhook. En los tests eso es un efecto de
+    sistema real -- el mismo tipo de fuga que motivó `keyring_en_memoria`.
+
+    Este fixture autouse sustituye `_disparar_aviso` por un registrador
+    síncrono: cada `(evento, detalle)` va a la lista que devuelve el fixture, sin
+    hilos, sin subprocess, sin red. Los tests que quieran verificar el aviso
+    piden `avisos_capturados` y assertan sobre la lista.
+    """
+    from validator_app.proxy import server
+
+    eventos: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        server.ProxyValidatorAPI,
+        "_disparar_aviso",
+        lambda self, evento, detalle="": eventos.append((evento, detalle)),
+    )
+    return eventos

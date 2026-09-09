@@ -51,6 +51,12 @@ class ProxyConfig(BaseSettings):
     keepalive_enabled: bool = True
     keepalive_interval_seconds: int = 900
 
+    # Aviso al owner cuando la sesion WinForce muere/revive (Etapa R). Opcional:
+    # vacio = capa desactivada. Si se pone, el proxy hace POST {"text": ...} a
+    # esta URL (forma que aceptan Teams, Slack y Discord). Para owner remoto o
+    # varias oficinas; el Evento de Windows + la extension cubren el caso local.
+    alert_webhook_url: str = ""
+
     # Redes permitidas (LAN + Tailscale CGNAT)
     allowed_networks: list[str] = [
         "192.168.0.0/16",
