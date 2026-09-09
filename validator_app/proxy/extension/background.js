@@ -58,10 +58,12 @@ async function renovar() {
 }
 
 async function revisarEstado() {
+  let vivaAhora;
   try {
     const r = await fetch(PROXY + "/local/estado");
     const j = await r.json();
-    if (j.session_alive) {
+    vivaAhora = !!j.session_alive;
+    if (vivaAhora) {
       badge("", "#0a7d2c");
     } else {
       badge("!", "#c0392b");
@@ -69,6 +71,18 @@ async function revisarEstado() {
     }
   } catch (e) {
     badge("?", "#7f8c8d");
+    return; // proxy inalcanzable: no sabemos el estado, no notificamos
+  }
+
+  // Toast del SO SOLO en la transicion (no cada 5 min). El estado anterior vive
+  // en storage.session porque el service worker MV3 se duerme entre alarmas.
+  const { sesionViva: vivaAntes } = await chrome.storage.session.get("sesionViva");
+  await chrome.storage.session.set({ sesionViva: vivaAhora });
+  if (vivaAntes === undefined || vivaAntes === vivaAhora) return;
+  if (vivaAhora) {
+    notificar("La sesion del proxy se renovo sola. Todo en orden.");
+  } else {
+    notificar("La sesion del proxy con WinForce caduco. Pulsa este icono para renovarla.");
   }
 }
 

@@ -3,7 +3,7 @@
   "name": "Renovar sesion WinForce (proxy JSConnect)",
   "version": "1.0.0",
   "description": "Renueva la sesion del proxy con un clic, desde tu navegador ya logueado.",
-  "permissions": ["cookies", "alarms", "notifications"],
+  "permissions": ["cookies", "alarms", "notifications", "storage"],
   "host_permissions": [
     "https://appwinforce.win.pe/*",
     "http://127.0.0.1:8080/*"
