@@ -10,10 +10,11 @@ se ordena y se enlaza.
 
 ## Estado en una línea
 
-El núcleo, el proxy, el keepalive, la extensión de Chrome y la GUI están
-construidos y validados end-to-end contra WinForce real. Falta endurecer la
-detección de "sesión muerta", instalar el servicio de Windows en la PC de oficina
-y barrer la documentación. **Nada corre en producción todavía.**
+El núcleo, el proxy, el keepalive, la extensión de Chrome, la GUI y la detección
+robusta de "sesión muerta" están construidos y validados end-to-end contra
+WinForce real. Falta la coherencia del keyring bajo LocalSystem (0.5), instalar el
+servicio de Windows en la PC de oficina (D/E) y barrer la documentación (Fase 5).
+**Nada corre en producción todavía.**
 
 ---
 
@@ -38,25 +39,13 @@ y barrer la documentación. **Nada corre en producción todavía.**
 | 2026-09-09 | **Etapa A** — proxy en primer plano en la PC de desarrollo + auth verificada | `7992e01` |
 | 2026-09-09 | **Etapa B** — sesión WinForce viva + validación real cobertura/score end-to-end; fix `deuda_total` int | `3f63e8f` `898b9ab` |
 | 2026-09-09 | **Etapa C** — GUI (Tkinter) contra el proxy, validada; la suite envenenaba el keyring (corregido); `install_service.bat:262` | `b70dacf` `ffc5296` `f91b9fb` |
+| 2026-09-09 | **Etapa R** — robustez de la detección de sesión muerta: fix del bug de `_last_activity`, validación al arrancar, fail-fast 503, aviso al owner por 3 capas (GUI · Evento Windows+tarea · toast extensión · webhook) | `82f3604` `3c8c7bd` `6ee6cb6` `4924e70` `9f49b8e` `67ec0e4` |
 
 ---
 
 ## Aprobado y pendiente — en orden de ejecución
 
-### 1. Etapa R — Robustez de sesión del proxy  ⏳ EN CURSO
-Plan: `~/.claude/plans/steady-crunching-music.md`. **Desbloquea la Etapa D.**
-
-El proxy puede quedarse sin sesión WinForce y nadie se entera hasta que un agente
-falla. Cuatro frentes:
-- **R1** detección fiable (bug de `_last_activity`, validar la cookie al arrancar,
-  primer keepalive en ≤60s, centralizar "marcar muerta/viva").
-- **R2** fail-fast: HTTP 503 + `Retry-After`, sin reintentos, panel claro en la GUI.
-- **R3** aviso al owner por 3 vías independientes: GUI del agente (suelo) ·
-  Evento de Windows + Tarea programada (backbone) · toast de la extensión ·
-  webhook opcional (escalable a N oficinas).
-- **R4** `/health` honesto + la GUI ve `session_alive`.
-
-### 2. Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem
+### 1. Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem
 Texto aprobado: `~/.claude/plans/shimmying-skipping-mochi.md:145-158`.
 `rotate_creds.py` escribe la `PHPSESSID` en el keyring **del owner**; el servicio
 corre como **LocalSystem** y lee otro almacén. Cambiar `rotate_creds.py` para que
@@ -73,8 +62,9 @@ borrar a mano el keyring de proxy porque el modo proxy siempre gana
 `install_service.bat` como Administrador, los 12 pasos verificados uno a uno
 (incluye la Tarea programada de aviso de la Etapa R); el servicio sobrevive a un
 reinicio y recupera la cookie del keyring; logs en `<repo>\logs\` sin secretos;
-regla de firewall solo hacia la LAN. Verificar el popup de "sesión caducada".
-**Bloqueada por las Etapas R y 0.5.**
+regla de firewall solo hacia la LAN. Verificar el popup de "sesión caducada"
+(bajo LocalSystem; en desarrollo `eventcreate` da "Acceso denegado", es esperado).
+**Bloqueada por la Etapa 0.5** (R ya está hecha).
 
 ### 5. Etapa E — Runbook de la PC de oficina
 La máquina está definida pero no es accesible hoy. Dejar en `docs/proxy-deploy.md`
@@ -109,5 +99,5 @@ asistido + `--manual` = fallback.
 
 | Etapa | Bloqueada por |
 |---|---|
-| D | Etapas R y 0.5 |
+| D | Etapa 0.5 (R ya está hecha) |
 | E | acceso físico a la PC de oficina |

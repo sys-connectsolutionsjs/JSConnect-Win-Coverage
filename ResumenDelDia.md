@@ -180,44 +180,75 @@ una promesa sin verificar (última corrida en 3.12: 2026-08-27, ~40 tests).
    servicio") seguía mandando al "Visor de Eventos"; el commit `ffa213a` había
    arreglado solo la ayuda final (`:338`). Fix en `b70dacf`.
 
+### Etapa R — robustez de la detección de sesión muerta — HECHA (código; instalador se verifica en la D)
+
+Plan: `~/.claude/plans/steady-crunching-music.md`. Nace del hallazgo C.2. La
+exploración encontró que el problema tenía 4 capas.
+
+- **Roadmap** (`82f3604`): `Roadmap.md` nuevo (línea de tiempo + cola aprobada
+  C→R→0.5→C.12→D→E→Fase 5), registrado en `AGENTS.md` (mapa de conocimiento +
+  orden de lectura) y en `historial_sync.py`. `PlanesAprobados.md` recibió el
+  plan de puesta en marcha (antes solo vivía en `~/.claude/plans/`) y el
+  checklist completo de las 19 incoherencias con `archivo:línea`.
+- **R1 detección** (`3c8c7bd`):
+  - `auto_relogin_if_needed()` ya NO refresca `_last_activity`: eso solo lo hace
+    una llamada real y exitosa a WinForce. **Ese era el bug que cegaba la
+    alarma**: 20 agentes reintentando contra una sesión muerta mantenían
+    `_last_activity` fresco y el keepalive nunca pinchaba → el `log.error` "AVISO
+    AL OWNER" no se emitía jamás.
+  - `_load_session_cookies()` verifica la cookie contra WinForce al arrancar; si
+    no vale, marca la sesión muerta y avisa (antes: `logged_in:true` mentiroso
+    hasta que un agente fallara). Verificado en vivo: `session_dead_since` queda
+    fijado desde el segundo 0.
+  - Primer tick del keepalive a los 60s, no a los 900.
+  - `_marcar_sesion_muerta()` / `_marcar_sesion_viva()`: único sitio que toca
+    `_session_dead_since`, idempotente, dispara el aviso una sola vez.
+- **R2 fail-fast** (`3c8c7bd`, `6ee6cb6`): `SesionCaducadaError` → **HTTP 503** +
+  `Retry-After: 120` + `{codigo, owner_avisado}`, lanzada **antes** de tocar
+  WinForce. Verificado: `POST /api/cobertura` con sesión muerta → 503 en **5 ms**.
+  `ProxyClient` trata el 503 como terminal (`ProxySesionCaducadaError`, sin
+  reintentos). La GUI lo muestra con un `showinfo` suave, no el diálogo rojo.
+  `HealthResult.session_alive` ahora se parsea; "Probar conexión" pinta ámbar si
+  el proxy está vivo pero sin sesión.
+  - Corrección a la exploración: el cliente **no** reintentaba 3× los 5xx
+    (`except ProxyError: raise` los re-lanza). El "60 golpes por oleada" era
+    ~20. El fail-fast sigue valiendo (0 golpes, instantáneo, mensaje claro).
+- **R3 aviso al owner, 3 capas** (`3c8c7bd`, `4924e70`, `9f49b8e`, `67ec0e4`):
+  - **A) GUI del agente** — el 503 con mensaje accionable. Siempre funciona.
+  - **B) Evento de Windows + Tarea programada** — el proxy escribe un evento
+    (`eventcreate`, origen JSWinProxy, ID 101/102); `install_service.bat` (paso
+    11/12 nuevo) registra la fuente y una tarea `schtasks /sc ONEVENT` que le
+    saca un `msg *` al owner. Es la vía nativa para que un servicio LocalSystem
+    alcance un escritorio. **En modo desarrollo (foreground sin elevar)
+    `eventcreate` da "Acceso denegado"** — esperado; bajo LocalSystem funciona.
+    Se verifica end-to-end en la Etapa D.
+  - **C) Toast de la extensión** — `background.js` dispara `chrome.notifications`
+    en la transición (no cada 5 min); estado previo en `chrome.storage.session`
+    (permiso `storage` nuevo).
+  - **D) Webhook opcional** — `config.alert_webhook_url`, POST `{"text": ...}`
+    (Teams/Slack/Discord). Vacío por defecto. Verificado contra un listener local.
+- **Tests**: `tests/conftest.py` gana `avisos_capturados` (autouse — el aviso
+  toca el Event Log real, se aísla como el keyring). `tests/test_client.py`
+  NUEVO (el cliente no tenía tests). **124 pasando**, ruff limpio.
+
 ## Pendiente
 
-### De la puesta en marcha
-- **0.5** (coherencia del almacén de la cookie con LocalSystem — antes de la D),
-  **C.12** (standalone — solo si se necesita, exige borrar keyring de proxy),
-  **D** (servicio Windows — bloqueada por el hallazgo C.2), **E** = runbook
+### De la puesta en marcha (ver `Roadmap.md` para la vista completa)
+- **0.5** (almacén de la cookie con LocalSystem — antes de la D), **C.12**
+  (standalone — solo si se necesita), **D** (servicio Windows — ya no bloqueada
+  por C.2; la Etapa R lo cerró; sí verifica el instalador de R), **E** = runbook
   oficina (no accesible hoy).
-- **Renovar la sesión del proxy** por `/admin/login` cuando se vaya a retomar
-  trabajo que la necesite (hoy está muerta a propósito).
+- **Renovar la sesión del proxy** por `/admin/login` / la extensión cuando se
+  retome trabajo que la necesite (hoy está muerta a propósito).
+- **Pendiente menor**: `eventcreate` en modo desarrollo da "Acceso denegado";
+  bajo LocalSystem (Etapa D) funciona. Confirmar el popup end-to-end en la D.
 
-### Fase 5 — Barrido final de docs (última del plan "Sesión WinForce robusta")
-- `docs/proxy-config.md`, `docs/proxy-deploy.md`, `docs/rotacion-credenciales.md`,
-  `docs/arquitectura.md` — coherencia general (extensión = principal, login
-  asistido + `--manual` = fallback).
-- 11 incoherencias doc↔código localizadas antes (rotación por usuario/contraseña
-  inexistente, `version` = `"dev"` vs commit SHA, ejemplos de `/admin/status` sin
-  `X-Admin-Key`, `session_age_seconds` vs `session_age`, "IP:puerto" sin esquema
-  vs la GUI que exige `http://`, keyring standalone, "logs en el Visor de
-  Eventos", `/admin/config` "público", `config.yaml` no se lee, dos referencias a
-  `py314`).
-- **+8 de la Etapa C** (config de la GUI contra el proxy):
-  1. `docs/proxy-config.md:26`, `README_PROXY.md:69`, `docs/proxy-deploy.md:95`
-     muestran `192.168.1.50:8080` sin esquema; el código lo rechaza
-     (`main_window.py:337-341`).
-  2. La etiqueta "IP:puerto del proxy" espera una URL completa y no normaliza
-     (`main_window.py:240`).
-  3. Los docs prometen *"Conexión OK (45 ms)"*; el código nunca mide latencia
-     (`docs/proxy-config.md:35` vs `main_window.py:310-312`).
-  4. `docs/proxy-config.md:104` dice que standalone usa `JSWinCoverage/credentials`
-     (credenciales); el código usa `JSWinCoverage/session_cookie` (una PHPSESSID).
-  5. `PlanesAprobados.md:219` planificó el usuario de keyring `win_sessid`; se
-     implementó `session_cookie` (`session_config.py:21`).
-  6. `docs/proxy-config.md:100-106` no menciona el diálogo "Configurar Sesión
-     (standalone)" añadido en la Fase 3.
-  7. Bug latente: `main_window.py:362-363` hace `.base_url` sobre el retorno de
-     `from_keyring()` sin comprobar `None` → `AttributeError` si el keyring falla.
-  8. "Probar conexión" traga la excepción real (`main_window.py:316-317`); el
-     usuario final no distingue 401 / 403 / timeout / DNS.
+### Fase 5 — Barrido final de docs (la última del plan)
+Las **19 incoherencias** (11 previas + 8 de la Etapa C) están ahora en
+`PlanesAprobados.md` ("Fase 5 — barrido final de la documentación"), cada una con
+`archivo:línea` del doc y del código. Ojo: la Capa B de la Etapa R vuelve
+**verdad** parte de la incoherencia #7 ("logs en el Visor de Eventos") — el
+evento de aviso sí va ahí, aunque los logs de operación siguen en `<repo>\logs\`.
 
 ### Deuda vieja (no de hoy)
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`

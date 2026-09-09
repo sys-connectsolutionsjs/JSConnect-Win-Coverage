@@ -300,11 +300,14 @@ y en `~/.claude/plans/steady-crunching-music.md` (Etapa R). Vista de conjunto en
   validados; la suite envenenaba el keyring del proxy → `tests/conftest.py`
   (`ffc5296`); paso 12 (standalone) no aplica ya (el modo proxy siempre gana).
   Ver `ResumenDelDia.md`.
-- **Etapa R — robustez de sesión del proxy. [EN COLA]** El proxy puede quedarse
-  sin sesión WinForce sin avisar. R1 detección fiable · R2 fail-fast HTTP 503 ·
-  R3 aviso al owner por 3 vías (GUI del agente · Evento Windows + Tarea programada
-  · toast de la extensión · webhook opcional) · R4 `/health` honesto. Plan:
-  `~/.claude/plans/steady-crunching-music.md`. **Desbloquea la D.**
+- **Etapa R — robustez de sesión del proxy. [COMPLETADA 2026-09-09]** R1 (fix del
+  bug de `_last_activity` que cegaba la alarma, validación al arrancar, primer
+  keepalive a 60s, `_marcar_sesion_muerta/viva`) · R2 (fail-fast HTTP 503 +
+  `Retry-After`, `ProxySesionCaducadaError` terminal, GUI con mensaje suave) · R3
+  (aviso por 3 capas: 503 al agente · Evento Windows ID 101/102 + tarea `schtasks`
+  · toast de la extensión en la transición · webhook opcional) · R4
+  (`HealthResult.session_alive`). Commits `82f3604`→`67ec0e4`. 124 tests.
+  La parte del instalador se verifica en la Etapa D.
 - **Etapa 0.5 — almacén de la cookie con LocalSystem. [EN COLA]** `rotate_creds.py`
   debe empujar la cookie por HTTP, no escribir el keyring del owner.
   `~/.claude/plans/shimmying-skipping-mochi.md:145-158`. **Bloquea la D.**
@@ -312,7 +315,7 @@ y en `~/.claude/plans/steady-crunching-music.md` (Etapa R). Vista de conjunto en
   mano el keyring de proxy (`main_window.py:75-77`).
 - **Etapa D — servicio de Windows en la PC de oficina. [EN COLA]** Los 12 pasos de
   `install_service.bat` (el 11 registra la tarea de aviso de la Etapa R),
-  sobrevive a reinicio, firewall LAN. **Bloqueada por R y 0.5.**
+  sobrevive a reinicio, firewall LAN. **Bloqueada por 0.5** (R ya está hecha).
 - **Etapa E — runbook de la oficina. [EN COLA]** El procedimiento verificado en la
   D, en `docs/proxy-deploy.md`. **Bloqueada por acceso físico.**
 - Luego: **Fase 5 — barrido de docs** (arriba en este archivo).
