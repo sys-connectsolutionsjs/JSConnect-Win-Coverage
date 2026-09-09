@@ -358,7 +358,9 @@ def test_score_parsea_reporte():
     resultado = cliente._parsear_score(resp)
     assert resultado["valor"] == 423
     assert resultado["riesgo"] == "MUY ALTO"
-    assert resultado["deuda_total"] == 0
+    # DeudaTotal: 0 (int) en el fixture -> se normaliza a str "0" para que
+    # ScoreResponse (proxy, deuda_total: str | None) no reviente con datos reales.
+    assert resultado["deuda_total"] == "0"
     assert resultado["nombre"] == "SANCHEZ CHANAME ANGEL HUMBERTO"
     assert resultado["documento"] == "75020496"
     assert resultado["valido"] is True

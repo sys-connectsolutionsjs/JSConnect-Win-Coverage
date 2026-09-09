@@ -428,7 +428,12 @@ class ValidatorAPI:
                         riesgo = obj.get("NivelRiesgo")
                         conclusion = obj.get("Conclusion")
                 if deuda is None and "DeudaTotal" in obj:
-                    deuda = obj.get("DeudaTotal")
+                    # WinForce manda DeudaTotal como string ("1234.5") cuando hay
+                    # deuda y como int 0 cuando no la hay. Se normaliza a str para
+                    # que ScoreResponse (proxy) y la GUI lo traten igual siempre.
+                    valor_deuda = obj.get("DeudaTotal")
+                    if valor_deuda not in (None, ""):
+                        deuda = str(valor_deuda)
                 for valor in obj.values():
                     recorrer(valor)
             elif isinstance(obj, list):

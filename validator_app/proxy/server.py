@@ -33,7 +33,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from validator_app.core import api as core_api
 from validator_app.proxy.config import ProxyConfig, get_config, reset_config
@@ -89,6 +89,10 @@ class ScoreRequest(BaseModel):
 
 
 class ScoreResponse(BaseModel):
+    # WinForce manda deuda_total como int 0 cuando no hay deuda y como string
+    # cuando la hay; el core ya normaliza a str, esto es defensa en profundidad.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     valor: int | None
     riesgo: str | None
     conclusion: str | None

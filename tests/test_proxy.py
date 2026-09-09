@@ -378,6 +378,21 @@ def test_api_score_ok(client):
     assert r.json()["valor"] == 423
 
 
+def test_api_score_tolera_deuda_total_int(client):
+    """Regresion (2026-09-09, hallado en la puesta en marcha end-to-end):
+    WinForce manda deuda_total = 0 (int) cuando no hay deuda; ScoreResponse
+    declaraba str | None y reventaba con HTTP 500 pydantic ValidationError."""
+    tc, fake = client
+    fake.validar_score.return_value = {**_SCORE, "deuda_total": 0}
+    r = tc.post(
+        "/api/score",
+        json={"tipo_doc": "DNI", "num_doc": "75020496", "lat": -12.05, "lon": -77.03},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 200
+    assert r.json()["deuda_total"] == "0"
+
+
 def test_api_score_documento_invalido_422(client):
     tc, _fake = client
     r = tc.post(
