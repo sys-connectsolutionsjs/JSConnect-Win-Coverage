@@ -305,6 +305,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 28. **Etapa R — robustez de la detección de sesión muerta** [COMPLETADO — verificado 2026-09-09]: el proxy podía quedarse sin sesión WinForce sin avisar. R1: `auto_relogin_if_needed()` ya NO refresca `_last_activity` (solo el éxito real cuenta — ese era el bug que cegaba la alarma bajo carga) + validación de la cookie al arrancar (`_load_session_cookies`) + primer keepalive a 60s + `_marcar_sesion_muerta/viva()` centralizado. R2: `SesionCaducadaError` → HTTP 503 + `Retry-After`, lanzado antes de tocar WinForce; `ProxyClient` lo trata como terminal; GUI con aviso suave; `HealthResult.session_alive`. R3: aviso al owner por 3 capas — evento de Windows ID 101/102 + tarea `schtasks JSWinProxy-AvisoSesion` (`install_service.bat` paso 11/12) · toast de la extensión en la transición (permiso `storage`) · webhook opcional `config.alert_webhook_url`. `tests/test_client.py` NUEVO; `conftest.py` gana `avisos_capturados`. Commits `82f3604`→`67ec0e4`. **124 tests**. La parte del instalador se verifica en la Etapa D.
 29. **`Roadmap.md` NUEVO** [2026-09-09]: vista única del proyecto — línea de tiempo de lo entregado + cola aprobada en orden (R→0.5→C.12→D→E→Fase 5) + backlog v1.1 + bloqueos. Registrado en el mapa de conocimiento (punto 2 del orden de lectura) y en `.claude/hooks/historial_sync.py`. Hasta ahora el estado se narraba en 4 sitios distintos y esa duplicación multiplicaba las incoherencias.
 30. **`PlanesAprobados.md` — cola actualizada** [2026-09-09]: añadido el "Plan de puesta en marcha del proxy" (Etapas 0/A–E con estado; antes solo vivía en `~/.claude/plans/`, contra la regla de que es una COLA). El one-liner "Fase 5 — docs" pasó a ser el **checklist completo de las 19 incoherencias doc↔código** (11 previas + 8 de la Etapa C), cada una con `archivo:línea` del doc y del código. **La Fase 5 sigue siendo la última** — se ejecuta después de 0.5/C.12/D/E.
+31. **Etapa 0.5 — coherencia del almacén de la cookie con LocalSystem** [COMPLETADO — verificado 2026-09-11]: `rotate_creds.py` ya no escribe la cookie directo al keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía); ahora `push_session_cookie()` la empuja por HTTP: `/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza. `config.py` gana `proxy_local_url` (ignora `proxy_host=0.0.0.0` de producción) — arregla de paso un bug latente de `_verificar_proxy()`. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo (cookie falsa → 401 real de `/local/renovar`). **129 tests, ruff limpio.**
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -674,3 +675,32 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   - `config.yaml`, `proxy_token.txt`, `admin_key.txt` son gitignored → **no
     están en git**; en la otra PC hay que regenerarlos (o correr
     `install_service.bat`). El `config.yaml` local de esta PC usa puerto 8090.
+
+### Cierre de la sesión 2026-09-11 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Inicio**: la sesión anterior había dejado la **Etapa 0.5 a medio hacer y sin
+  commitear** — 1 commit local sin pushear (rotación de `ResumenDelDia.md`) + 4
+  archivos modificados (`rotate_creds.py`, `config.py`, `test_config.py`,
+  `test_login_asistido.py`) con el cambio de fondo ya escrito pero
+  **`tests/test_login_asistido.py` roto** (seguía mockeando la función vieja
+  `save_session_to_keyring`, renombrada a `push_session_cookie`) y `ruff` con un
+  `import httpx` sin usar + una línea larga. Se detectó al preguntar "¿ya hicimos
+  la Fase 0.5?" y correr `git status` / `pytest`.
+- **Etapa 0.5 — cerrada** (ver ítem 31 de Tareas pendientes para el detalle
+  técnico): terminado lo que estaba a medias, y el `import httpx` sin usar
+  resultó ser la pista de que faltaba testear `push_session_cookie()` de verdad
+  (antes solo se mockeaba en los tests de dispatch) — se añadieron 4 tests con
+  `httpx.post` monkeypatcheado + un smoke en vivo contra el proxy real (cookie
+  falsa → 401 real de `/local/renovar`, no mockeado).
+- **Documentación sincronizada** con lo que la 0.5 volvió obsoleto (no un barrido
+  completo — eso sigue siendo la Fase 5): `anotaciones.md`, `docs/rotacion-credenciales.md`,
+  `PlanesAprobados.md`, `Roadmap.md`. Ningún archivo del repo menciona ya
+  `save_session_to_keyring`.
+- **Estado al cierre**: **129 tests, ruff limpio**, todo commiteado y pusheado a
+  `origin/main`. Working tree limpio.
+- **Lo que sigue — Etapa D** (servicio de Windows en la PC de oficina): ya no la
+  bloquea nada (R y 0.5 completadas). Checklist de los 12 pasos en
+  `PlanesAprobados.md` ("Puesta en marcha del proxy" → Etapa D).
+- **Lección para la próxima sesión**: si `git status` muestra cambios sin
+  commitear al retomar, no asumir que son ruido — correr `pytest`/`ruff`
+  primero; puede ser una fase real a medio terminar (como esta vez).

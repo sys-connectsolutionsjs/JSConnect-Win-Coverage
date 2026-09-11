@@ -78,9 +78,15 @@ Desde entonces: doble clic → contraseña autocompletada → aprobar 2FA → li
    `document.cookie`) buscando `PHPSESSID` en `appwinforce.win.pe`.
 3. Cuando la encuentra, la valida con `core.api.validar_cookie_sesion()`
    (petición real a `operador.php`). Si pasa → capturada.
-4. `save_session_to_keyring()` → `JSWinProxy/credentials_cookies` + timestamp.
-5. El proxy en marcha la recoge en el siguiente request (`_relogin_silent`) o el
-   loop de keepalive; **no hace falta reiniciar el servicio**.
+4. `push_session_cookie()` **empuja la cookie por HTTP al proxy** (no la escribe
+   en ningún keyring de este proceso — el servicio corre como LocalSystem, que
+   tiene su propio Windows Keyring, distinto del owner). Primero intenta
+   `POST /local/renovar` (proceso vivo en `127.0.0.1`, sin admin key); si no
+   logra conectar, cae a `POST /admin/rotar` con `X-Admin-Key`. Ambos terminan
+   en `set_session_cookie()` del lado del servidor, que sí guarda en el keyring
+   **del proceso del proxy** — la única fuente de verdad.
+5. El proxy queda con la sesión nueva de inmediato (fue el propio `POST` el que
+   la aplicó); **no hace falta reiniciar el servicio**.
 
 ### Fallback: `--manual` (para el técnico)
 

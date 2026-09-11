@@ -309,40 +309,50 @@ están archivados localmente en `~/.claude/plans/` de la PC donde se generaron �
   · toast de la extensión en la transición · webhook opcional) · R4
   (`HealthResult.session_alive`). Commits `82f3604`→`67ec0e4`. 124 tests.
   La parte del instalador se verifica en la Etapa D.
-### Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem  [EN COLA — SIGUIENTE, bloquea la D]
+### Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem  [COMPLETADA 2026-09-11]
 
 **Problema.** El servicio de Windows correrá como **LocalSystem** (winsw sin
 `<serviceaccount>`, `winsw.xml.example:13-28`). El Credential Manager es **por
 usuario**: LocalSystem y el owner ven almacenes distintos.
 - `/local/renovar` y `/admin/rotar` → `set_session_cookie()` → `_save_session_cookies()`
   escribe en el keyring **del proceso del proxy** = LocalSystem. ✅ Correcto.
-- `rotate_creds.py` (icono del Escritorio / `--manual`) escribe **directo** al
-  keyring **del owner** (`save_session_to_keyring()`, `rotate_creds.py:71-83`).
-  El servicio LocalSystem **nunca la vería** → tras un reinicio,
-  `_load_session_cookies()` no encuentra nada o encuentra una cookie vieja.
+- `rotate_creds.py` (icono del Escritorio / `--manual`) escribía **directo** al
+  keyring **del owner** (`save_session_to_keyring()`). El servicio LocalSystem
+  **nunca la vería** → tras un reinicio, `_load_session_cookies()` no encontraba
+  nada o encontraba una cookie vieja.
 
-**Solución aprobada.** Cambiar `rotate_creds.py` para que **empuje la cookie por
-HTTP**, no la escriba en keyring:
+**Solución implementada.** `save_session_to_keyring()` → **`push_session_cookie()`**
+(`rotate_creds.py`), que ya no toca ningún keyring — empuja la cookie por HTTP:
 - proxy local vivo → `POST /local/renovar` (sin admin key, es `127.0.0.1`).
-- si no → `POST /admin/rotar` con `X-Admin-Key`.
+- si no conecta → `POST /admin/rotar` con `X-Admin-Key`.
+- si `/local/renovar` sí conecta pero **rechaza** la cookie (401) → **no**
+  reintenta por `/admin/rotar` (sería la misma cookie mala); falla directo.
 - El keyring del **servicio** queda como única fuente de verdad.
-- `_verificar_proxy()` (`rotate_creds.py:86-106`) ya hace un `GET /admin/status`
-  best-effort; reusar esa plomería.
+- `_verificar_proxy()` reusa la misma plomería, ahora contra `proxy_local_url`.
 
 **Por qué así** (no la alternativa): evita configurar winsw con
 `<serviceaccount>` + una contraseña de Windows del owner en el XML del servicio.
 La extensión de Chrome ya funciona bien (inyecta por HTTP en el proceso vivo);
 esto alinea `rotate_creds.py` con ese modelo.
 
-**Ojo — bug latente relacionado**: `rotate_creds._verificar_proxy` construye
-`config.proxy_url` = `http://{proxy_host}:{proxy_port}` (`config.py:98-100`); en
-la PC de oficina `proxy_host` será `0.0.0.0` → `http://0.0.0.0:8080/...` falla en
-Windows (silencioso, es best-effort). Arreglar de paso: usar `127.0.0.1` para las
-llamadas locales.
+**Bug latente arreglado de paso**: `rotate_creds._verificar_proxy` construía
+`config.proxy_url` = `http://{proxy_host}:{proxy_port}`; en la PC de oficina
+`proxy_host` será `0.0.0.0` → `http://0.0.0.0:8080/...` falla en Windows
+(silencioso, era best-effort). Nueva property `config.proxy_local_url` =
+`http://127.0.0.1:{proxy_port}`, ignora `proxy_host` a propósito (es un bind de
+escucha, no un destino de cliente); la usan `push_session_cookie` y
+`_verificar_proxy`. `tests/test_config.py::test_proxy_local_url_ignora_proxy_host`.
 
-**Verificación**: renovar por el icono del Escritorio con el servicio corriendo
-como LocalSystem → `/admin/status` refleja `creds_updated` reciente → reiniciar
-el servicio → `/health` sigue `session_alive:true` (la cookie sobrevivió).
+**Verificado**: 4 tests nuevos en `tests/test_login_asistido.py` con `httpx.post`
+monkeypatcheado (éxito por local; fallback a admin si no conecta; sin reintento
+si el local rechaza; falla limpio si nada responde) + smoke en vivo contra el
+proxy real (cookie inválida → `/local/renovar` responde 401 real, no mockeado).
+**129 tests, ruff limpio.**
+
+**Pendiente para la Etapa D** (no bloquea, se confirma ahí): renovar con el
+servicio corriendo como LocalSystem de verdad → `/admin/status` refleja
+`creds_updated` reciente → reiniciar el servicio → `/health` sigue
+`session_alive:true` (la cookie sobrevivió).
 
 ### Etapa C.12 — Modo standalone en la GUI  [EN COLA, opcional]
 
@@ -351,7 +361,7 @@ Probar el modo standalone pegando la `PHPSESSID`. Hoy exige borrar a mano
 proxy siempre gana (`main_window.py:75-77`, `:175`) y el diálogo de proxy no
 tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalone.
 
-### Etapa D — Servicio de Windows en la PC de oficina  [EN COLA — bloqueada por 0.5]
+### Etapa D — Servicio de Windows en la PC de oficina  [EN COLA — SIGUIENTE]
 
 13. `install_service.bat` **como Administrador**, recorrer los **12 pasos**
     verificando cada uno (Python, deps, Chromium, `winsw.exe`, tokens,

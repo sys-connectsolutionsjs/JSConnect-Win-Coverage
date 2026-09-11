@@ -4,17 +4,17 @@ Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`; aquí solo
 se ordena y se enlaza.
 
-Última actualización: 2026-09-09.
+Última actualización: 2026-09-11.
 
 ---
 
 ## Estado en una línea
 
-El núcleo, el proxy, el keepalive, la extensión de Chrome, la GUI y la detección
-robusta de "sesión muerta" están construidos y validados end-to-end contra
-WinForce real. Falta la coherencia del keyring bajo LocalSystem (0.5), instalar el
-servicio de Windows en la PC de oficina (D/E) y barrer la documentación (Fase 5).
-**Nada corre en producción todavía.**
+El núcleo, el proxy, el keepalive, la extensión de Chrome, la GUI, la detección
+robusta de "sesión muerta" y la coherencia del keyring bajo LocalSystem están
+construidos y validados. Falta instalar el servicio de Windows en la PC de
+oficina (D/E) y barrer la documentación (Fase 5). **Nada corre en producción
+todavía.**
 
 ---
 
@@ -40,40 +40,34 @@ servicio de Windows en la PC de oficina (D/E) y barrer la documentación (Fase 5
 | 2026-09-09 | **Etapa B** — sesión WinForce viva + validación real cobertura/score end-to-end; fix `deuda_total` int | `3f63e8f` `898b9ab` |
 | 2026-09-09 | **Etapa C** — GUI (Tkinter) contra el proxy, validada; la suite envenenaba el keyring (corregido); `install_service.bat:262` | `b70dacf` `ffc5296` `f91b9fb` |
 | 2026-09-09 | **Etapa R** — robustez de la detección de sesión muerta: fix del bug de `_last_activity`, validación al arrancar, fail-fast 503, aviso al owner por 3 capas (GUI · Evento Windows+tarea · toast extensión · webhook) | `82f3604` `3c8c7bd` `6ee6cb6` `4924e70` `9f49b8e` `67ec0e4` |
+| 2026-09-11 | **Etapa 0.5** — coherencia del almacén de la cookie con LocalSystem: `rotate_creds.py` ya no escribe el keyring del owner, empuja la cookie por HTTP (`/local/renovar` → `/admin/rotar`); de paso, fix del bug latente de `proxy_url` con `proxy_host=0.0.0.0` (`proxy_local_url` nueva) | `f5eb257` |
 
 ---
 
 ## Aprobado y pendiente — en orden de ejecución
 
-### 1. Etapa 0.5 — Coherencia del almacén de la cookie con LocalSystem
-**Spec completa en `PlanesAprobados.md`** ("Puesta en marcha del proxy" → Etapa 0.5).
-En corto: `rotate_creds.py` escribe la `PHPSESSID` en el keyring **del owner**;
-el servicio corre como **LocalSystem** y lee otro almacén. Cambiar `rotate_creds.py`
-para que empuje la cookie por HTTP (`/local/renovar` local · `/admin/rotar` con
-`X-Admin-Key` si no), dejando el keyring del servicio como única fuente de verdad.
-**Bloquea la Etapa D.**
-
-### 3. Etapa C.12 — Modo standalone en la GUI
+### 1. Etapa C.12 — Modo standalone en la GUI
 Probar el modo standalone pegando la `PHPSESSID`. Solo si se necesita: hoy exige
 borrar a mano el keyring de proxy porque el modo proxy siempre gana
 (`main_window.py:75-77`). No bloquea nada.
 
-### 4. Etapa D — Servicio de Windows en la PC de oficina
+### 2. Etapa D — Servicio de Windows en la PC de oficina
 `install_service.bat` como Administrador, los 12 pasos verificados uno a uno
 (incluye la Tarea programada de aviso de la Etapa R); el servicio sobrevive a un
-reinicio y recupera la cookie del keyring; logs en `<repo>\logs\` sin secretos;
-regla de firewall solo hacia la LAN. Verificar el popup de "sesión caducada"
-(bajo LocalSystem; en desarrollo `eventcreate` da "Acceso denegado", es esperado).
-**Bloqueada por la Etapa 0.5** (R ya está hecha).
+reinicio y recupera la cookie del keyring (prueba de fuego de la Etapa 0.5);
+logs en `<repo>\logs\` sin secretos; regla de firewall solo hacia la LAN.
+Verificar el popup de "sesión caducada" (bajo LocalSystem; en desarrollo
+`eventcreate` da "Acceso denegado", es esperado). **Siguiente etapa — nada la
+bloquea ya** (R y 0.5 hechas).
 
-### 5. Etapa E — Runbook de la PC de oficina
+### 3. Etapa E — Runbook de la PC de oficina
 La máquina está definida pero no es accesible hoy. Dejar en `docs/proxy-deploy.md`
 el procedimiento **ya verificado en la Etapa D** (no el teórico): prerrequisitos
 (Python 3.14.7), instalador corregido, ACL, cuenta del servicio, firewall, alta de
 los 20 agentes y el ritual diario de renovación de la cookie.
 **Bloqueada por acceso físico a la oficina.**
 
-### 6. Fase 5 — Barrido final de la documentación
+### 4. Fase 5 — Barrido final de la documentación
 **La última del plan "Sesión WinForce robusta".** Consume el checklist de **19
 incoherencias doc↔código** en `PlanesAprobados.md` (sección "Fase 5 — docs"), cada
 una con `archivo:línea`. Coherencia general: extensión = vía principal, login
@@ -99,5 +93,5 @@ asistido + `--manual` = fallback.
 
 | Etapa | Bloqueada por |
 |---|---|
-| D | Etapa 0.5 (R ya está hecha) |
+| D | nada (R y 0.5 completadas) |
 | E | acceso físico a la PC de oficina |

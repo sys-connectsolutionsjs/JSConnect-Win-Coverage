@@ -144,16 +144,22 @@ esto es justo lo que complica la Etapa 0.5 (ver abajo).
   a mano, ver `session_config.py`)
 - **Activación**: `JSWinCoverage`/`activation_code` (por huella HW)
 
-**Ojo — LocalSystem vs owner (Etapa 0.5, en cola)**: el servicio de Windows
-corre como **LocalSystem**, que tiene su propio almacén, distinto del owner.
-`/local/renovar` y `/admin/rotar` (`set_session_cookie()`) escriben en el
-keyring **del proceso del proxy** — correcto bajo LocalSystem. Pero
-`rotate_creds.py` (icono del Escritorio / `--manual`) hoy escribe **directo**
-al keyring **del owner** (`save_session_to_keyring()`) — el servicio
-LocalSystem nunca vería esa cookie. Solución aprobada: `rotate_creds.py` debe
-empujar la cookie por HTTP (`/local/renovar` o `/admin/rotar`) en vez de tocar
-el keyring directamente. Spec completa en `PlanesAprobados.md` ("Puesta en
-marcha del proxy" → Etapa 0.5).
+**LocalSystem vs owner (Etapa 0.5, RESUELTO 2026-09-11)**: el servicio de
+Windows corre como **LocalSystem**, que tiene su propio almacén, distinto del
+owner. `/local/renovar` y `/admin/rotar` (`set_session_cookie()`) escriben en
+el keyring **del proceso del proxy** — correcto bajo LocalSystem. Antes,
+`rotate_creds.py` (icono del Escritorio / `--manual`) escribía **directo** al
+keyring **del owner** (`save_session_to_keyring()`) — el servicio LocalSystem
+nunca vería esa cookie. Arreglado: `rotate_creds.push_session_cookie()` ya no
+toca ningún keyring — empuja la cookie por HTTP, primero `/local/renovar`
+(proceso vivo en `127.0.0.1`, sin admin key); si no conecta, cae a
+`/admin/rotar` con `X-Admin-Key`. Si `/local/renovar` sí conecta pero rechaza
+la cookie (401), **no** reintenta por `/admin/rotar` — sería la misma cookie
+mala. El keyring del proceso del proxy queda como única fuente de verdad. De
+paso se arregló un bug latente: `_verificar_proxy()` usaba `config.proxy_url`
+(construido con `proxy_host`, que en producción es `0.0.0.0` — un bind de
+escucha, no un destino válido) → ahora usa `config.proxy_local_url`
+(`http://127.0.0.1:<puerto>`, la nueva property de `config.py`).
 
 ---
 
