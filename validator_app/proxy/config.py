@@ -106,6 +106,17 @@ class ProxyConfig(BaseSettings):
         return f"http://{self.proxy_host}:{self.proxy_port}"
 
     @property
+    def proxy_local_url(self) -> str:
+        """URL para llamadas que se originan en la MISMA PC que el proxy.
+
+        `proxy_url` usa `proxy_host`, que en produccion es `0.0.0.0` (bind de
+        escucha, no un destino valido para un cliente). `rotate_creds.py`
+        siempre corre en la PC del proxy, asi que sus llamadas van a
+        `127.0.0.1`, nunca a `proxy_host`.
+        """
+        return f"http://127.0.0.1:{self.proxy_port}"
+
+    @property
     def winforce_controllers_url(self) -> str:
         return self.winforce_controllers
 

@@ -76,3 +76,16 @@ def test_yaml_file_apunta_junto_al_modulo():
     assert C._CONFIG_YAML.is_absolute()
     assert C._CONFIG_YAML.parent.name == "proxy"
     assert C._CONFIG_YAML.name == "config.yaml"
+
+
+def test_proxy_local_url_ignora_proxy_host(yaml_file):
+    # proxy_host=0.0.0.0 (bind de escucha) no es un destino valido para un
+    # cliente; las llamadas locales (rotate_creds.py) deben ir a 127.0.0.1.
+    yaml_file.write_text(
+        f'proxy_token: "{TOK}"\nadmin_key: "{ADM}"\n'
+        'proxy_host: "0.0.0.0"\nproxy_port: 9999\n',
+        encoding="utf-8",
+    )
+    cfg = C.ProxyConfig()
+    assert cfg.proxy_url == "http://0.0.0.0:9999"
+    assert cfg.proxy_local_url == "http://127.0.0.1:9999"

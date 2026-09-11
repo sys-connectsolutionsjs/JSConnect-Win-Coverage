@@ -20,11 +20,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import json
 import sys
-from datetime import datetime
-
-import keyring
 
 from validator_app.core import api as core_api
 from validator_app.proxy.config import get_config
@@ -68,19 +64,48 @@ def validate_session_cookie(php_sessid: str) -> tuple[bool, str]:
     return True, "Sesion valida - operador autenticado"
 
 
-def save_session_to_keyring(php_sessid: str) -> None:
-    """Guarda la cookie de sesion + timestamp en Windows Keyring."""
+def push_session_cookie(php_sessid: str) -> tuple[bool, str]:
+    """Empuja la cookie de sesion al proxy por HTTP (no al keyring de este proceso).
+
+    El servicio corre como **LocalSystem**, que tiene su propio Windows
+    Keyring, distinto del keyring del owner que usaria `keyring.set_password()`
+    directo desde aqui (esa cookie nunca la veria el servicio). El keyring del
+    proceso del proxy es la unica fuente de verdad: se llega a el por HTTP,
+    igual que hace la extension de Chrome.
+
+    Intenta primero `/local/renovar` (proceso vivo en 127.0.0.1, sin admin
+    key); si no se puede conectar, cae a `/admin/rotar` con `X-Admin-Key`
+    (mismo efecto server-side: `set_session_cookie()`).
+    """
+    import httpx
+
     config = get_config()
-    keyring.set_password(
-        config.win_keyring_service,
-        config.win_keyring_user + "_cookies",
-        json.dumps({"PHPSESSID": php_sessid}),
-    )
-    keyring.set_password(
-        config.win_keyring_service,
-        config.win_keyring_user + "_updated",
-        datetime.now().isoformat(timespec="seconds"),
-    )
+    payload = {"php_sessid": php_sessid}
+
+    try:
+        resp = httpx.post(
+            f"{config.proxy_local_url}/local/renovar", json=payload, timeout=10,
+        )
+    except httpx.RequestError:
+        pass
+    else:
+        if resp.status_code == 200:
+            return True, "Cookie enviada al proxy (/local/renovar)."
+        return False, f"/local/renovar devolvio HTTP {resp.status_code}: {resp.text[:200]}"
+
+    try:
+        resp = httpx.post(
+            f"{config.proxy_local_url}/admin/rotar",
+            json=payload,
+            headers={"X-Admin-Key": config.admin_key},
+            timeout=10,
+        )
+    except httpx.RequestError as e:
+        return False, f"No se pudo contactar al proxy en {config.proxy_local_url}: {e}"
+
+    if resp.status_code == 200:
+        return True, "Cookie enviada al proxy (/admin/rotar)."
+    return False, f"/admin/rotar devolvio HTTP {resp.status_code}: {resp.text[:200]}"
 
 
 def _verificar_proxy(quiet: bool = False) -> None:
@@ -90,7 +115,7 @@ def _verificar_proxy(quiet: bool = False) -> None:
         import httpx
 
         resp = httpx.get(
-            f"{config.proxy_url}/admin/status",
+            f"{config.proxy_local_url}/admin/status",
             headers={"X-Admin-Key": config.admin_key},
             timeout=5,
         )
@@ -126,8 +151,11 @@ def _main_manual() -> int:
     print("  JSCONNECT WIN PROXY - ROTACION DE CREDENCIALES (--manual)")
     print("=" * 60)
     config = get_config()
-    print(f"\nProxy detectado: {config.proxy_url}")
-    print(f"Keyring: {config.win_keyring_service}/{config.win_keyring_user}")
+    print(f"\nProxy detectado: {config.proxy_local_url}")
+    print(
+        f"Keyring: {config.win_keyring_service}/{config.win_keyring_user} "
+        "(del proceso del proxy)"
+    )
 
     php_sessid = extract_php_sessid_from_input()
     if not php_sessid:
@@ -143,9 +171,12 @@ def _main_manual() -> int:
         return 1
     print(f"[OK] {msg}")
 
-    print("Guardando en Windows Keyring...")
-    save_session_to_keyring(php_sessid)
-    print("[OK] Cookie guardada.")
+    print("Enviando la cookie al proxy...")
+    ok, msg = push_session_cookie(php_sessid)
+    if not ok:
+        print(f"[ERROR] {msg}")
+        return 1
+    print(f"[OK] {msg}")
 
     print("\nVerificando estado del proxy...")
     _verificar_proxy()
@@ -196,7 +227,11 @@ def _main_asistido(args: argparse.Namespace) -> int:
         )
         return 1
 
-    save_session_to_keyring(php_sessid)
+    ok, msg = push_session_cookie(php_sessid)
+    if not ok:
+        _avisar(False, _TITULO, f"No se pudo enviar la cookie al proxy: {msg}")
+        return 1
+
     _verificar_proxy(quiet=True)
     _avisar(True, _TITULO, "Sesion renovada correctamente. Ya puedes cerrar todo.")
     return 0
