@@ -134,10 +134,26 @@ Respuesta: `{"status":"ok","version":"<commit-sha>","session_age":45,"logged_in"
 ## K
 
 ### Keyring (Windows Credential Manager)
-Almacén cifrado del SO por usuario. Cada usuario Windows tiene el suyo.
+Almacén cifrado del SO **por usuario**. Cada usuario Windows tiene el suyo —
+esto es justo lo que complica la Etapa 0.5 (ver abajo).
 - **Agentes**: `JSWinClient`/`proxy_url` + `JSWinClient`/`proxy_token`
-- **Proxy**: `JSWinProxy`/`credentials` (cookies sesión WinForce + user/pass)
+- **Proxy**: `JSWinProxy`/`credentials_cookies` (solo la `PHPSESSID` de sesión;
+  ya no guarda usuario/contraseña — el login programático es código muerto
+  eliminado en `1dcecc6`)
+- **Standalone (GUI)**: `JSWinCoverage`/`session_cookie` (una `PHPSESSID` pegada
+  a mano, ver `session_config.py`)
 - **Activación**: `JSWinCoverage`/`activation_code` (por huella HW)
+
+**Ojo — LocalSystem vs owner (Etapa 0.5, en cola)**: el servicio de Windows
+corre como **LocalSystem**, que tiene su propio almacén, distinto del owner.
+`/local/renovar` y `/admin/rotar` (`set_session_cookie()`) escriben en el
+keyring **del proceso del proxy** — correcto bajo LocalSystem. Pero
+`rotate_creds.py` (icono del Escritorio / `--manual`) hoy escribe **directo**
+al keyring **del owner** (`save_session_to_keyring()`) — el servicio
+LocalSystem nunca vería esa cookie. Solución aprobada: `rotate_creds.py` debe
+empujar la cookie por HTTP (`/local/renovar` o `/admin/rotar`) en vez de tocar
+el keyring directamente. Spec completa en `PlanesAprobados.md` ("Puesta en
+marcha del proxy" → Etapa 0.5).
 
 ---
 

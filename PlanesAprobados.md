@@ -212,7 +212,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
 
   _Las 11 previas (todas vigentes):_
   1. Rotación por usuario/contraseña inexistente — `docs/rotacion-credenciales.md:3,10,190`,
-     `anotaciones.md:319,322` vs `server.py:120-121,686,692-694` (`server.py:12`).
+     `anotaciones.md:344,346` vs `server.py:120-121,686,692-694` (`server.py:12`).
   2. `version="dev"` vs commit SHA — `server.py:655,681,506` (y `:604` dice `1.0.0`)
      vs `docs/proxy-deploy.md:78`, `anotaciones.md:122`, `docs/rotacion-credenciales.md:139,146`,
      `docs/proxy-config.md:156`, `Escalabilidad.md:36`, `docs/escalabilidad-remota.md:62`,
@@ -227,7 +227,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   6. Keyring standalone — `docs/proxy-config.md:104` (`JSWinCoverage/credentials`)
      vs `session_config.py:20-21` (`JSWinCoverage/session_cookie`, una PHPSESSID).
   7. "Logs en el Visor de Eventos" — `README_PROXY.md:169,219`, `docs/proxy-deploy.md:83-84,165`,
-     `docs/arquitectura.md:158`, `anotaciones.md:399`, `Escalabilidad.md:54` vs
+     `docs/arquitectura.md:158`, `anotaciones.md:430`, `Escalabilidad.md:54` vs
      `winsw.xml.example:21` + stdout (`server.py:766-777`). Ojo: la Etapa R (Capa B)
      hace que parte de esto pase a ser verdad — coordinar el texto.
   8. `/admin/config` "público" — `docs/proxy-config.md:163`,
