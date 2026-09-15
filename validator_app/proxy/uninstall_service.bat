@@ -18,7 +18,7 @@ REM Verificar permisos de administrador
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo [ERROR] Debes ejecutar este script como ADMINISTRADOR.
-    echo          Click derecho -> "Ejecutar como administrador"
+    echo          Click derecho -^> "Ejecutar como administrador"
     pause
     exit /b 1
 )

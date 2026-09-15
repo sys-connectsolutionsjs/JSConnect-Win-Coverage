@@ -18,7 +18,7 @@ REM Verificar permisos de administrador
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo [ERROR] Debes ejecutar este script como ADMINISTRADOR.
-    echo          Click derecho -> "Ejecutar como administrador"
+    echo          Click derecho -^> "Ejecutar como administrador"
     pause
     exit /b 1
 )
@@ -84,22 +84,38 @@ if %errorLevel% neq 0 (
 )
 
 REM Descargar winsw.exe
+REM NOTA (2026-09-15): la URL anterior apuntaba a v3.0.0, que NUNCA existio como
+REM release estable de winsw/winsw (solo hay v3.0.0-alpha.N) -> 404 siempre.
+REM La ultima release real es v2.12.0. Ademas Invoke-WebRequest fallaba aqui en
+REM Windows PowerShell 5.1 (no siempre negocia TLS 1.2 con GitHub por defecto,
+REM aunque la URL sea correcta) -> se prueba primero con curl.exe (viene con
+REM Windows 10 1803+/11, y el propio script ya lo usa mas abajo para el health
+REM check), y solo si no esta se cae a PowerShell forzando TLS 1.2 a mano.
 echo.
 echo [4/12] Descargando winsw.exe (Windows Service Wrapper)...
-set "WINSW_URL=https://github.com/winsw/winsw/releases/download/v3.0.0/WinSW.NET4.exe"
+set "WINSW_URL=https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET4.exe"
 set "WINSW_PATH=%BASE_DIR%\winsw.exe"
-powershell -Command "Invoke-WebRequest -Uri '%WINSW_URL%' -OutFile '%WINSW_PATH%' -UseBasicParsing" 2>nul
-if %errorLevel% neq 0 (
-    echo [WARN] Descarga automatica fallo. Intentando URL alternativa...
-    set "WINSW_URL=https://github.com/winsw/winsw/releases/latest/download/WinSW.NET4.exe"
-    powershell -Command "Invoke-WebRequest -Uri '%WINSW_URL%' -OutFile '%WINSW_PATH%' -UseBasicParsing" 2>nul
-    if %errorLevel% neq 0 (
-        echo [ERROR] No se pudo descargar winsw.exe. Descargalo manualmente de:
-        echo         https://github.com/winsw/winsw/releases
-        echo         y colocalo en: %WINSW_PATH%
-        pause
-        exit /b 1
-    )
+
+where curl >nul 2>&1
+if %errorLevel% equ 0 (
+    curl.exe -sS -L -f -o "%WINSW_PATH%" "%WINSW_URL%"
+) else (
+    echo [INFO] curl.exe no encontrado en PATH, se prueba con PowerShell...
+    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%WINSW_URL%' -OutFile '%WINSW_PATH%' -UseBasicParsing"
+)
+
+if not exist "%WINSW_PATH%" (
+    echo [WARN] Descarga con curl fallo, reintentando con PowerShell forzando TLS 1.2...
+    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%WINSW_URL%' -OutFile '%WINSW_PATH%' -UseBasicParsing"
+)
+
+if not exist "%WINSW_PATH%" (
+    echo [ERROR] No se pudo descargar winsw.exe desde %WINSW_URL%
+    echo         Descargalo manualmente de:
+    echo         https://github.com/winsw/winsw/releases
+    echo         y colocalo en: %WINSW_PATH%
+    pause
+    exit /b 1
 )
 echo [OK] winsw.exe descargado en %WINSW_PATH%
 
@@ -361,7 +377,7 @@ echo   Reiniciar:      %BASE_DIR%\winsw.exe restart
 echo   Desinstalar:    %BASE_DIR%\uninstall_service.bat
 echo   Renovar sesion: cuando la sesion caduca sale un POPUP automatico (tarea
 echo                   JSWinProxy-AvisoSesion) y la EXTENSION de Chrome pone un
-echo                   badge rojo -> el owner hace 1 clic (reabre Chrome tras
+echo                   badge rojo -^> el owner hace 1 clic (reabre Chrome tras
 echo                   instalar para que aparezca).
 echo                   Fallback: icono "Renovar sesion WinForce" del Escritorio,
 echo                   o python -m validator_app.proxy.rotate_creds [--manual]
@@ -370,10 +386,10 @@ echo                   origen "JSWinProxy" (ID 101 = caduco, 102 = renovada)
 echo.
 echo CONFIGURACION AGENTES (en cada una de las 20 maquinas):
 echo   1. Ejecutar JSConnect-Win-Coverage.exe
-echo   2. Menu [Configuracion] -> [Configurar Proxy]
+echo   2. Menu [Configuracion] -^> [Configurar Proxy]
 echo   3. IP:puerto:   [IP_DE_ESTA_PC]:%PROXY_PORT%
 echo   4. Token:       !PROXY_TOKEN!
-echo   5. [Probar conexion] -> [Guardar]
+echo   5. [Probar conexion] -^> [Guardar]
 echo.
 echo FIREWALL (si agentes no conectan):
 echo   New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort %PROXY_PORT% -Protocol TCP -Action Allow -Profile Domain,Private
