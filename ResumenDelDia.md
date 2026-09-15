@@ -31,7 +31,13 @@ corrió `install_service.bat` como Administrador:
   contra GitHub (síntoma clásico: falla silenciosa, `curl.exe` con la misma URL
   funciona). El `2>nul` del script se tragaba el error real, sin pista.
 
-**Pendiente**: arreglar `install_service.bat` (URL correcta `v2.12.0`, cambiar
-el mecanismo de descarga a `curl.exe -L` con fallback a PowerShell forzando
-TLS 1.2, dejar de tragarse el error real) y que el owner vuelva a correr el
-instalador.
+**Arreglado** (`abff2e4`): URL corregida a `v2.12.0` (real, verificada contra la
+API de GitHub); descarga primero con `curl.exe`, fallback a PowerShell forzando
+TLS 1.2; ya no se traga el error real. De paso, **5 flechas `->` sin escapar**
+en `echo` (que en `cmd.exe` siempre son redirección) — la de la rama "no sos
+administrador" ya había creado un archivo literal `Ejecutar como administrador`
+en el repo durante la prueba de hoy (borrado); las otras 3 están en el resumen
+final tras el paso 12, nunca ejercidas hasta esta primera corrida real.
+
+**Pendiente**: que el owner vuelva a correr `install_service.bat` como
+Administrador desde cero.
