@@ -56,3 +56,6 @@ validator_app/proxy/.extension_build/
 validator_app/proxy/extension.pem
 validator_app/proxy/extension.crx
 validator_app/proxy/updates.xml
+
+# Diagramas PlantUML locales: material de análisis, no versionado.
+diagramas-locales/
