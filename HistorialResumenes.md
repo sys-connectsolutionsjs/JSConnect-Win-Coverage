@@ -13,6 +13,14 @@ y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-11 — Sesión — Etapa 0.5 (cookie por HTTP, no keyring) + planificación de la D
+- **Arranque**: la sesión anterior había dejado la Etapa 0.5 a medio hacer y sin commitear (código cambiado, tests rotos, `ruff` con un import sin usar). Se detectó al preguntar "¿ya hicimos la Fase 0.5?" y correr `git status`/`pytest`.
+- **Etapa 0.5 — HECHA** (`f5eb257`, `a6e90da`): `rotate_creds.py` deja de escribir la `PHPSESSID` directo en el keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía) → `push_session_cookie()` la empuja por HTTP (`/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza). Bug latente arreglado de paso: `config.proxy_local_url` nueva, ignora `proxy_host=0.0.0.0` de producción. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo contra el proxy real (cookie falsa → 401 real). Docs sincronizados (`anotaciones.md`, `docs/rotacion-credenciales.md`, `PlanesAprobados.md`, `Roadmap.md`) — ya no describen el mecanismo viejo.
+- **Calidad**: 129 tests pasando, ruff limpio.
+- **Etapa D planificada** (más tarde el mismo día): con R y 0.5 hechas, nada la bloquea. Se decidió con el owner: ensayo en esta PC (no producción real), `config.yaml` de pruebas (puerto 8090) con backup y borrado para forzar la rama de generación fresca del instalador, y se acepta que fuerce la extensión de Chrome por política HKLM. **No se llegó a ejecutar** `install_service.bat`.
+- **Trabajo suelto sin relación**: 6 diagramas UML de análisis en `diagramas-locales/` (no versionados a propósito).
+- **Pendiente al cierre**: Etapa D (instalar el servicio, nada la bloquea) → E (runbook oficina, bloqueada por acceso físico) → Fase 5 (19 incoherencias doc↔código). Snapshot completo: `resumenes/2026-09-11.md`.
+
 ### 2026-09-09 — Sesión — Puesta en marcha end-to-end del proxy (Etapas 0/A/B/C/R)
 - **Objetivo del día — HECHO**: activar todo lo construido contra WinForce real por primera vez (hasta entonces cada pieza se había validado por separado con mocks/smoke tests). Rotación previa: `resumenes/2026-09-08.md` creado, entrada condensada agregada aquí.
 - **Etapa 0 — desbloquear el arranque** (`d9c1ef7`, `ffa213a`): `config.yaml` no se leía (`settings_customise_sources` faltante) → corregido; 3 bugs de `install_service.bat` (ruta de `requirements-proxy.txt`, `python -c` multilínea roto por cmd.exe, `%PROXY_PORT%` sin expansión retrasada, `where python` cogía el stub de Store); `winsw.xml` sacado de git (`winsw.xml.example` como plantilla) + ACL `icacls` para `config.yaml`/tokens. Etapa 0.5 (coherencia del keyring bajo LocalSystem) pospuesta a después de la C.

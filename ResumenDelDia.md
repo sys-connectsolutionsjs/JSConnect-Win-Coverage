@@ -1,40 +1,37 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: 2026-09-11
+Fecha: 2026-09-15
 
 ## Qué se hizo hoy
 
-### Etapa 0.5 — coherencia del almacén de la cookie con LocalSystem — HECHA
+### Rotación del resumen 2026-09-11 — HECHO
+`resumenes/2026-09-11.md` creado (snapshot completo: cierre de la Etapa 0.5 +
+planificación de la Etapa D). Entrada condensada agregada en
+`HistorialResumenes.md` (total: 11 entradas).
 
-Se retomó a medio hacer (código cambiado pero sin commitear, tests rotos —
-`tests/test_login_asistido.py` mockeaba la función vieja `save_session_to_keyring`,
-renombrada a `push_session_cookie`; `ruff` marcaba un `import httpx` sin usar y
-una línea larga).
+### Etapa D — instalar el servicio de Windows (ensayo en esta PC) — EN CURSO
 
-- **`rotate_creds.py`**: `save_session_to_keyring()` (escribía directo al keyring
-  **del owner**) → **`push_session_cookie()`**, que empuja la cookie por HTTP:
-  `POST /local/renovar` (proceso vivo en `127.0.0.1`, sin admin key) y, si no
-  conecta, cae a `POST /admin/rotar` con `X-Admin-Key`. Si `/local/renovar` sí
-  conecta pero rechaza la cookie (401), **no** reintenta por `/admin/rotar`
-  (sería la misma cookie mala). El keyring **del proceso del proxy**
-  (LocalSystem en producción) queda como única fuente de verdad.
-- **`config.py`**: nueva property `proxy_local_url` (`http://127.0.0.1:<puerto>`,
-  ignora `proxy_host` a propósito — en producción es `0.0.0.0`, un bind de
-  escucha, no un destino de cliente). Arregla de paso un bug latente:
-  `_verificar_proxy()` usaba `proxy_url` y fallaba silenciosamente en la PC de
-  oficina.
-- **Tests**: renombrados los 4 mocks de `test_login_asistido.py` a
-  `push_session_cookie`; 4 tests **nuevos** que ejercen `push_session_cookie` de
-  verdad (con `httpx.post` monkeypatcheado, no solo mockeado a un lado): éxito
-  por local, fallback a admin si no conecta, sin reintento si el local rechaza,
-  falla limpio si nada responde. `tests/test_config.py` gana
-  `test_proxy_local_url_ignora_proxy_host`.
-- **Smoke en vivo**: proxy real arrancado en primer plano →
-  `push_session_cookie("cookie-de-prueba-invalida")` → llegó de verdad a
-  `/local/renovar`, WinForce la rechazó → `(False, ".../local/renovar devolvio
-  HTTP 401: ...")`. Confirma la URL/puerto/payload contra el servidor real, no
-  solo contra el mock.
-- Docs sincronizados (`anotaciones.md`, `docs/rotacion-credenciales.md`,
-  `PlanesAprobados.md`, `Roadmap.md`) — ya no describen `save_session_to_keyring()`.
+Retomada del plan del 11-sep (nada la bloqueaba: R y 0.5 hechas). El owner
+corrió `install_service.bat` como Administrador:
 
-**129 tests, ruff limpio.** Siguiente: **Etapa D** (nada la bloquea ya).
+- `[1/12]` Python 3.14 OK, `[2/12]` deps OK, `[3/12]` Chromium (ya en caché) OK.
+- **`[4/12]` (descargar `winsw.exe`) falló** — las dos URLs abortaron el
+  instalador.
+
+**Diagnóstico** (verificado con `curl` + la API de GitHub):
+- `install_service.bat:89` apuntaba a
+  `.../winsw/releases/download/v3.0.0/WinSW.NET4.exe` → **404, ese tag nunca
+  existió como release estable** (solo hay `v3.0.0-alpha.9/10/11`; la última
+  release real de `winsw/winsw` es **v2.12.0**). Bug de origen del script, no
+  algo que se rompió ahora.
+- El fallback a `/releases/latest/download/WinSW.NET4.exe` sí resuelve bien
+  (a v2.12.0, `curl` lo baja limpio: 200, 852 KB) pero **también falló** en la
+  terminal elevada del usuario con `Invoke-WebRequest` de PowerShell — causa
+  probable: Windows PowerShell 5.1 no siempre negocia TLS 1.2 por defecto
+  contra GitHub (síntoma clásico: falla silenciosa, `curl.exe` con la misma URL
+  funciona). El `2>nul` del script se tragaba el error real, sin pista.
+
+**Pendiente**: arreglar `install_service.bat` (URL correcta `v2.12.0`, cambiar
+el mecanismo de descarga a `curl.exe -L` con fallback a PowerShell forzando
+TLS 1.2, dejar de tragarse el error real) y que el owner vuelva a correr el
+instalador.
