@@ -73,6 +73,29 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 El build incluye `validator_app/proxy/client.py` (cliente proxy) pero **NO** `server.py` (solo corre en PC oficina).
 
+### Consola del owner
+La consola gráfica del owner genera códigos de activación, muestra el estado del
+proxy local y abre la renovación asistida de WinForce. La clave privada **no** se
+incluye en los agentes ni se sube al repositorio.
+
+```powershell
+python generator/owner_app.py
+powershell -ExecutionPolicy Bypass -File build-owner.ps1
+```
+
+Para emitir códigos, `generator/private_key.pem` debe existir solo en la estación
+autorizada del owner y tener permisos NTFS restringidos. El ejecutable resultante
+es `dist/JSConnect-Win-Owner.exe`; copia el PEM como
+`dist/private_key.pem` junto a esa aplicación, nunca junto a los `.exe` de
+agentes.
+
+Flujo de activación: el agente pulsa **Copiar huella**, el owner pega esa huella
+completa en su consola, pulsa **Generar código** y **Copiar**, y el agente usa
+**Pegar código** y **Activar**. El código es una firma RSA ligada a esa PC; si se
+trunca o se usa en otra máquina, la app muestra una causa específica. La llave
+privada se transfiere a la estación oficial por un canal privado, separado de
+Git. Este flujo ya fue validado manualmente de extremo a extremo.
+
 ### Publicar una versión (Release)
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
@@ -187,6 +210,29 @@ python main.py
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 The build includes `validator_app/proxy/client.py` (proxy client) but **NOT** `server.py` (runs only on office PC).
+
+### Owner console
+The owner graphical console generates activation codes, displays the local proxy
+state, and opens assisted WinForce session renewal. The private key is **not**
+included in agent builds and is never committed to the repository.
+
+```powershell
+python generator/owner_app.py
+powershell -ExecutionPolicy Bypass -File build-owner.ps1
+```
+
+To issue codes, `generator/private_key.pem` must exist only on the authorized
+owner workstation with restricted NTFS permissions. The build is written to
+`dist/JSConnect-Win-Owner.exe`; copy the PEM as `dist/private_key.pem` beside
+that owner application, never with agent `.exe` files.
+
+Activation flow: the agent clicks **Copy fingerprint**, the owner pastes the
+complete fingerprint into the owner console, clicks **Generate code** and
+**Copy**, and the agent uses **Paste code** and **Activate**. The code is an RSA
+signature bound to that PC; truncated codes and codes from another machine get
+specific error messages. Transfer the private key to the official owner station
+through a private channel, separately from Git. This flow has been manually
+validated end to end.
 
 ### Publish a release
 ```powershell

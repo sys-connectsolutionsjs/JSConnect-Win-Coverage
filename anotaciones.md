@@ -7,6 +7,19 @@
 
 ## A
 
+### Activación RSA offline y consola del owner
+Cada agente muestra una huella `XXXX-XXXX-XXXX-XXXX`. La consola separada
+`generator/owner_app.py` firma esa huella con `private_key.pem` y devuelve un
+código Base64; el agente lo verifica con la llave pública embebida en
+`validator_app/activation/signer.py`.
+- La llave **pública** puede estar en Git y en todos los agentes.
+- La llave **privada** nunca se sube, nunca entra al `.exe` del agente y se
+  transfiere a la PC owner por un canal privado con ACL NTFS restringida.
+- En desarrollo vive en `generator/private_key.pem`; empaquetada, la consola
+  owner la busca como `private_key.pem` junto a `JSConnect-Win-Owner.exe`.
+- El código solo sirve para la huella firmada. La GUI ofrece **Copiar huella** y
+  **Pegar código** para evitar truncar la cadena.
+
 ### API Interna (WinForce)
 El sistema del ISP (`appwinforce.win.pe`) expone una API JSON interna en `/controllers/*.php` que el navegador usa vía AJAX. **No es pública documentada**, pero no requiere scraping: replicamos las llamadas HTTP directas.
 - Endpoints: `acceso.php` (login), `coordenada.php` (cobertura), `cliente.php` (score), `operador.php` (verificar sesión), `document.php` (tipos doc), `newsearch.php` (crear lead)
@@ -41,8 +54,10 @@ Respuesta: `{"response":"success","cobertura":"SI|NO","tipo":"HORIZONTAL|VERTICA
 ### Credenciales WinForce
 Usuario/contraseña del sistema del ISP. **Rotan cada 1-2 meses** (desactivan cuenta anterior + entregan nuevas al responsable).
 - **NUNCA** en repo, **NUNCA** en agentes
-- Solo en **Windows Keyring de la PC proxy** (`JSWinProxy`/`credentials`)
-- Rotación: `rotate_creds.py` via RDP (v1) o endpoint `/admin/rotar` (v2 VPN)
+- El proxy no guarda usuario/contraseña: conserva solo la `PHPSESSID` en
+  `JSWinProxy`/`credentials_cookies` bajo LocalSystem
+- Renovación: extensión de Chrome como vía principal; consola owner/login
+  asistido y `--manual` como fallback
 
 ---
 
@@ -127,7 +142,8 @@ build/
 
 ### Health Check (`GET /health`)
 Endpoint público del proxy para verificar que está vivo y la sesión WinForce activa.
-Respuesta: `{"status":"ok","version":"<commit-sha>","session_age":45,"logged_in":true}`
+Respuesta: `{"status":"ok","version":"dev","session_age":45,"logged_in":true,"session_alive":true}`.
+Hoy el proxy informa `dev`; el SHA embebido se usa en el ejecutable agente.
 
 ---
 
@@ -347,9 +363,11 @@ Secreto de 256-bit (64 chars hex) compartido entre proxy y **todos** los agentes
 ## R
 
 ### Rotación de Credenciales (Cada 1-2 Meses)
-Proceso para actualizar user/pass WinForce en el proxy.
-- **v1 (actual)**: Owner RDP a PC proxy → `python -m validator_app.proxy.rotate_creds` → pega cookie `PHPSESSID` de navegador (tras login manual con 2FA)
-- **v2 (futuro)**: Owner via VPN → `POST /admin/rotar` con `X-Admin-Key` + user/pass nuevo
+WinForce cambia el user/pass, pero el proxy solo recibe una sesión ya iniciada.
+- **Actual**: owner inicia sesión en WinForce y la extensión de Chrome manda la
+  `PHPSESSID` a `/local/renovar`; la consola owner/login asistido es fallback.
+- **Remoto futuro**: owner vía VPN → `POST /admin/rotar` con `X-Admin-Key` y
+  `php_sessid`, nunca usuario/contraseña.
 
 ### requirements-proxy.txt
 Dependencias **solo del proxy** (NO van en .exe agentes):
@@ -433,7 +451,8 @@ Sistema de validación del proveedor de internet (`appwinforce.win.pe`).
 Herramienta que convierte cualquier exe en servicio Windows nativo.
 - Config: `winsw.xml` (nombre, descripción, exe, args, logs)
 - Comandos: `winsw.exe install | start | stop | uninstall | status`
-- Logs: Visor de Eventos → Aplicaciones y Servicios → `JSWinProxy`
+- Logs stdout/stderr: `<repo>\logs\`. El Visor de Eventos solo recibe las
+  alertas de sesión 101/102 creadas por el proxy.
 
 ---
 

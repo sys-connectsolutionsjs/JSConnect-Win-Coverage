@@ -12,10 +12,15 @@
 | 20 agentes en LAN oficina | N agentes en campo / home office |
 | 1 proxy en PC fija oficina | Mismo proxy + **Tailscale VPN** |
 | Token compartido LAN | **Mismo token** funciona via VPN |
-| Owner rota credenciales via RDP | Owner rota via **VPN + endpoint `/admin/rotar`** |
-| Config manual por agente | **Auto-discovery** via `GET /admin/config` |
+| Owner renueva sesión por extensión/consola | Owner renueva via **VPN + endpoint `/admin/rotar`** |
+| Config manual por agente | Provisionamiento administrado por GUI/script |
 
 **No hay que reescribir nada**. La arquitectura ya está preparada. Solo activar VPN y configurar DNS.
+
+La activación de agentes mantiene otra frontera: cada PC envía su huella al owner
+y recibe un código firmado. `private_key.pem` permanece únicamente en la estación
+owner autorizada y se transfiere por fuera de Git; escalar agentes no implica
+copiar esa llave a sus máquinas.
 
 ---
 
@@ -23,7 +28,7 @@
 
 ### 1. Proxy Stateless (salvo sesión WinForce)
 - `validator_app/proxy/server.py` — FastAPI, sin estado local
-- Cookies de sesión en **Windows Keyring** (`JSWinProxy`/`credentials`) → sobreviven a reinicios
+- Cookies de sesión en **Windows Keyring** (`JSWinProxy`/`credentials_cookies`) → sobreviven a reinicios
 - Múltiples instancias de proxy posibles detrás de load balancer (sticky sessions)
 
 ### 2. Auth Simple pero Escalable
@@ -31,12 +36,13 @@
 - **Admin key separada** → solo owner, para endpoints `/admin/*`
 - **IP binding** → `allowed_networks: ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]` → **incluye rango Tailscale `100.64.0.0/10`**
 
-### 3. Endpoint de Auto-Discovery (Ya Implementado)
+### 3. Endpoint de Provisionamiento (Ya Implementado)
 ```http
 GET /admin/config  →  {proxy_url, token, timeouts, version}
 ```
-- Sin auth (solo accesible en LAN/VPN)
-- `ProxyClient.from_discovery()` listo en `validator_app/proxy/client.py`
+- Requiere `X-Admin-Key` porque entrega el token en claro
+- `ProxyClient.from_discovery()` existe, pero su uso debe quedar dentro de una
+  herramienta administrada que aporte esa clave
 
 ### 4. Cliente Proxy con Retries y Timeouts
 ```python
@@ -51,7 +57,7 @@ ProxyClient(base_url, token, timeout=30)
 ### 5. Servicio Windows (winsw) — Produccion-Ready
 - Auto-inicio sin login
 - Auto-restart si crashea
-- Logs en Visor de Eventos
+- Logs stdout/stderr en `<repo>\logs\`; eventos 101/102 para alertas de sesión
 - Gestionable remoto: `sc \\PC command`
 
 ---
@@ -80,13 +86,13 @@ curl http://100.64.12.34:8080/health
 ```
 
 ### Paso 4: Configurar Agentes Remotos (Igual que LAN)
-- IP: `100.64.12.34:8080` (IP Tailscale del proxy)
+- URL: `http://100.64.12.34:8080` (IP Tailscale del proxy)
 - Token: **El mismo** que agentes LAN
 - GUI: ⚙️ Configuración → Configurar Proxy → pegar IP + token → Probar → Guardar
 
-### Paso 5: (Opcional) DNS Interno para Auto-Discovery
+### Paso 5: (Opcional) DNS Interno
 - En Tailscale admin console → DNS → añadir `proxy.oficina.local` → `100.64.12.34`
-- Agentes usan `ProxyClient.from_discovery()` → se configuran solos
+- Configurar por GUI/script la URL `http://proxy.oficina.local:8080`
 
 ---
 

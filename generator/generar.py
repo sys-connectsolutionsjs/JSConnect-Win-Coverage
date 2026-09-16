@@ -13,13 +13,24 @@ La app valida el codigo con la llave publica; solo esta herramienta puede firmar
 
 import argparse
 import base64
+import sys
 from pathlib import Path
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-DIR = Path(__file__).parent
-PRIVATE_KEY_FILE = DIR / "private_key.pem"
+
+def directorio_llaves(
+    frozen: bool | None = None, executable: Path | None = None
+) -> Path:
+    if frozen is None:
+        frozen = getattr(sys, "frozen", False)
+    if frozen:
+        return (executable or Path(sys.executable)).resolve().parent
+    return Path(__file__).parent
+
+
+PRIVATE_KEY_FILE = directorio_llaves() / "private_key.pem"
 
 
 def generar_llaves():
@@ -40,13 +51,14 @@ def generar_llaves():
     print(public_pem.decode())
 
 
-def firmar_codigo(huella):
-    if not PRIVATE_KEY_FILE.exists():
-        print("No existe la llave privada. Ejecuta primero: --generar-llaves")
-        raise SystemExit(1)
-    private_key = serialization.load_pem_private_key(
-        PRIVATE_KEY_FILE.read_bytes(), password=None
-    )
+def cargar_llave_privada(private_key_file: Path = PRIVATE_KEY_FILE):
+    if not private_key_file.exists():
+        raise FileNotFoundError(f"No existe la llave privada: {private_key_file}")
+    return serialization.load_pem_private_key(private_key_file.read_bytes(), password=None)
+
+
+def firmar_codigo(huella: str, private_key_file: Path = PRIVATE_KEY_FILE) -> str:
+    private_key = cargar_llave_privada(private_key_file)
     firma = private_key.sign(huella.encode(), padding.PKCS1v15(), hashes.SHA256())
     return base64.b64encode(firma).decode()
 
@@ -65,7 +77,11 @@ def main():
             print("La huella parece invalida (formato XXXX-XXXX-XXXX-XXXX).")
             raise SystemExit(1)
         print(f"Codigo de activacion para {huella}:")
-        print(firmar_codigo(huella))
+        try:
+            print(firmar_codigo(huella))
+        except FileNotFoundError:
+            print("No existe la llave privada. Ejecuta primero: --generar-llaves")
+            raise SystemExit(1) from None
     else:
         parser.print_help()
 

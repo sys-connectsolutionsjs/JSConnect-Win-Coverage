@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (124 en total, a 2026-09-09)
+## Inventario de tests (141 en total, a 2026-09-16)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) |
@@ -21,17 +21,43 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
 | tests/test_proxy.py | 43 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
 | tests/test_client.py | 3 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`) |
-| tests/test_config.py | 5 | `ProxyConfig` lee `config.yaml` de verdad (`YamlConfigSettingsSource`); precedencia init > env > yaml > defaults |
+| tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
-| tests/test_login_asistido.py | 15 | `rotate_creds` dispatch (`--manual`/`--preview`/`--fresh`), `capturar_php_sessid_asistido` |
+| tests/test_login_asistido.py | 19 | captura asistida y envío HTTP al proceso LocalSystem |
 | tests/test_instalar_extension.py | 3 | empaquetado del `.crx`, id estable |
 | tests/test_medir_keepalive.py | 9 | clasificación muerte/transitorio/indeterminado del medidor |
+| tests/test_activation.py | 4 | llave pública real, firma por huella y diagnóstico de código incompleto |
+| tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
+| tests/test_owner_app.py | 5 | formato de huella y lectura del estado del servicio |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-16 — Activación RSA real y consola del owner
+
+- **Rojo**: no existían pruebas de activación y `PUBLIC_KEY_PEM` era un
+  placeholder, por lo que `activacion_disponible()` devolvía `False`.
+- **Verde**: `tests/test_activation.py` valida que la clave pública de producción
+  está configurada y que una firma RSA correcta se acepta mientras que una huella
+  distinta se rechaza. La clave pública se derivó del PEM local sin imprimir la
+  privada; una comprobación independiente firmó una huella temporal y la verificó.
+- **Generador/UI**: `generar.py` expone carga y firma reutilizables; tests cubren
+  llave indicada, PEM ausente y ruta al lado del `.exe` empaquetado. Se creó
+  `generator/owner_app.py` con generación de códigos, estado del proxy/servicio y
+  renovación asistida. Sus tests cubren normalización de huella y lectura del
+  estado del servicio.
+- **UX encontrada en prueba real**: el primer intento falló por una copia
+  incompleta/incorrecta. Se añadieron **Copiar huella** y **Pegar código**,
+  validación estricta `XXXX-XXXX-XXXX-XXXX` y diagnósticos distintos para código
+  incompleto, formato inválido y código de otra PC.
+- **Prueba manual**: el owner generó el código con `private_key.pem`, el agente lo
+  pegó y la activación terminó correctamente en esta PC.
+- **Calidad**: **141 tests** de la suite completa, Ruff y `git diff --check` en
+  verde; se construyeron en secuencia los ejecutables de agente y owner. Los
+  builds PyInstaller no deben correr en paralelo porque comparten caché temporal.
 
 ### Sesión 2026-09-09 — Incidente: la suite envenenaba el keyring real
 

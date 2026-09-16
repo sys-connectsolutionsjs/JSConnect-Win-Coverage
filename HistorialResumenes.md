@@ -13,6 +13,32 @@ y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-16 — Sesión — activación RSA real y consola del owner
+- **Snapshot completo**: `resumenes/2026-09-16.md`.
+- **Activación habilitada**: se derivó e incorporó la llave pública del PEM
+  privado del owner; el agente verifica firmas RSA ligadas a su huella. La llave
+  privada sigue fuera de Git, con ACL restringida.
+- **Consola owner**: `generator/owner_app.py` y `build-owner.ps1` generan códigos,
+  consultan el proxy/servicio y abren la renovación asistida de WinForce. En modo
+  empaquetado el PEM vive junto a `JSConnect-Win-Owner.exe`.
+- **UX corregida y validada**: botones para copiar la huella y pegar el código,
+  validación estricta y errores específicos. La prueba manual completa terminó
+  con activación correcta.
+- **Calidad y entrega**: 141 tests, Ruff y diff-check en verde; builds de agente y
+  owner correctos y ejecutados en secuencia. Se deja la Etapa D para la PC owner
+  oficial, con transferencia privada del PEM y prueba del servicio LocalSystem.
+
+### 2026-09-15 — Sesión — ensayo de la Etapa D y corrección del instalador
+- **Rotación**: se preserva el snapshot completo en `resumenes/2026-09-15.md`.
+- **Ensayo del servicio**: `install_service.bat` llegó correctamente a los pasos
+  de Python, dependencias y Chromium, pero falló al descargar WinSW.
+- **Bug corregido** (`abff2e4`): la URL de WinSW apuntaba a la inexistente
+  `v3.0.0`; se actualizó a `v2.12.0`, con `curl.exe` como descarga principal y
+  fallback PowerShell con TLS 1.2. También se escaparon flechas `->` que CMD
+  interpretaba como redirecciones y podían crear archivos accidentales.
+- **Pendiente al cierre**: repetir la instalación elevada desde cero y completar
+  la Etapa D.
+
 ### 2026-09-11 — Sesión — Etapa 0.5 (cookie por HTTP, no keyring) + planificación de la D
 - **Arranque**: la sesión anterior había dejado la Etapa 0.5 a medio hacer y sin commitear (código cambiado, tests rotos, `ruff` con un import sin usar). Se detectó al preguntar "¿ya hicimos la Fase 0.5?" y correr `git status`/`pytest`.
 - **Etapa 0.5 — HECHA** (`f5eb257`, `a6e90da`): `rotate_creds.py` deja de escribir la `PHPSESSID` directo en el keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía) → `push_session_cookie()` la empuja por HTTP (`/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza). Bug latente arreglado de paso: `config.proxy_local_url` nueva, ignora `proxy_host=0.0.0.0` de producción. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo contra el proxy real (cookie falsa → 401 real). Docs sincronizados (`anotaciones.md`, `docs/rotacion-credenciales.md`, `PlanesAprobados.md`, `Roadmap.md`) — ya no describen el mecanismo viejo.

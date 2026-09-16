@@ -1,20 +1,19 @@
 # Roadmap — JSConnect Win Coverage
 
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
-cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`; aquí solo
-se ordena y se enlaza.
+cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-09-11.
+Última actualización: 2026-09-16.
 
 ---
 
 ## Estado en una línea
 
-El núcleo, el proxy, el keepalive, la extensión de Chrome, la GUI, la detección
-robusta de "sesión muerta" y la coherencia del keyring bajo LocalSystem están
-construidos y validados. Falta instalar el servicio de Windows en la PC de
-oficina (D/E) y barrer la documentación (Fase 5). **Nada corre en producción
-todavía.**
+El núcleo, proxy, keepalive, extensión, GUI, detección de sesión muerta,
+persistencia bajo LocalSystem y activación RSA están construidos y probados. La
+consola owner también generó un código que activó correctamente un agente. El
+siguiente paso es instalar y validar el servicio en la PC owner oficial; nada
+corre en producción todavía.
 
 ---
 
@@ -22,70 +21,64 @@ todavía.**
 
 | Fecha | Hito | Commit(s) |
 |---|---|---|
-| 2026-08-19 | **Fase 0-1** — descubrimiento de la API interna de WinForce, núcleo `core/` y tests | `e837681` |
-| 2026-08-19 | Reglas de trabajo: `ResumenDelDia` + `PlanesAprobados` como cola + automantenimiento de `AGENTS.md` | `c0d2f2a` `1148db2` `b7c64a2` |
-| 2026-08-21 | **Decisión de arquitectura B** — proxy local para 20 agentes LAN; descubierto el SSO federado de Microsoft (2FA → login programático inviable) | `a3bebf4` |
-| 2026-08-25 | **Fase 1 (Proxy)** — proxy local FastAPI completo; sistema de códigos de error | `7cf7ea1` `f63660b` `801ce05` |
-| 2026-08-27 | **Prueba real del core** — cobertura + score con datos reales; corregidos BOM UTF-8 y doble-encodificado de las respuestas de WinForce | `c72188c` `7bc6550` |
-| 2026-08-28 | Registrado el plan **"Sesión WinForce robusta"** (fases 2A → 5) | `fc81da8` |
-| 2026-09-04 | Eliminado el login muerto de la Fase 1; investigación del keepalive real | `1dcecc6` |
-| 2026-09-05 | Registro de fallos de sesión del proxy + caché de `session_alive`; `medir_keepalive` v3 | `5506ed4` `3925dbf` |
-| 2026-09-08 | **Fase 2A** — keepalive del proxy ("latido perezoso") + fix del guard idle del cliente-core | `b3adb38` |
-| 2026-09-08 | **Fase 2.5** — login asistido (Chrome real, autofill, `--preview`) | `28b7698` `c96de4c` `cb085da` |
-| 2026-09-08 | **Fase 2.5d** — extensión de Chrome para renovar la sesión con un clic | `499ba5f` `e517a2b` |
-| 2026-09-08 | **Fase 3** — diálogo de cookie en la GUI (arregla el modo standalone) | `5cf8e3f` |
-| 2026-09-08 | **Fase 4** — tests de la capa FastAPI del proxy (endpoints + auth + handlers) | `76afb9d` |
-| 2026-09-09 | **Etapa 0** — `config.yaml` se lee de verdad; 3 bugs de `install_service.bat`; `winsw.xml` fuera del control de versiones | `d9c1ef7` `ffa213a` |
-| 2026-09-09 | **Etapa A** — proxy en primer plano en la PC de desarrollo + auth verificada | `7992e01` |
-| 2026-09-09 | **Etapa B** — sesión WinForce viva + validación real cobertura/score end-to-end; fix `deuda_total` int | `3f63e8f` `898b9ab` |
-| 2026-09-09 | **Etapa C** — GUI (Tkinter) contra el proxy, validada; la suite envenenaba el keyring (corregido); `install_service.bat:262` | `b70dacf` `ffc5296` `f91b9fb` |
-| 2026-09-09 | **Etapa R** — robustez de la detección de sesión muerta: fix del bug de `_last_activity`, validación al arrancar, fail-fast 503, aviso al owner por 3 capas (GUI · Evento Windows+tarea · toast extensión · webhook) | `82f3604` `3c8c7bd` `6ee6cb6` `4924e70` `9f49b8e` `67ec0e4` |
-| 2026-09-11 | **Etapa 0.5** — coherencia del almacén de la cookie con LocalSystem: `rotate_creds.py` ya no escribe el keyring del owner, empuja la cookie por HTTP (`/local/renovar` → `/admin/rotar`); de paso, fix del bug latente de `proxy_url` con `proxy_host=0.0.0.0` (`proxy_local_url` nueva) | `f5eb257` |
+| 2026-08-19 | **Fase 0-1** — descubrimiento de la API interna, núcleo `core/` y tests | `e837681` |
+| 2026-08-21 | **Arquitectura B** — proxy local para 20 agentes; SSO Microsoft 2FA | `a3bebf4` |
+| 2026-08-25 | **Fase 1** — proxy FastAPI y códigos de error | `7cf7ea1` `f63660b` `801ce05` |
+| 2026-08-27 | **Core real** — cobertura y score; fixes de BOM y doble codificación | `c72188c` `7bc6550` |
+| 2026-09-04/05 | Login programático retirado, keepalive medido y fallos visibles | `1dcecc6` `5506ed4` `3925dbf` |
+| 2026-09-08 | **Fase 2A** — keepalive “latido perezoso” | `b3adb38` |
+| 2026-09-08 | **Fase 2.5/2.5d** — login asistido y extensión Chrome | `28b7698` `c96de4c` `cb085da` `499ba5f` `e517a2b` |
+| 2026-09-08 | **Fases 3/4** — GUI standalone y cobertura FastAPI por tests | `5cf8e3f` `76afb9d` |
+| 2026-09-09 | **Etapas 0/A/B/C** — config real, proxy y GUI end-to-end con WinForce | `d9c1ef7` `ffa213a` `7992e01` `3f63e8f` `898b9ab` `ffc5296` `f91b9fb` |
+| 2026-09-09 | **Etapa R** — fail-fast 503 y avisos de sesión muerta | `82f3604`…`67ec0e4` |
+| 2026-09-11 | **Etapa 0.5** — cookie enviada al proceso LocalSystem por HTTP | `f5eb257` |
+| 2026-09-15 | Ensayo del instalador: WinSW 404 y redirecciones CMD corregidos | `abff2e4` `7306b9b` |
+| 2026-09-16 | **Activación RSA + consola owner** — firma real, UX de portapapeles, builds separados y prueba manual exitosa | commit de este cierre |
 
 ---
 
 ## Aprobado y pendiente — en orden de ejecución
 
-### 1. Etapa C.12 — Modo standalone en la GUI
-Probar el modo standalone pegando la `PHPSESSID`. Solo si se necesita: hoy exige
-borrar a mano el keyring de proxy porque el modo proxy siempre gana
-(`main_window.py:75-77`). No bloquea nada.
+### 1. Etapa D — PC owner oficial y servicio de Windows
 
-### 2. Etapa D — Servicio de Windows en la PC de oficina
-`install_service.bat` como Administrador, los 12 pasos verificados uno a uno
-(incluye la Tarea programada de aviso de la Etapa R); el servicio sobrevive a un
-reinicio y recupera la cookie del keyring (prueba de fuego de la Etapa 0.5);
-logs en `<repo>\logs\` sin secretos; regla de firewall solo hacia la LAN.
-Verificar el popup de "sesión caducada" (bajo LocalSystem; en desarrollo
-`eventcreate` da "Acceso denegado", es esperado). **Siguiente etapa — nada la
-bloquea ya** (R y 0.5 hechas).
+1. Clonar/actualizar `main` en la PC owner oficial.
+2. Transferir `private_key.pem` por un canal privado, fuera de Git, y restringir
+   su ACL. Construir/abrir la consola owner y realizar una activación de control.
+3. Ejecutar `install_service.bat` como Administrador y verificar sus 12 pasos.
+4. Iniciar sesión en WinForce y renovar la cookie por la extensión o la consola.
+5. Reiniciar el servicio y confirmar que LocalSystem recupera la cookie.
+6. Configurar un agente con URL completa `http://<ip>:8080` y token; validar
+   cobertura y score reales.
+7. Revisar `<repo>\logs\` sin secretos, alertas y firewall limitado a la LAN.
 
-### 3. Etapa E — Runbook de la PC de oficina
-La máquina está definida pero no es accesible hoy. Dejar en `docs/proxy-deploy.md`
-el procedimiento **ya verificado en la Etapa D** (no el teórico): prerrequisitos
-(Python 3.14.7), instalador corregido, ACL, cuenta del servicio, firewall, alta de
-los 20 agentes y el ritual diario de renovación de la cookie.
-**Bloqueada por acceso físico a la oficina.**
+La etapa requiere acceso físico a la PC owner oficial y el traslado privado del
+PEM. Es el siguiente trabajo operativo.
 
-### 4. Fase 5 — Barrido final de la documentación
-**La última del plan "Sesión WinForce robusta".** Consume el checklist de **19
-incoherencias doc↔código** en `PlanesAprobados.md` (sección "Fase 5 — docs"), cada
-una con `archivo:línea`. Coherencia general: extensión = vía principal, login
-asistido + `--manual` = fallback.
+### 2. Etapa E — runbook de la PC owner
+
+Actualizar `docs/proxy-deploy.md` con el procedimiento observado en la Etapa D:
+Python 3.14.7, ACL, LocalSystem, firewall, alta de agentes y renovación diaria.
+
+### 3. Etapa C.12 — modo standalone, opcional
+
+Probar pegando una `PHPSESSID` solo si se necesita el modo sin proxy. Hoy el modo
+proxy configurado gana y habría que limpiar `JSWinClient` del keyring.
+
+### 4. Fase 5 — barrido final de documentación
+
+Resolver el checklist histórico que siga vigente después de D/E. En este cierre
+se actualizaron los documentos afectados por activación y handoff; los snapshots
+anteriores permanecen inmutables.
 
 ---
 
-## Backlog v1.1 (cambios menores)
+## Backlog v1.1
 
-- **Cobertura sin DNI**: dejar el documento vacío en la GUI → devuelve solo
-  cobertura. Viable y limpio (~10 líneas: quitar el gate de `main_window.py:157-160`,
-  saltar el score). El caso inverso (score sin coordenadas) es inviable sin
-  coordenadas de relleno — fuera de la 1.1.
-- **UX del login asistido**: el poller no detecta "ventana cerrada" de forma
-  fiable (`ResumenDelDia.md`, hallazgo de la Etapa B). El patrón `page.on("close")`
-  ya existe en `tools/captura.py` (`AGENTS.md:340-342`).
-- Las 6 ideas de producto de `AGENTS.md:134-160` ("Implementaciones futuras":
-  mapa interactivo, catálogo, instalador, servidor de activación, lotes, CRM).
+- Cobertura sin DNI en la GUI.
+- Mejor detección de cierre manual del navegador asistido.
+- Mapa, catálogo de venta, bootstrap de actualización, activación en línea,
+  lotes y CRM básico.
+- Decidir `actualizar_score_cliente` y creación final de lead.
 
 ---
 
@@ -93,5 +86,5 @@ asistido + `--manual` = fallback.
 
 | Etapa | Bloqueada por |
 |---|---|
-| D | nada (R y 0.5 completadas) |
-| E | acceso físico a la PC de oficina |
+| D | acceso a la PC owner oficial y transferencia privada del PEM |
+| E | resultados reales de la Etapa D |

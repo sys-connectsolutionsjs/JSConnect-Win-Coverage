@@ -9,7 +9,7 @@
 | Requisito | Versión | Notas |
 |-----------|---------|-------|
 | Windows | 10/11 Pro/Enterprise | PC fija, encendida en horario laboral |
-| Python | 3.12+ | En PATH del sistema (`python --version`) |
+| Python | 3.14.7 recomendado; mínimo 3.12 | En PATH del sistema (`python --version`) |
 | Git | Cualquiera | Para clonar repo |
 | Puerto 8080 | Libre en firewall | `install_service.bat` verifica y permite cambiar |
 | Permisos | Administrador local | Para instalar servicio Windows |
@@ -17,6 +17,14 @@
 ---
 
 ## Instalación (One-Click)
+
+### Preparar la consola del owner
+
+La llave privada no viene en el clon. Transfiere `private_key.pem` por un canal
+privado, guárdala como `generator/private_key.pem` para ejecutar desde fuente o
+como `dist/private_key.pem` junto a `JSConnect-Win-Owner.exe`, y limita su ACL al
+owner, SYSTEM y Administradores. Antes de instalar el proxy, genera un código
+para una huella de prueba y confirma la activación en el agente.
 
 ```powershell
 # 1. Clonar repo (o copiar carpeta validator_app/proxy/)
@@ -32,17 +40,19 @@ cd JSConnect-Win-Coverage
 ### Qué hace `install_service.bat` (automático)
 
 1. **Verifica Python 3.12+** en PATH
-2. **Instala dependencias**: `pip install -r requirements-proxy.txt`
-3. **Descarga `winsw.exe`** desde GitHub releases (última versión)
-4. **Genera tokens seguros**:
+2. **Instala dependencias** desde la raíz del repositorio
+3. **Instala Chromium** para el login asistido de fallback
+4. **Descarga `winsw.exe` v2.12.0** con `curl.exe` y fallback TLS 1.2
+5. **Genera tokens seguros**:
    - `proxy_token` = `secrets.token_hex(32)` (64 chars hex)
    - `admin_key` = `secrets.token_hex(32)` (64 chars hex)
-5. **Crea `config.yaml`** (gitignored) con tokens + configuración
-6. **Genera `winsw.xml`** con paths correctos absolutos
-7. **Instala servicio**: `winsw.exe install`
-8. **Inicia servicio**: `winsw.exe start`
-9. **Prueba health check**: `curl http://localhost:8080/health`
-10. **Muestra resumen** en consola:
+6. **Crea `config.yaml`** (gitignored) con tokens + configuración y ACL
+7. **Empaqueta y fuerza-instala la extensión de Chrome**
+8. **Genera `winsw.xml`** con paths absolutos
+9. **Instala e inicia el servicio**
+10. **Prueba el health check**
+11. **Crea la tarea de aviso y la fuente de eventos**
+12. **Crea el acceso directo de renovación y muestra el resumen**:
     ```
     ========================================
     PROXY INSTALADO CORRECTAMENTE
@@ -75,13 +85,15 @@ sc query JSWinProxy
 
 # 2. Health check local
 curl http://localhost:8080/health
-# {"status":"ok","version":"<commit-sha>","session_age":0,"logged_in":false}
+# {"status":"ok","version":"dev","session_age":0,"logged_in":false,"session_alive":false}
 
 # 3. Health check desde otra máquina LAN
 curl http://<IP-PC-OFICINA>:8080/health
 
-# 4. Ver logs (Visor de Eventos)
-# Aplicaciones y Servicios → JSWinProxy
+# 4. Ver logs de proceso
+Get-ChildItem .\logs\
+
+# Los eventos 101/102 del Visor de Eventos son solo alertas de sesión
 ```
 
 ---
@@ -89,13 +101,15 @@ curl http://<IP-PC-OFICINA>:8080/health
 ## Configuración de Agentes (20 máquinas)
 
 ### Opción A: Configuración manual (una vez por máquina)
-1. Ejecutar `JSConnect-Win-Coverage.exe`
-2. Menú **⚙️ Configuración** → **Configurar Proxy**
-3. Ingresar:
-   - **IP:puerto**: `192.168.1.50:8080` (IP de la PC oficina)
+1. Activar la PC: **Copiar huella** en el agente → generar/copiar código en
+   `JSConnect-Win-Owner.exe` → **Pegar código** y **Activar** en el agente.
+2. Ejecutar `JSConnect-Win-Coverage.exe`
+3. Menú **⚙️ Configuración** → **Configurar Proxy**
+4. Ingresar:
+   - **URL del proxy**: `http://192.168.1.50:8080`
    - **Token**: `a1b2c3d4e5f6...` (el token mostrado al instalar proxy)
-4. Click **Probar conexión** → debe mostrar "OK (45ms)" en verde
-5. Click **Guardar**
+5. Click **Probar conexión** → debe informar proxy conectado y estado de sesión
+6. Click **Guardar**
 
 ### Opción B: Configuración masiva (script)
 ```powershell
@@ -118,16 +132,17 @@ New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 
 
 ---
 
-## Rotación de Credenciales WinForce (Cada 1-2 meses)
+## Renovación de la Sesión WinForce
 
 Ver `docs/rotacion-credenciales.md` — proceso detallado.
 
 Resumen rápido:
-1. Owner hace **RDP a PC proxy**
-2. Ejecuta: `python -m validator_app.proxy.rotate_creds`
-3. Ingresa nuevo usuario/contraseña WinForce
-4. Script hace login → verifica sesión → guarda cookies en keyring
-5. Listo: siguientes validaciones usan credenciales nuevas
+1. El owner inicia sesión normalmente en WinForce, con 2FA si corresponde.
+2. Pulsa la extensión **Renovar sesión WinForce** en su Chrome cotidiano.
+3. Como fallback, usa el botón de la consola owner o el acceso directo del
+   Escritorio; ambos abren el login asistido.
+4. La cookie se valida y se envía por HTTP al proceso LocalSystem, que la guarda
+   en su propio keyring. No se guardan usuario ni contraseña.
 
 ---
 
@@ -138,7 +153,8 @@ Resumen rápido:
 | `config.yaml` | `validator_app/proxy/config.yaml` | Tras cada cambio |
 | `proxy_token.txt` | `validator_app/proxy/proxy_token.txt` | Una vez (instalación) |
 | `admin_key.txt` | `validator_app/proxy/admin_key.txt` | Una vez (instalación) |
-| Keyring credenciales WinForce | Windows Credential Manager (usuario que corre servicio) | Automático tras rotación |
+| Keyring de sesión WinForce | Windows Credential Manager de LocalSystem | Automático tras renovación |
+| `private_key.pem` | Solo estación owner, fuera de Git | Transferencia privada + ACL restringida |
 
 **Para migrar a otra PC**:
 1. Copiar `config.yaml`, `proxy_token.txt`, `admin_key.txt`
@@ -162,8 +178,8 @@ Resumen rápido:
 
 | Síntoma | Causa probable | Solución |
 |---------|----------------|----------|
-| `sc query JSWinProxy` → STATE: STOPPED | Puerto ocupado / Python no en PATH / deps faltantes | Ver logs en Visor de Eventos → JSWinProxy |
+| `sc query JSWinProxy` → STATE: STOPPED | Puerto ocupado / Python no en PATH / deps faltantes | Revisar `<repo>\logs\` |
 | `curl /health` → Connection refused | Servicio no inició / firewall bloquea | `sc start JSWinProxy` + firewall rule |
 | Agentes: "Proxy auth failed" | Token distinto / IP no en allowed_networks | Verificar token en keyring agente = config.yaml proxy |
-| WinForce: "Credenciales incorrectas" | Credenciales rotadas / expiradas | Ejecutar `rotate_creds.py` via RDP |
+| WinForce: sesión caducada | Tope absoluto o login expirado | Iniciar sesión y renovar desde extensión/consola owner |
 | `install_service.bat` falla descarga winsw | Sin internet / GitHub bloqueado | Descargar `winsw.exe` manual a `validator_app/proxy/` y reintentar |

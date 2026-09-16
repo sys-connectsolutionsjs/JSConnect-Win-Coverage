@@ -10,6 +10,7 @@
 - `JSConnect-Win-Coverage.exe` (última release)
 - Acceso LAN a la PC proxy (puerto 8080)
 - Token del proxy (entregado por owner al instalar proxy)
+- Código de activación emitido por la consola del owner para la huella de esa PC
 
 ---
 
@@ -23,7 +24,7 @@
    │ Configurar Proxy                    │
    ├─────────────────────────────────────┤
    │ IP:puerto del proxy:                │
-   │ [ 192.168.1.50:8080            ]    │
+   │ [ http://192.168.1.50:8080     ]    │
    │                                     │
    │ Token:                              │
    │ [ **************************** ]    │
@@ -32,7 +33,7 @@
    └─────────────────────────────────────┘
    ```
 4. Click **Probar conexión** → espera 2-3 segundos
-   - ✅ Verde: "Conexión OK (45 ms)" → proxy responde, token válido
+   - ✅ Verde/ámbar: proxy conectado; muestra si la sesión WinForce está viva
    - ❌ Rojo: "Error: ..." → revisar IP, token, firewall, servicio proxy
 5. Click **Guardar** → credenciales guardadas en **Windows Keyring** local
 6. La app usa proxy automáticamente en siguiente validación
@@ -101,7 +102,8 @@ curl -H "X-Proxy-Token: a1b2c3d4e5f6..." http://192.168.1.50:8080/health
 
 Si **no hay configuración de proxy** guardada en keyring:
 - La app usa `validator_app.core.api.ValidatorAPI` directo
-- Requiere credenciales WinForce en keyring local (`JSWinCoverage`/`credentials`)
+- Menú **⚙ Configurar Sesión (standalone)**: pega una `PHPSESSID`, la valida y la
+  guarda como `JSWinCoverage`/`session_cookie`
 - **Útil para**: desarrollo, pruebas, owner validando solo
 - **No usar en producción** (riesgo bloqueo por 20 sesiones concurrentes)
 
@@ -147,7 +149,7 @@ class ProxyClient:
         pass
 ```
 
-**Endpoint proxy** (`GET /admin/config`):
+**Endpoint proxy protegido** (`GET /admin/config`, requiere `X-Admin-Key`):
 ```json
 {
   "proxy_url": "http://192.168.1.50:8080",
@@ -160,4 +162,5 @@ class ProxyClient:
 **Requisitos para activar**:
 - DNS interno `proxy.oficina.local` → IP proxy
 - O VPN con DNS push
-- Endpoint `/admin/config` público en LAN (sin auth, solo info de conexión)
+- Un mecanismo administrado que envíe `X-Admin-Key`; el endpoint devuelve el
+  token en claro y no debe exponerse como discovery público

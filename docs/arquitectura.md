@@ -25,7 +25,8 @@ flowchart LR
     end
 
     subgraph ADMIN[Administración]
-        OWNER[Owner\nRDP/VPN] -->|/admin/*\nX-Admin-Key| P
+        OWNER[Consola Owner\nllave privada RSA] -->|código firmado| A1
+        OWNER -->|renovar sesión\n/admin/* o localhost| P
     end
 ```
 
@@ -40,6 +41,16 @@ flowchart LR
 - **Configuración**: IP:puerto proxy + token guardados en **Windows Keyring** (`JSWinClient`/`proxy_token`)
 - **Modo standalone**: Si no hay config proxy → usa `validator_app.core.api` directo (desarrollo/pruebas)
 
+### Consola del owner (estación autorizada)
+- **Ejecutable**: `JSConnect-Win-Owner.exe`, separado del agente
+- **Activación**: firma la huella exacta del agente con `private_key.pem`; el
+  agente verifica el código con la llave pública embebida
+- **Operación**: consulta el servicio/proxy local y abre la renovación asistida
+  de WinForce
+- **Límite de seguridad**: la llave privada nunca entra en Git ni en el ejecutable
+  del agente. En un build empaquetado vive junto al ejecutable owner, protegida
+  por ACL NTFS
+
 ### Proxy Server (PC Oficina - única máquina)
 - **Proceso**: `python -m validator_app.proxy.server` envuelto en **winsw service** (`JSWinProxy`); host y puerto salen de `ProxyConfig` (`validator_app/proxy/install_service.bat`)
 - **Framework**: FastAPI (async, concurrencia nativa)
@@ -48,7 +59,7 @@ flowchart LR
   - `POST /api/cobertura` — Valida coordenadas contra WinForce
   - `POST /api/score` — Consulta score crediticio (DNI/RUC/CE)
   - `GET /health` — Health check + info sesión
-  - `GET /admin/config` — Auto-discovery para agentes futuros (proxy_url, token, timeouts)
+  - `GET /admin/config` — Configuración protegida por `X-Admin-Key`; incluye token
   - `POST /admin/login` — Owner inyecta la cookie `PHPSESSID` obtenida de un login manual en navegador (via RDP)
   - `POST /admin/rotar` — Owner rota la cookie `PHPSESSID` (via RDP/VPN); idéntico a `/admin/login`
   - **Nota**: el login programático (usuario/password) es inviable — WinForce redirige a Microsoft 2FA. La cookie `PHPSESSID` se obtiene siempre de un login manual en navegador y se inyecta por estos endpoints o con `tools/probar_con_cookie.py` / `validator_app/proxy/rotate_creds.py`.
@@ -155,7 +166,8 @@ Agente                    Proxy                        WinForce              Equ
 | **Sesión WinForce** | Cookie `PHPSESSID` solo en keyring de PC proxy (`JSWinProxy`/`credentials_cookies`); NUNCA en agentes |
 | **Credenciales Equifax** | Solo en JS del sitio WinForce; proxy NO las maneja |
 | **Activación agentes** | RSA asimétrica por huella HW (`validator_app/activation/`) — independiente del proxy |
-| **Auditoría** | Logs en Visor de Eventos (winsw) + logs estructurados en proxy (JSON) |
+| **Llave de activación** | Pública embebida en agentes; privada solo en la estación owner, fuera de Git |
+| **Auditoría** | Salida de WinSW en `<repo>\logs\`; eventos 101/102 para alertas de sesión |
 
 ---
 
@@ -165,4 +177,5 @@ Agente                    Proxy                        WinForce              Equ
 2. **Métricas Prometheus**: `/metrics` endpoint (descomentar en `server.py`)
 3. **Múltiples proxies**: DNS round-robin o load balancer (arquitectura stateless)
 4. **HTTPS en LAN**: Self-signed cert + `uvicorn --ssl-keyfile --ssl-certfile`
-5. **Auto-discovery agentes**: `GET /admin/config` devuelve `proxy_url`, `token`, `timeouts` para `ProxyClient.from_discovery()`
+5. **Provisionamiento administrado**: `GET /admin/config` devuelve `proxy_url`,
+   `token`, `timeouts` con `X-Admin-Key`; no debe exponerse como discovery público

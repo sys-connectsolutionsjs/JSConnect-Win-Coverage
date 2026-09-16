@@ -20,6 +20,10 @@
 
 Soportar **N agentes remotos** (laptops de vendedores en campo, home office, otras sedes) **sin cambiar la arquitectura del proxy**.
 
+Cada agente remoto sigue necesitando activación por huella. El código lo emite la
+consola del owner; `private_key.pem` nunca se distribuye a agentes, proxies
+secundarios ni repositorios.
+
 ---
 
 ## Solución Recomendada: VPN + Mismo Proxy
@@ -63,7 +67,7 @@ curl http://100.64.12.34:8080/health
 ```
 
 ### 4. Configurar Agentes Remotos (Igual que LAN)
-- IP proxy: `100.64.12.34:8080` (IP Tailscale, no LAN)
+- URL proxy: `http://100.64.12.34:8080` (IP Tailscale, no LAN)
 - Token: **El mismo** que agentes LAN
 - Keyring: `JSWinClient`/`proxy_url` = `http://100.64.12.34:8080`
 
@@ -71,11 +75,11 @@ curl http://100.64.12.34:8080/health
 
 ---
 
-## Auto-Discovery (Para Que No Configuren IP Manual)
+## Provisionamiento Administrado
 
 ### Endpoint Ya Preparado en Proxy
 ```
-GET /admin/config  (sin auth, solo LAN/VPN)
+GET /admin/config  (requiere X-Admin-Key)
 ```
 Respuesta:
 ```json
@@ -87,7 +91,7 @@ Respuesta:
 }
 ```
 
-### Cliente Preparado
+### Cliente disponible
 ```python
 # validator_app/proxy/client.py
 @classmethod
@@ -98,9 +102,13 @@ def from_discovery(cls, discovery_url: str = "http://proxy.oficina.local:8080/ad
     return cls(base_url=cfg["proxy_url"], token=cfg["token"], timeout=cfg["timeouts"]["read"])
 ```
 
+`/admin/config` devuelve el token en claro. No debe exponerse a agentes como un
+endpoint público; una herramienta de IT puede usarlo con `X-Admin-Key` y guardar
+la URL/token en el keyring del usuario.
+
 ### DNS Interno (Opcional pero Recomendado)
 - Configurar en router/DNS de la tailnet: `proxy.oficina.local` → `100.64.12.34`
-- Agentes usan `http://proxy.oficina.local:8080/admin/config` para auto-configurarse
+- Agentes guardan `http://proxy.oficina.local:8080` mediante GUI/script de IT
 - Si cambia IP proxy → actualizar DNS, agentes se reconfiguran solos
 
 ---
@@ -186,7 +194,7 @@ async def metrics():
 - [ ] Verificar `curl http://<tailscale-ip>:8080/health` desde laptop
 - [ ] Configurar agente remoto con IP Tailscale + mismo token
 - [ ] (Opcional) Configurar DNS `proxy.oficina.local` en tailnet
-- [ ] (Opcional) Habilitar `/admin/config` y `ProxyClient.from_discovery()`
+- [ ] (Opcional) Crear herramienta de IT para `/admin/config` con `X-Admin-Key`
 - [ ] Documentar en `README_PROXY.md` sección "Agentes Remotos"
 - [ ] Probar con 1 laptop remota → validar cobertura + score → OK
 - [ ] Escalar a N laptops

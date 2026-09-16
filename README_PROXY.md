@@ -16,15 +16,15 @@ cd JSConnect-Win-Coverage
 ```
 
 ### Qué hace el instalador automáticamente:
-1. ✅ Verifica Python 3.12+
-2. ✅ Instala dependencias (`requirements-proxy.txt`)
-3. ✅ Descarga `winsw.exe` (service wrapper)
-4. ✅ Genera tokens seguros (`proxy_token` + `admin_key` = 64 chars hex cada uno)
-4. ✅ Crea `config.yaml` (gitignored)
-5. ✅ Genera `winsw.xml` con paths absolutos
-6. ✅ Instala servicio `JSWinProxy` (auto-inicio, auto-restart)
-7. ✅ Inicia servicio y prueba `/health`
-8. ✅ **Muestra tokens en consola** + guarda en `proxy_token.txt` / `admin_key.txt`
+1. ✅ Verifica Python 3.12+ (producción recomendada: 3.14.7)
+2. ✅ Instala dependencias y Chromium
+3. ✅ Descarga `winsw.exe` v2.12.0
+4. ✅ Genera tokens y `config.yaml` con ACL restringida
+5. ✅ Empaqueta/fuerza-instala la extensión de Chrome
+6. ✅ Genera `winsw.xml`, instala e inicia `JSWinProxy`
+7. ✅ Prueba `/health`
+8. ✅ Registra alertas de sesión y crea el acceso directo de renovación
+9. ✅ Muestra y guarda los tokens en archivos gitignored
 
 ---
 
@@ -65,13 +65,15 @@ http://localhost:8080/docs
 ## Configuración de los 20 Agentes
 
 ### Opción A: Via GUI (usuario final)
-1. Ejecutar `JSConnect-Win-Coverage.exe`
-2. Menú **⚙️ Configuración** → **Configurar Proxy**
-3. Ingresar:
-   - **IP:puerto**: `192.168.1.50:8080` (IP de la PC oficina)
+1. Activar la PC con el código que genera `JSConnect-Win-Owner.exe` para la
+   huella copiada desde el agente.
+2. Ejecutar `JSConnect-Win-Coverage.exe`
+3. Menú **⚙️ Configuración** → **Configurar Proxy**
+4. Ingresar:
+   - **URL**: `http://192.168.1.50:8080`
    - **Token**: `a1b2c3d4e5f6...` (token de arriba)
-4. Click **Probar conexión** → "✓ OK (45ms)"
-5. Click **Guardar**
+5. Click **Probar conexión** → revisar conexión y estado de sesión
+6. Click **Guardar**
 
 ### Opción B: Script masivo (IT)
 ```powershell
@@ -118,7 +120,7 @@ python -m validator_app.proxy.rotate_creds            # asistido
 python -m validator_app.proxy.rotate_creds --manual   # pegar PHPSESSID a mano (F12)
 python -m validator_app.proxy.rotate_creds --preview  # probar la ventana, sin guardar
 python -m validator_app.proxy.rotate_creds --fresh    # asistido, perfil de navegador limpio
-curl http://localhost:8080/admin/status               # verificar: logged_in: true
+curl.exe -H "X-Admin-Key: <admin_key>" http://localhost:8080/admin/status
 ```
 
 ### Probar la extensión en desarrollo (sin la política de fuerza-instalación)
@@ -166,7 +168,8 @@ curl http://localhost:8080/admin/status               # verificar: logged_in: tr
 sc query JSWinProxy
 
 # Ver logs
-# Visor de Eventos -> Applications and Services Logs -> JSWinProxy
+Get-ChildItem .\logs\
+# El Visor de Eventos contiene las alertas 101/102 de sesión, no stdout/stderr
 
 # Detener/Iniciar/Reiniciar
 .\validator_app\proxy\winsw.exe stop
@@ -216,7 +219,7 @@ validator_app/proxy/
 
 | Síntoma | Solución |
 |---------|----------|
-| `sc query` → STOPPED | Ver logs en Visor de Eventos → JSWinProxy |
+| `sc query` → STOPPED | Revisar `<repo>\logs\` |
 | `curl /health` → Connection refused | `sc start JSWinProxy` + firewall rule |
 | Agentes: "401 Unauthorized" | Token distinto en agente vs `config.yaml` |
 | Agentes: "403 Forbidden" | IP no en `allowed_networks` (verifica LAN/VPN) |

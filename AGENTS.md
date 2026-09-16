@@ -24,6 +24,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── requirements-dev.txt      # dependencias de desarrollo
 ├── requirements-proxy.txt    # dependencias del proxy (fastapi, uvicorn, pydantic)
 ├── build.ps1                 # embebe commit SHA + empaqueta con PyInstaller
+├── build-owner.ps1           # empaqueta la consola privada del owner
 ├── publish-release.ps1       # prepara el Release en GitHub (asset .exe + SHA-256)
 ├── AGENTS.md                 # reglas del proyecto, contexto, historial y pendientes
 ├── PlanesAprobados.md        # COLA de planes aprobados (lo implementado se saca)
@@ -47,6 +48,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   └── coords_prueba.txt     # 49 coordenadas públicas (polígono de Lima) que medir_keepalive.py rota por ping
 ├── generator/
 │   ├── generar.py            # generador de códigos de activación (SOLO encargado)
+│   ├── owner_app.py          # consola gráfica: códigos + estado proxy + renovación
 │   └── private_key.pem       # NUNCA se sube al repositorio (ver .gitignore)
 ├── docs/                     # documentación técnica permanente (inmutable)
 │   ├── arquitectura.md
@@ -65,7 +67,10 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── test_proxy.py        # keepalive + endpoints /local/* (FastAPI TestClient)
 │   ├── test_login_asistido.py  # captura de PHPSESSID + dispatch de rotate_creds
 │   ├── test_instalar_extension.py  # _crx_id + updates.xml
-│   └── test_session_config.py  # cookie standalone (Fase 3)
+│   ├── test_session_config.py  # cookie standalone (Fase 3)
+│   ├── test_activation.py    # verificación RSA y diagnósticos de código
+│   ├── test_generator.py     # firma y ubicación segura del PEM
+│   └── test_owner_app.py     # lógica de la consola owner
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
@@ -103,6 +108,8 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
 - Navegador de captura: `python -m playwright install chromium`
 - Ejecutar la app: `python main.py`
 - Build: `powershell -ExecutionPolicy Bypass -File build.ps1`
+- Consola owner: `python generator/owner_app.py`
+- Build owner: `powershell -ExecutionPolicy Bypass -File build-owner.ps1`
 - Publicar Release: `powershell -ExecutionPolicy Bypass -File publish-release.ps1`
 - Tests: `pytest`
 - Lint: `ruff check .`
@@ -306,6 +313,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 29. **`Roadmap.md` NUEVO** [2026-09-09]: vista única del proyecto — línea de tiempo de lo entregado + cola aprobada en orden (R→0.5→C.12→D→E→Fase 5) + backlog v1.1 + bloqueos. Registrado en el mapa de conocimiento (punto 2 del orden de lectura) y en `.claude/hooks/historial_sync.py`. Hasta ahora el estado se narraba en 4 sitios distintos y esa duplicación multiplicaba las incoherencias.
 30. **`PlanesAprobados.md` — cola actualizada** [2026-09-09]: añadido el "Plan de puesta en marcha del proxy" (Etapas 0/A–E con estado; antes solo vivía en `~/.claude/plans/`, contra la regla de que es una COLA). El one-liner "Fase 5 — docs" pasó a ser el **checklist completo de las 19 incoherencias doc↔código** (11 previas + 8 de la Etapa C), cada una con `archivo:línea` del doc y del código. **La Fase 5 sigue siendo la última** — se ejecuta después de 0.5/C.12/D/E.
 31. **Etapa 0.5 — coherencia del almacén de la cookie con LocalSystem** [COMPLETADO — verificado 2026-09-11]: `rotate_creds.py` ya no escribe la cookie directo al keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía); ahora `push_session_cookie()` la empuja por HTTP: `/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza. `config.py` gana `proxy_local_url` (ignora `proxy_host=0.0.0.0` de producción) — arregla de paso un bug latente de `_verificar_proxy()`. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo (cookie falsa → 401 real de `/local/renovar`). **129 tests, ruff limpio.**
+32. **Activación RSA real + consola owner** [COMPLETADO — verificado 2026-09-16]: `signer.py` contiene la llave pública real y diagnósticos de activación; la GUI del agente copia la huella y pega el código; `generator/owner_app.py` genera/copia códigos, consulta proxy/servicio y lanza la renovación WinForce; `build-owner.ps1` genera el ejecutable separado. La privada permanece ignorada y con ACL restringida. Prueba manual completa aprobada en esta PC y builds limpios de agente/owner. **141 tests, ruff limpio.** La Etapa D en la PC owner oficial sigue pendiente.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -704,3 +712,35 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - **Lección para la próxima sesión**: si `git status` muestra cambios sin
   commitear al retomar, no asumir que son ruido — correr `pytest`/`ruff`
   primero; puede ser una fase real a medio terminar (como esta vez).
+
+### Cierre de la sesión 2026-09-16 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Continuidad del 15-sep**: se archivó `resumenes/2026-09-15.md`. El ensayo del
+  instalador había llegado hasta la descarga de WinSW; `abff2e4` corrigió la URL
+  inexistente, añadió `curl.exe` + fallback TLS 1.2 y escapó flechas que CMD
+  trataba como redirecciones.
+- **Activación RSA habilitada**: el PEM privado proporcionado por el owner se
+  mantuvo local e ignorado. Solo se derivó su llave pública para `signer.py` y se
+  verificó el par sin revelar la privada. El PEM quedó con ACL limitada a usuario,
+  SYSTEM y Administradores.
+- **Consola owner separada**: `generator/owner_app.py` genera/copia códigos por
+  huella, informa el estado del servicio/proxy y abre la renovación asistida de
+  WinForce. `build-owner.ps1` produce `JSConnect-Win-Owner.exe`; empaquetado,
+  busca `private_key.pem` junto al `.exe`.
+- **Primer intento y corrección de UX**: al copiar manualmente apareció “código
+  inválido o de otra máquina”. Se añadieron botones **Copiar huella** y **Pegar
+  código**, formato estricto de huella y mensajes diferentes para código
+  incompleto, formato inválido o firma de otra PC.
+- **Prueba manual final**: el owner generó el código y el agente quedó activado.
+  El usuario confirmó que todo funcionó. Los builds se repitieron limpios y en
+  secuencia porque dos PyInstaller paralelos comparten caché y se interfieren.
+- **Auditoría**: 141 tests, `ruff check .` y `git diff --check` en verde. `.venv`,
+  `dist/`, `.spec` y `generator/private_key.pem` permanecen ignorados. No se
+  publica Release en este cierre.
+- **Siguiente paso aprobado — Etapa D en la PC owner oficial**: `git pull`,
+  transferir el PEM por un canal privado y aplicar ACL; construir/abrir la
+  consola y hacer una activación de control; ejecutar `install_service.bat`
+  elevado; iniciar sesión en WinForce; comprobar persistencia de la cookie bajo
+  LocalSystem después de reiniciar; configurar un agente con
+  `http://<ip>:8080`; validar cobertura/score, logs, avisos y firewall LAN. Luego
+  cerrar el runbook de la Etapa E y el barrido final de documentación.

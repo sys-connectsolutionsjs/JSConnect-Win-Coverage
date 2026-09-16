@@ -117,25 +117,50 @@ class App(tk.Tk):
         frame = ttk.Frame(dialog, padding=16)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Huella de esta computadora:").pack(anchor="w")
-        ttk.Label(frame, text=huella, font=("Consolas", 11, "bold")).pack(anchor="w", pady=(2, 8))
+        frame_huella = ttk.Frame(frame)
+        frame_huella.pack(fill="x", pady=(2, 8))
+        ttk.Label(frame_huella, text=huella, font=("Consolas", 11, "bold")).pack(
+            side="left"
+        )
+
+        def copiar_huella():
+            self.clipboard_clear()
+            self.clipboard_append(huella)
+            self.update()
+
+        ttk.Button(frame_huella, text="Copiar huella", command=copiar_huella).pack(
+            side="right"
+        )
         ttk.Label(frame, text="Enviala al encargado e ingresa el codigo de activacion:").pack(
             anchor="w"
         )
         txt_codigo = ttk.Entry(frame, width=36, font=("Consolas", 10))
         txt_codigo.pack(fill="x", pady=(4, 10))
 
+        def pegar_codigo():
+            try:
+                codigo = self.clipboard_get().strip()
+            except tk.TclError:
+                codigo = ""
+            txt_codigo.delete(0, tk.END)
+            txt_codigo.insert(0, codigo)
+
         def activar():
             codigo = txt_codigo.get().strip()
-            if signer.validar_codigo(huella, codigo):
+            valido, mensaje = signer.verificar_codigo(huella, codigo)
+            if valido:
                 activation_state.guardar(huella, codigo)
                 dialog.destroy()
                 self.lbl_estado.config(text="Estado: activado")
             else:
                 messagebox.showerror(
-                    "Activacion", "Codigo invalido o de otra maquina.", parent=dialog
+                    "Activacion", mensaje, parent=dialog
                 )
 
-        ttk.Button(frame, text="ACTIVAR", command=activar).pack()
+        botones = ttk.Frame(frame)
+        botones.pack()
+        ttk.Button(botones, text="Pegar codigo", command=pegar_codigo).pack(side="left")
+        ttk.Button(botones, text="ACTIVAR", command=activar).pack(side="left", padx=(8, 0))
         ttk.Label(
             frame, text="Sin codigo valido la aplicacion no valida.", foreground="gray"
         ).pack(pady=(10, 0))

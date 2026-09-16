@@ -1,14 +1,15 @@
-# Rotación de Credenciales WinForce
+# Renovación de Sesión y Cambio de Credenciales WinForce
 
-> Proceso para actualizar usuario/contraseña de WinForce cada 1-2 meses.
-> Solo el owner (responsable) puede hacerlo. Credenciales NUNCA salen de la PC proxy.
+> Proceso para renovar la sesión diaria y usar las credenciales nuevas cuando
+> WinForce las cambia cada 1-2 meses. Solo lo realiza el owner.
 
 ---
 
 ## Contexto
 
 - WinForce **rota credenciales cada 1-2 meses**: desactiva cuenta anterior + entrega nuevo user/pass al responsable
-- Credenciales viven **SOLO en la PC proxy** (keyring `JSWinProxy`/`credentials`)
+- El proxy persiste **solo la cookie `PHPSESSID`** en el keyring de LocalSystem
+  (`JSWinProxy`/`credentials_cookies`); no guarda usuario ni contraseña
 - 20 agentes **no tienen credenciales WinForce** — solo token proxy LAN
 - Rotación = actualizar 1 sola PC (la del proxy)
 
@@ -45,10 +46,10 @@ sesión (incluye el 2FA de Microsoft), y vuelva a pulsar el icono.
 - **Icono "Renovar sesion WinForce" del Escritorio** (login asistido con navegador
   aparte): doble clic → login → barra verde → cuadro "✓". Ver
   `python -m validator_app.proxy.rotate_creds [--preview|--fresh]`.
+- **Consola `JSConnect-Win-Owner.exe`**: el botón **Renovar sesión WinForce**
+  lanza el mismo flujo asistido y luego refresca el estado del proxy.
 - **`python -m validator_app.proxy.rotate_creds --manual`**: pega la `PHPSESSID`
   a mano (F12). No necesita Playwright ni el navegador.
-
-### Configuración de una vez — autocompletar la contraseña (solo para el fallback)
 
 ### Configuración de una vez — autocompletar la contraseña
 
@@ -137,10 +138,10 @@ Cuando haya agentes remotos y VPN (Tailscale):
 
 ```powershell
 # Estado rápido
-curl http://localhost:8080/admin/status
+curl.exe -H "X-Admin-Key: <admin_key>" http://localhost:8080/admin/status
 # {
 #   "logged_in": true,
-#   "session_age_seconds": 45,
+#   "session_age": 45,
 #   "creds_updated": "2026-08-25T14:30:00",
 #   "proxy_version": "c0d2f2a"
 # }
@@ -164,8 +165,8 @@ curl http://localhost:8080/health
 | El icono no abre nada / "Playwright no está instalado" | Chromium no descargado en esa PC | `python -m playwright install chromium` (o `install_service.bat`); mientras tanto `rotate_creds --manual` |
 | La ventana no llega a ponerse verde | Login no completado (falta el paso de Microsoft) | Volver a abrir el icono e iniciar sesión **por completo** antes de cerrar |
 | El navegador asistido se queda en un estado raro | Perfil corrupto | `python -m validator_app.proxy.rotate_creds --fresh` (borra `.browser_profile/`) |
-| Agentes siguen fallando tras renovar | Proxy con cookie vieja en memoria | Reiniciar servicio: `winsw.exe restart` (o esperar al siguiente `_relogin_silent` / ping de keepalive) |
-| Keyring no accesible | Usuario distinto al del servicio | Correr `rotate_creds` como el **mismo usuario** que corre el servicio |
+| Agentes siguen fallando tras renovar | La cookie fue rechazada o la sesión volvió a caducar | Revisar el mensaje de la consola/extensión y `/admin/status` con admin key |
+| La cookie no sobrevive al reinicio | No llegó al proceso LocalSystem | Renovar con el proxy activo y verificar `/local/renovar`; revisar logs |
 
 ---
 

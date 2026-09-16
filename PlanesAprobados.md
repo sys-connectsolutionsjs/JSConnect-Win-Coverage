@@ -205,12 +205,13 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   `/admin/*`, middleware token/IP/admin-key, exception handlers). 14 tests nuevos,
   104 pasando, ruff limpio. `tests/test_session_config.py` (Fase 3) y
   `tests/test_login_asistido.py` / `tests/test_instalar_extension.py` (Fase 2.5).
-- **Fase 5 — barrido final de la documentación. [LA ÚLTIMA del plan]** Coherencia
-  general (extensión = vía principal, login asistido + `--manual` = fallback) y
-  las **19 incoherencias doc↔código** verificadas el 2026-09-09, cada una con
-  `archivo:línea`. **No se ejecuta hasta cerrar R / 0.5 / C.12 / D / E.**
+- **Fase 5 — barrido final de la documentación. [LA ÚLTIMA del plan]** El
+  checklist siguiente conserva la auditoría del 2026-09-09 como trazabilidad.
+  El cierre 2026-09-16 corrigió las instrucciones afectadas por activación,
+  URLs, keyring, `/admin/config`, logs y renovación. Tras D/E se revalidan las
+  referencias restantes contra el código y se elimina de la cola lo resuelto.
 
-  _Las 11 previas (todas vigentes):_
+  _Hallazgos del 2026-09-09 (varios ya corregidos el 2026-09-16):_
   1. Rotación por usuario/contraseña inexistente — `docs/rotacion-credenciales.md:3,10,190`,
      `anotaciones.md:344,346` vs `server.py:120-121,686,692-694` (`server.py:12`).
   2. `version="dev"` vs commit SHA — `server.py:655,681,506` (y `:604` dice `1.0.0`)
@@ -240,7 +241,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   10-12. Tres refs a `py314` — `TestingLog.md:11,257`, `SkillsPropuestas.md:53`
      vs `pyproject.toml:10` (`py312`).
 
-  _Las 8 de la Etapa C (todas vigentes):_
+  _Hallazgos de la Etapa C (revalidar después de D/E):_
   13. `192.168.1.50:8080` sin esquema — `docs/proxy-config.md:26`, `README_PROXY.md:71`,
       `docs/proxy-deploy.md:95` (+ `README.md:51`, `docs/arquitectura.md:40`) vs `main_window.py:337-341`.
   14. Etiqueta "IP:puerto del proxy" no normaliza — `main_window.py:240`.
@@ -289,6 +290,11 @@ Activar end-to-end todo lo construido. Vista de conjunto en `Roadmap.md`. Los
 planes de trabajo originales (`shimmying-skipping-mochi.md`, `steady-crunching-music.md`)
 están archivados localmente en `~/.claude/plans/` de la PC donde se generaron —
 **su contenido vigente está resumido aquí**. Estado:
+
+La activación RSA y la consola separada del owner se completaron y probaron el
+2026-09-16; ya no forman parte de esta cola. Su historial está en `AGENTS.md` y
+`resumenes/2026-09-16.md`. La llave privada se transfiere por un canal privado,
+nunca con el repositorio.
 
 - **Etapa 0 — desbloquear el arranque. [COMPLETADA 2026-09-09]** `config.yaml` se
   lee (`d9c1ef7`); 3 bugs de `install_service.bat` + `winsw.xml` fuera de git
@@ -361,22 +367,29 @@ Probar el modo standalone pegando la `PHPSESSID`. Hoy exige borrar a mano
 proxy siempre gana (`main_window.py:75-77`, `:175`) y el diálogo de proxy no
 tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalone.
 
-### Etapa D — Servicio de Windows en la PC de oficina  [EN COLA — SIGUIENTE]
+### Etapa D — PC owner oficial y servicio de Windows  [EN COLA — SIGUIENTE]
 
-13. `install_service.bat` **como Administrador**, recorrer los **12 pasos**
+13. Clonar/actualizar `main` en la PC owner oficial. Transferir
+    `private_key.pem` por un canal privado, colocarla en
+    `generator/private_key.pem` o junto a `JSConnect-Win-Owner.exe`, restringir
+    su ACL y hacer una activación de control desde la consola owner.
+14. `install_service.bat` **como Administrador**, recorrer los **12 pasos**
     verificando cada uno (Python, deps, Chromium, `winsw.exe`, tokens,
     `config.yaml`, extensión, `winsw.xml`, install, start, health, **tarea de
     aviso `JSWinProxy-AvisoSesion` + fuente de eventos JSWinProxy**, icono `.lnk`).
-14. El servicio **sobrevive a un reinicio** y recupera la cookie del keyring —
+15. Iniciar sesión en WinForce y renovar por extensión o consola owner. El
+    servicio **sobrevive a un reinicio** y recupera la cookie del keyring —
     prueba de fuego de la Etapa 0 (config.yaml se lee) y la 0.5 (keyring
     coherente) juntas.
-15. Revisar `<repo>\logs\` (ahí escribe winsw, **no** el Visor de Eventos) y
+16. Configurar un agente de prueba con URL completa `http://<ip>:8080` y token;
+    validar cobertura y score reales.
+17. Revisar `<repo>\logs\` (ahí escribe winsw, **no** el Visor de Eventos) y
     confirmar que **ningún token aparece en los logs**.
-16. Verificar el aviso de la Etapa R end-to-end: forzar sesión muerta → evento
+18. Verificar el aviso de la Etapa R end-to-end: forzar sesión muerta → evento
     101 en el Visor de Eventos + popup de la tarea programada + badge/toast de la
     extensión. (En foreground sin elevar `eventcreate` da "Acceso denegado"; bajo
     LocalSystem funciona.)
-17. Regla de firewall para el puerto, **solo hacia la LAN** (`-Profile Domain,Private`).
+19. Regla de firewall para el puerto, **solo hacia la LAN** (`-Profile Domain,Private`).
 
 ### Etapa E — Runbook de la PC de oficina  [EN COLA — bloqueada por acceso físico]
 
@@ -406,8 +419,9 @@ Es **la última** — después de 0.5 / C.12 / D / E.
 
 - ~~**Login asistido con Playwright**~~ → **IMPLEMENTADO 2026-09-08** (Fase 2.5, ver
   arriba). `login_asistido.py` extrae la `PHPSESSID` de `context.cookies()` y
-  `rotate_creds.py` la guarda directo en keyring (no vía `/admin/login`, para que
-  funcione aunque el proxy esté caído).
+  `rotate_creds.py` la empuja al proceso del proxy por `/local/renovar`, con
+  `/admin/rotar` como fallback si no conecta; el servicio LocalSystem la guarda
+  en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.

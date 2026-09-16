@@ -3,6 +3,11 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
+$python = Join-Path $root ".venv\Scripts\python.exe"
+if (-not (Test-Path $python)) {
+    $python = "python"
+}
+
 # 1. Commit y tag actuales
 $commit = (git rev-parse HEAD 2>$null).Trim()
 if (-not $commit) { $commit = "unknown" }
@@ -23,7 +28,11 @@ REPO_NAME = "JSConnect-Win-Coverage"
 Set-Content -Path "$root\validator_app\version.py" -Value $content -Encoding UTF8
 
 # 3. Empaquetar con PyInstaller (un solo .exe, sin consola)
-python -m PyInstaller --onefile --windowed --name "JSConnect-Win-Coverage" main.py
+& $python -m PyInstaller --clean --noconfirm --onefile --windowed `
+    --name "JSConnect-Win-Coverage" main.py
+if ($LASTEXITCODE -ne 0) {
+    throw "No se pudo construir el ejecutable de agentes."
+}
 
 Write-Host ""
 Write-Host "Listo: dist\JSConnect-Win-Coverage.exe"
