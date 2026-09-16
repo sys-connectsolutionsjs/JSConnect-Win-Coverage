@@ -3,13 +3,13 @@
 Fecha de creación: 2026-08-21 · Proyecto: JSConnect-Win-Coverage
 
 ## Qué es este archivo
-Depósito COMPLETO y cronológico de los resúmenes de días pasados. Existe para
-que `ResumenDelDia.md` (que se lee con regularidad) se mantenga lo más LIGERO
-posible: solo contiene la sesión del día en curso.
+Índice cronológico CONDENSADO de las sesiones pasadas. Existe para ubicar rápido
+qué ocurrió y enlazar el snapshot completo en `resumenes/<fecha>.md`, mientras
+`ResumenDelDia.md` conserva únicamente el estado de la jornada en curso.
 
-**Regla de rotación**: al iniciar una sesión de un día nuevo, lo que quede en
-`ResumenDelDia.md` se MUEVE aquí (en orden cronológico, lo más nuevo arriba),
-y el archivo del día empieza limpio. Este archivo nunca se borra; solo crece.
+**Regla de rotación**: al cerrar una jornada, el contenido íntegro se copia a
+`resumenes/<fecha>.md` y aquí se agrega solo una entrada condensada, con lo más
+nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
