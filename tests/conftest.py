@@ -52,3 +52,16 @@ def avisos_capturados(monkeypatch):
         lambda self, evento, detalle="": eventos.append((evento, detalle)),
     )
     return eventos
+
+
+@pytest.fixture(autouse=True)
+def sin_config_yaml_real(monkeypatch, tmp_path):
+    """`ProxyConfig` lee `validator_app/proxy/config.yaml` de la PC donde corren los
+    tests. En una PC con el proxy instalado ese archivo existe (con ACL SYSTEM y
+    Administradores, ilegible sin elevar) y hacia fallar `test_proxy.py` con
+    PermissionError. Cada test apunta `yaml_file` a un archivo inexistente."""
+    from validator_app.proxy import config as proxy_config
+
+    monkeypatch.setitem(
+        proxy_config.ProxyConfig.model_config, "yaml_file", tmp_path / "sin-config.yaml"
+    )

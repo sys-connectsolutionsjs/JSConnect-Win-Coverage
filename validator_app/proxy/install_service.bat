@@ -8,6 +8,14 @@ setlocal enabledelayedexpansion
 
 title JSConnect Win Proxy - Instalador
 
+REM Ventana persistente: si no llega el argumento _run, el script se relanza dentro
+REM de "cmd /k" para que la consola NO se cierre nunca (doble clic, error
+REM inesperado, etc.). Cada paso verifica si ya esta hecho y lo salta.
+if /i not "%~1"=="_run" (
+    cmd /k ""%~f0" _run"
+    exit /b
+)
+
 echo.
 echo =====================================================================
 echo  JSCONNECT WIN PROXY - INSTALACION DEL SERVICIO
@@ -65,22 +73,39 @@ if not exist "%REPO_ROOT%\requirements-proxy.txt" (
     pause
     exit /b 1
 )
-pip install -r "%REPO_ROOT%\requirements-proxy.txt" --quiet
-if %errorLevel% neq 0 (
-    echo [ERROR] Fallo al instalar dependencias. Revisa tu conexion a internet.
-    pause
-    exit /b 1
+python -c "import fastapi, uvicorn, pydantic, pydantic_settings, yaml, playwright, httpx, keyring, cryptography, requests" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo [OK] Dependencias ya instaladas - nada que hacer.
+    set "R2=ya estaba"
+) else (
+    pip install -r "%REPO_ROOT%\requirements-proxy.txt" --quiet
+    if errorlevel 1 (
+        echo [ERROR] Fallo al instalar dependencias. Revisa tu conexion a internet.
+        pause
+        exit /b 1
+    )
+    echo [OK] Dependencias instaladas.
+    set "R2=hecho ahora"
 )
-echo [OK] Dependencias instaladas.
 
 REM Descargar el navegador para el login asistido (rotate_creds sin --manual)
 echo.
 echo [3/12] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
-python -m playwright install chromium
-if %errorLevel% neq 0 (
-    echo [WARN] No se pudo descargar Chromium. El icono "Renovar sesion WinForce"
-    echo        no funcionara hasta que corras: python -m playwright install chromium
-    echo        (mientras tanto: python -m validator_app.proxy.rotate_creds --manual)
+set "PW_OK="
+for /d %%d in ("%LOCALAPPDATA%\ms-playwright\chromium-*") do set "PW_OK=1"
+if defined PW_OK (
+    echo [OK] Chromium ya estaba descargado - nada que hacer.
+    set "R3=ya estaba"
+) else (
+    python -m playwright install chromium
+    if errorlevel 1 (
+        echo [WARN] No se pudo descargar Chromium. El icono "Renovar sesion WinForce"
+        echo        no funcionara hasta que corras: python -m playwright install chromium
+        echo        ^(mientras tanto: python -m validator_app.proxy.rotate_creds --manual^)
+        set "R3=FALLO - ver aviso"
+    ) else (
+        set "R3=hecho ahora"
+    )
 )
 
 REM Descargar winsw.exe
@@ -95,6 +120,14 @@ echo.
 echo [4/12] Descargando winsw.exe (Windows Service Wrapper)...
 set "WINSW_URL=https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET4.exe"
 set "WINSW_PATH=%BASE_DIR%\winsw.exe"
+
+REM Un winsw.exe de 0 bytes (descarga cortada) se descarta y se vuelve a bajar.
+if exist "%WINSW_PATH%" for %%f in ("%WINSW_PATH%") do if %%~zf equ 0 del "%WINSW_PATH%"
+if exist "%WINSW_PATH%" (
+    echo [OK] winsw.exe ya estaba descargado - nada que hacer.
+    set "R4=ya estaba"
+    goto :winsw_listo
+)
 
 where curl >nul 2>&1
 if %errorLevel% equ 0 (
@@ -118,14 +151,29 @@ if not exist "%WINSW_PATH%" (
     exit /b 1
 )
 echo [OK] winsw.exe descargado en %WINSW_PATH%
+set "R4=hecho ahora"
+:winsw_listo
 
 REM Generar / reutilizar tokens
 echo.
 echo [5/12] Tokens de seguridad...
 set "CONFIG_YAML=%BASE_DIR%\config.yaml"
+set "REGEN=0"
+set "OLD_PORT="
 if exist "%CONFIG_YAML%" (
-    echo [INFO] config.yaml ya existe: se reutilizan sus tokens y puerto.
-    echo        Para regenerar, borra config.yaml y vuelve a ejecutar.
+    echo [INFO] Ya hay tokens generados en config.yaml.
+    echo        CONSERVARLOS mantiene validos los tokens ya entregados a los agentes.
+    echo        REGENERARLOS crea tokens nuevos: hay que reconfigurar cada agente.
+    choice /c CR /t 20 /d C /n /m "Presiona C para CONSERVAR o R para REGENERAR (C por defecto en 20 s): "
+    if errorlevel 2 (
+        for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^proxy_port:" "%CONFIG_YAML%"`) do set "OLD_PORT=%%b"
+        set "REGEN=1"
+        del "%CONFIG_YAML%" "%BASE_DIR%\proxy_token.txt" "%BASE_DIR%\admin_key.txt" >nul 2>&1
+        echo [INFO] Tokens anteriores borrados: se generan nuevos.
+    )
+)
+if exist "%CONFIG_YAML%" (
+    echo [INFO] Se conservan los tokens y el puerto de config.yaml.
     for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^proxy_token:" "%CONFIG_YAML%"`) do call :trim_quotes PROXY_TOKEN %%b
     for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^admin_key:" "%CONFIG_YAML%"`) do call :trim_quotes ADMIN_KEY %%b
     for /f "usebackq tokens=1,* delims=: " %%a in (`findstr /R "^proxy_port:" "%CONFIG_YAML%"`) do set "PROXY_PORT=%%b"
@@ -135,7 +183,8 @@ if exist "%CONFIG_YAML%" (
         exit /b 1
     )
     if "!PROXY_PORT!"=="" set "PROXY_PORT=8080"
-    echo [OK] Tokens y puerto (!PROXY_PORT!) leidos de config.yaml.
+    echo [OK] Tokens y puerto ^(!PROXY_PORT!^) leidos de config.yaml.
+    set "R5=ya estaba"
 ) else (
     REM Una sola linea: cmd.exe no soporta cadenas multilinea en python -c.
     python -c "import secrets,pathlib; d=pathlib.Path(r'%BASE_DIR%'); (d/'proxy_token.txt').write_text(secrets.token_hex(32)); (d/'admin_key.txt').write_text(secrets.token_hex(32))"
@@ -152,6 +201,7 @@ if exist "%CONFIG_YAML%" (
         exit /b 1
     )
     echo [OK] Tokens generados (64 chars hex cada uno^).
+    set "R5=hecho ahora"
 )
 
 REM Verificar/crear config.yaml
@@ -159,11 +209,18 @@ echo.
 echo [6/12] Configurando config.yaml...
 if exist "%CONFIG_YAML%" (
     echo [INFO] Se mantiene el config.yaml existente.
+    set "R6=ya estaba"
 ) else (
     echo [INFO] Creando config.yaml nuevo con tokens generados...
     set "PROXY_PORT=8080"
+    if defined OLD_PORT set "PROXY_PORT=!OLD_PORT!"
     echo Verificando puerto !PROXY_PORT!...
-    netstat -an | findstr ":!PROXY_PORT! " >nul
+    if defined OLD_PORT (
+        echo [INFO] Se reutiliza el puerto anterior: lo ocupa el propio servicio.
+        ver >nul
+    ) else (
+        netstat -an | findstr ":!PROXY_PORT! " >nul
+    )
     if not errorlevel 1 (
         echo [WARN] Puerto !PROXY_PORT! ya esta en uso.
         set /p PROXY_PORT="Ingresa otro puerto (ej: 8081, 9000): "
@@ -207,6 +264,7 @@ if exist "%CONFIG_YAML%" (
         echo winforce_controllers: "https://appwinforce.win.pe/controllers"
     ) > "%CONFIG_YAML%"
     echo [OK] config.yaml creado en %CONFIG_YAML%
+    set "R6=hecho ahora"
 )
 
 REM Restringir config.yaml: contiene proxy_token + admin_key en texto plano.
@@ -223,7 +281,32 @@ echo.
 echo [7/12] Instalando la extension de Chrome "Renovar sesion WinForce"...
 cd /d "%BASE_DIR%\..\.."
 python -m validator_app.proxy._instalar_extension
+set "EXT_RC=!errorLevel!"
 cd /d "%BASE_DIR%"
+
+REM Chrome solo aplica la politica de fuerza-instalacion en PCs gestionadas
+REM (dominio o Azure AD). En una PC sin gestionar (p. ej. Windows Home) la ignora.
+REM Esto solo INFORMA: nunca detiene el instalador.
+set "PC_GESTIONADA=0"
+powershell -NoProfile -Command "if ((Get-CimInstance Win32_ComputerSystem).PartOfDomain) { exit 0 } else { exit 1 }" >nul 2>&1
+if !errorLevel! equ 0 set "PC_GESTIONADA=1"
+if "!PC_GESTIONADA!"=="0" (
+    dsregcmd /status 2>nul | findstr /R /C:"AzureAdJoined *: *YES" >nul
+    if !errorLevel! equ 0 set "PC_GESTIONADA=1"
+)
+if not "!EXT_RC!"=="0" (
+    echo [WARN] No se pudo registrar la politica de la extension de Chrome.
+    echo        El instalador continua: al final se explica como instalarla a mano.
+    set "R7=FALLO - instalar a mano (ver al final)"
+) else if "!PC_GESTIONADA!"=="1" (
+    echo [OK] Politica registrada. Chrome instalara la extension al reabrirse.
+    set "R7=politica registrada - verificar en Chrome"
+) else (
+    echo [AVISO] Politica registrada, pero esta PC no es de dominio ni Azure AD:
+    echo         Chrome probablemente NO cargue la extension solo.
+    echo         El instalador continua: al final se explica como instalarla a mano.
+    set "R7=politica registrada - instalar a mano (ver al final)"
+)
 
 REM Generar winsw.xml con paths absolutos
 echo.
@@ -232,7 +315,7 @@ REM El interprete REAL que corre ahora (no el primero del PATH, que puede ser el
 REM stub de Microsoft Store).
 for /f "delims=" %%i in ('python -c "import sys; print(sys.executable)"') do set "PYTHON_EXE=%%i"
 if not exist "%PYTHON_EXE%" (
-    echo [ERROR] No se pudo resolver el ejecutable de Python (%PYTHON_EXE%).
+    echo [ERROR] No se pudo resolver el ejecutable de Python ^(!PYTHON_EXE!^).
     pause
     exit /b 1
 )
@@ -242,7 +325,7 @@ echo [INFO] Usando Python: %PYTHON_EXE%
     echo ^<service^>
     echo   ^<id^>JSWinProxy^</id^>
     echo   ^<name^>JSConnect Win Proxy^</name^>
-    echo   ^<description^>Proxy local para validacion de cobertura y score crediticio (JSConnect Win Coverage). Recibe peticiones de agentes LAN y las reenvia a WinForce/Equifax usando una sola sesion.^</description^>
+    echo   ^<description^>Proxy local para validacion de cobertura y score crediticio ^(JSConnect Win Coverage^). Recibe peticiones de agentes LAN y las reenvia a WinForce/Equifax usando una sola sesion.^</description^>
     echo   ^<executable^>%PYTHON_EXE%^</executable^>
     echo   ^<arguments^>-m validator_app.proxy.server^</arguments^>
     echo   ^<workingdirectory^>%BASE_DIR%\..\..^</workingdirectory^>
@@ -257,29 +340,50 @@ echo [INFO] Usando Python: %PYTHON_EXE%
     echo ^</service^>
 ) > "%BASE_DIR%\winsw.xml"
 echo [OK] winsw.xml generado.
+set "R8=actualizado"
 
 REM Instalar servicio
 echo.
 echo [9/12] Instalando servicio Windows...
 cd /d "%BASE_DIR%"
-"%WINSW_PATH%" install
-if %errorLevel% neq 0 (
-    echo [ERROR] Fallo al instalar el servicio.
-    pause
-    exit /b 1
+sc query JSWinProxy >nul 2>&1
+if !errorLevel! equ 0 (
+    echo [OK] El servicio JSWinProxy ya estaba instalado - nada que hacer.
+    set "R9=ya estaba"
+) else (
+    "%WINSW_PATH%" install
+    if errorlevel 1 (
+        echo [ERROR] Fallo al instalar el servicio.
+        pause
+        exit /b 1
+    )
+    echo [OK] Servicio instalado.
+    set "R9=hecho ahora"
 )
-echo [OK] Servicio instalado.
 
 REM Iniciar servicio
 echo.
 echo [10/12] Iniciando servicio...
-"%WINSW_PATH%" start
-if %errorLevel% neq 0 (
-    echo [ERROR] Fallo al iniciar el servicio. Revisa los logs en %BASE_DIR%\..\..\logs\ (archivos rotados de winsw)
-    pause
-    exit /b 1
+sc query JSWinProxy | findstr /C:"RUNNING" >nul
+if !errorLevel! equ 0 (
+    if "!REGEN!"=="1" (
+        echo [INFO] Tokens regenerados: se reinicia el servicio para que los cargue.
+        "%WINSW_PATH%" restart
+        set "R10=reiniciado con tokens nuevos"
+    ) else (
+        echo [OK] El servicio ya estaba en ejecucion - nada que hacer.
+        set "R10=ya estaba"
+    )
+) else (
+    "%WINSW_PATH%" start
+    if errorlevel 1 (
+        echo [ERROR] Fallo al iniciar el servicio. Revisa los logs en %BASE_DIR%\..\..\logs\ ^(archivos rotados de winsw^)
+        pause
+        exit /b 1
+    )
+    echo [OK] Servicio iniciado.
+    set "R10=hecho ahora"
 )
-echo [OK] Servicio iniciado.
 
 REM Esperar un momento y verificar health
 echo.
@@ -290,7 +394,7 @@ set "HEALTH_URL=http://localhost:%PROXY_PORT%/health"
 echo Probando %HEALTH_URL% ...
 curl -s -m 5 "%HEALTH_URL%" > health_check.tmp 2>&1
 if %errorLevel% neq 0 (
-    echo [WARN] Health check fallo (curl no disponible o servicio no listo).
+    echo [WARN] Health check fallo ^(curl no disponible o servicio no listo^).
     echo         Verifica manualmente: curl %HEALTH_URL%
 ) else (
     type health_check.tmp
@@ -314,36 +418,68 @@ echo [11/12] Registrando la tarea de aviso "sesion caducada"...
 REM Registrar la fuente de eventos (una vez, elevado) para que el servicio
 REM LocalSystem pueda escribir en el Registro de Windows sin "Acceso denegado".
 powershell -NoProfile -Command "if (-not [System.Diagnostics.EventLog]::SourceExists('JSWinProxy')) { New-EventLog -LogName Application -Source JSWinProxy }" 2>nul
+schtasks /query /tn "JSWinProxy-AvisoSesion" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo [OK] La tarea de aviso ya estaba registrada - nada que hacer.
+    set "R11=ya estaba"
+    goto :tarea_lista
+)
 schtasks /create /tn "JSWinProxy-AvisoSesion" /f /ru INTERACTIVE ^
   /sc ONEVENT /ec Application ^
   /mo "*[System[Provider[@Name='JSWinProxy'] and EventID=101]]" ^
   /tr "msg * La sesion de WinForce del proxy caduco. Abre Chrome y pulsa el icono 'Renovar sesion' (badge rojo)." 2>nul
 if %errorLevel% equ 0 (
     echo [OK] Tarea de aviso registrada. El owner vera un popup cuando la sesion caduque.
+    set "R11=hecho ahora"
 ) else (
+    set "R11=FALLO - ver aviso"
     echo [WARN] No se pudo registrar la tarea de aviso. El badge de la extension
     echo        y el Visor de Eventos siguen funcionando; registra la tarea a mano si quieres el popup.
 )
+:tarea_lista
 
 REM Crear el acceso directo "Renovar sesion WinForce" en el Escritorio
 echo.
 echo [12/12] Creando el icono "Renovar sesion WinForce" en el Escritorio...
+powershell -NoProfile -Command "if (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Renovar sesion WinForce.lnk')) { exit 0 } else { exit 1 }" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo [OK] El icono ya estaba en el Escritorio - nada que hacer.
+    set "R12=ya estaba"
+    goto :icono_listo
+)
 for /f "delims=" %%p in ('where pythonw.exe 2^>nul') do set "PYTHONW_EXE=%%p"
 if not defined PYTHONW_EXE set "PYTHONW_EXE=pythonw.exe"
 set "REPO_ROOT=%BASE_DIR%\..\.."
 powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell; $l=$w.CreateShortcut((Join-Path $w.SpecialFolders('Desktop') 'Renovar sesion WinForce.lnk')); $l.TargetPath='%PYTHONW_EXE%'; $l.Arguments='-m validator_app.proxy.rotate_creds'; $l.WorkingDirectory=(Resolve-Path '%REPO_ROOT%').Path; $l.IconLocation='shell32.dll,44'; $l.Description='Renueva la sesion de WinForce del proxy'; $l.Save()" 2>nul
 if %errorLevel% equ 0 (
     echo [OK] Icono creado. El owner solo tiene que hacer doble clic e iniciar sesion.
+    set "R12=hecho ahora"
 ) else (
+    set "R12=FALLO - ver aviso"
     echo [WARN] No se pudo crear el icono. Crea a mano un acceso directo a:
-    echo        %PYTHONW_EXE% -m validator_app.proxy.rotate_creds  (en %BASE_DIR%\..\..)
+    echo        %PYTHONW_EXE% -m validator_app.proxy.rotate_creds  ^(en %BASE_DIR%\..\..^)
 )
+
+:icono_listo
 
 REM Resumen final
 echo.
 echo =====================================================================
 echo  INSTALACION COMPLETADA
 echo =====================================================================
+echo.
+echo RESUMEN DE PASOS (hecho ahora / ya estaba de antes^):
+echo   [2/12]  Dependencias Python ........ !R2!
+echo   [3/12]  Chromium ................... !R3!
+echo   [4/12]  winsw.exe .................. !R4!
+echo   [5/12]  Tokens ..................... !R5!
+echo   [6/12]  config.yaml ................ !R6!
+echo   [7/12]  Extension de Chrome ........ !R7!
+echo   [8/12]  winsw.xml .................. !R8!
+echo   [9/12]  Servicio instalado ......... !R9!
+echo   [10/12] Servicio en ejecucion ...... !R10!
+echo   [11/12] Tarea de aviso ............. !R11!
+echo   [12/12] Icono del Escritorio ....... !R12!
 echo.
 echo Servicio:     JSWinProxy (JSConnect Win Proxy)
 echo Puerto:       %PROXY_PORT%
@@ -383,6 +519,19 @@ echo                   Fallback: icono "Renovar sesion WinForce" del Escritorio,
 echo                   o python -m validator_app.proxy.rotate_creds [--manual]
 echo   Ver avisos:     Visor de Eventos -^> Registros de Windows -^> Aplicacion,
 echo                   origen "JSWinProxy" (ID 101 = caduco, 102 = renovada)
+echo.
+echo =====================================================================
+echo  EXTENSION DE CHROME - si en chrome://extensions NO aparece
+echo  "Renovar sesion WinForce", instalala a mano ^(una sola vez^):
+echo =====================================================================
+echo   1. Abre Chrome y escribe en la barra de direcciones: chrome://extensions
+echo   2. Activa "Modo de desarrollador" ^(arriba a la derecha^).
+echo   3. Pulsa "Cargar descomprimida" y elige esta carpeta:
+echo      %BASE_DIR%\.extension_build
+echo   4. Fija el icono con el puzzle y el pin, en la barra de Chrome.
+echo   Chrome mostrara un aviso por el modo desarrollador: es normal.
+echo   Sin extension tambien puedes renovar la sesion con el icono
+echo   "Renovar sesion WinForce" del Escritorio.
 echo.
 echo CONFIGURACION AGENTES (en cada una de las 20 maquinas):
 echo   1. Ejecutar JSConnect-Win-Coverage.exe

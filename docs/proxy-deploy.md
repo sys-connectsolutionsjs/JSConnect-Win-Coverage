@@ -39,6 +39,17 @@ cd JSConnect-Win-Coverage
 
 ### Qué hace `install_service.bat` (automático)
 
+El instalador es **re-ejecutable sin riesgo**: cada paso comprueba si ya está hecho
+(dependencias, Chromium, `winsw.exe`, tokens/`config.yaml`, servicio instalado y en
+ejecución, tarea de aviso, icono del Escritorio), lo salta con "ya estaba" y
+continúa; al final muestra un resumen "hecho ahora / ya estaba" por paso. La
+ventana no se cierra sola: se relanza en `cmd /k`.
+
+Si ya hay tokens (`config.yaml`), el paso 5 lo avisa y pregunta: **C** conserva
+(por defecto tras 20 s; los agentes ya configurados siguen funcionando) o **R**
+regenera (tokens nuevos, se reinicia el servicio y hay que reconfigurar cada
+agente).
+
 1. **Verifica Python 3.12+** en PATH
 2. **Instala dependencias** desde la raíz del repositorio
 3. **Instala Chromium** para el login asistido de fallback
@@ -47,7 +58,13 @@ cd JSConnect-Win-Coverage
    - `proxy_token` = `secrets.token_hex(32)` (64 chars hex)
    - `admin_key` = `secrets.token_hex(32)` (64 chars hex)
 6. **Crea `config.yaml`** (gitignored) con tokens + configuración y ACL
-7. **Empaqueta y fuerza-instala la extensión de Chrome**
+7. **Empaqueta y registra la política de la extensión de Chrome**. Chrome solo la
+   aplica en PC gestionadas (dominio o Azure AD, p. ej. Windows 10 Pro unido a
+   dominio); en Windows Home/WORKGROUP la ignora. El instalador lo detecta, avisa
+   en el paso 7 **sin detenerse** y al final imprime cómo instalarla a mano
+   (`chrome://extensions` → Modo de desarrollador → Cargar descomprimida →
+   `validator_app\proxy\.extension_build`). Alternativa sin Chrome: el icono
+   "Renovar sesion WinForce" del Escritorio.
 8. **Genera `winsw.xml`** con paths absolutos
 9. **Instala e inicia el servicio**
 10. **Prueba el health check**

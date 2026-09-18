@@ -314,6 +314,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 30. **`PlanesAprobados.md` — cola actualizada** [2026-09-09]: añadido el "Plan de puesta en marcha del proxy" (Etapas 0/A–E con estado; antes solo vivía en `~/.claude/plans/`, contra la regla de que es una COLA). El one-liner "Fase 5 — docs" pasó a ser el **checklist completo de las 19 incoherencias doc↔código** (11 previas + 8 de la Etapa C), cada una con `archivo:línea` del doc y del código. **La Fase 5 sigue siendo la última** — se ejecuta después de 0.5/C.12/D/E.
 31. **Etapa 0.5 — coherencia del almacén de la cookie con LocalSystem** [COMPLETADO — verificado 2026-09-11]: `rotate_creds.py` ya no escribe la cookie directo al keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía); ahora `push_session_cookie()` la empuja por HTTP: `/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza. `config.py` gana `proxy_local_url` (ignora `proxy_host=0.0.0.0` de producción) — arregla de paso un bug latente de `_verificar_proxy()`. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo (cookie falsa → 401 real de `/local/renovar`). **129 tests, ruff limpio.**
 32. **Activación RSA real + consola owner** [COMPLETADO — verificado 2026-09-16]: `signer.py` contiene la llave pública real y diagnósticos de activación; la GUI del agente copia la huella y pega el código; `generator/owner_app.py` genera/copia códigos, consulta proxy/servicio y lanza la renovación WinForce; `build-owner.ps1` genera el ejecutable separado. La privada permanece ignorada y con ACL restringida. Prueba manual completa aprobada en esta PC y builds limpios de agente/owner. **141 tests, ruff limpio.** La Etapa D en la PC owner oficial sigue pendiente.
+33. **Ensayo del proxy en la PC de desarrollo + instalador re-ejecutable** [EN CURSO — 2026-09-18]: `install_service.bat` se relanza en `cmd /k` (ventana persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un resumen final; el paso 5 avisa si ya hay tokens y pregunta Conservar/Regenerar (por defecto Conservar a los 20 s; al regenerar reutiliza el puerto y reinicia el servicio). Bug corregido: `)` sin escapar en `echo` dentro de bloques `( ... )` abortaba el script en el paso 5; guarda en `tests/test_install_bat.py`. La extensión de Chrome no se carga sola en una PC no gestionada (Windows Home/WORKGROUP: Chrome ignora la política `file:///`): el paso 7 detecta dominio/Azure AD, solo avisa y el final imprime la carga manual (`.extension_build`). `generator/owner_app.py`: si `config.yaml` (ACL SYSTEM/Administradores) no se puede leer, la consola usa `http://127.0.0.1:8080` en vez de "falta configurar el servicio". `tests/conftest.py` aísla `config.yaml` real. **146 tests, ruff limpio.** Pendiente: sesión WinForce que muere (hipótesis: dos logins en paralelo), persistencia tras reinicio, agente contra el proxy, firewall, carga y desinstalar el ensayo.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -744,3 +745,26 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   LocalSystem después de reiniciar; configurar un agente con
   `http://<ip>:8080`; validar cobertura/score, logs, avisos y firewall LAN. Luego
   cerrar el runbook de la Etapa E y el barrido final de documentación.
+
+
+### Cierre de la sesión 2026-09-18 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Decisión**: ensayo completo en la PC de desarrollo antes de la PC owner
+  oficial (Windows 10 Pro). La oficina tiene 15 PC hoy; meta 35; primero 2
+  agentes piloto. No debe coexistir con el proxy de la oficina (una sola sesión
+  WinForce); se desinstala al terminar.
+- **Instalador**: ventana persistente, idempotencia por paso, pregunta de tokens
+  y aviso de la extensión (ver punto 33). Se ejecutó elevado dos veces sin
+  problemas.
+- **Hallazgos**: el instalador no crea regla de firewall (solo imprime el
+  comando); la consola owner no crea acceso directo; la extensión forzada por
+  política no se aplica en PC no gestionada; con `config.yaml` instalado la
+  suite fallaba sin elevar (corregido con fixture en `conftest.py`).
+- **Abierto**: `/health` mostró `logged_in: true, session_alive: false` y el log
+  registró "sesión MUERTA" a las 15:06, 15:32 y 15:45 pese a renovaciones 200.
+  Hipótesis sin confirmar: el login del Chrome cotidiano y el de la ventana del
+  icono se invalidan entre sí. Prueba propuesta: una sola vía (Chrome + extensión)
+  y `/health` a 1, 5 y 10 minutos.
+- **Siguiente**: confirmar la sesión estable, persistencia tras `Restart-Service`,
+  agente contra el proxy, firewall, `tools/probar_concurrencia.py`, desinstalar el
+  ensayo; luego Etapa D/E en la PC owner y Fase 5.

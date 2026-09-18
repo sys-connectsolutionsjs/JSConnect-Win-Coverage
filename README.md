@@ -118,6 +118,8 @@ El instalador:
 - Crea `config.yaml` (gitignored) e instala servicio `JSWinProxy`
 - Prueba `/health` y muestra tokens en consola + guarda en `proxy_token.txt` / `admin_key.txt`
 
+Se puede ejecutar más de una vez: cada paso verifica si ya está hecho y lo salta, y si ya hay tokens pregunta si conservarlos o regenerarlos. La ventana no se cierra sola. La extensión de Chrome solo se instala sola en PC gestionadas (dominio/Azure AD); si no aparece en `chrome://extensions`, el instalador imprime cómo cargarla a mano.
+
 Ver `docs/proxy-deploy.md` para detalles completos, firewall, rotación de credenciales y troubleshooting.
 
 ### Seguridad y avisos
@@ -255,6 +257,8 @@ The installer:
 - Generates secure `proxy_token` and `admin_key` (auto)
 - Creates `config.yaml` (gitignored) and installs `JSWinProxy` service
 - Tests `/health` and shows tokens in console + saves to `proxy_token.txt` / `admin_key.txt`
+
+It can be run more than once: every step checks whether it is already done and skips it, and if tokens already exist it asks whether to keep or regenerate them. The window never closes by itself. The Chrome extension is only installed automatically on managed PCs (domain/Azure AD); if it does not appear in `chrome://extensions`, the installer prints how to load it manually.
 
 See `docs/proxy-deploy.md` for full details, firewall, credential rotation, and troubleshooting.
 

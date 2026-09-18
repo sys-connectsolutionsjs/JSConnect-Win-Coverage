@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-09-16.
+Última actualización: 2026-09-18.
 
 ---
 
@@ -12,7 +12,8 @@ cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 El núcleo, proxy, keepalive, extensión, GUI, detección de sesión muerta,
 persistencia bajo LocalSystem y activación RSA están construidos y probados. La
 consola owner también generó un código que activó correctamente un agente. El
-siguiente paso es instalar y validar el servicio en la PC owner oficial; nada
+siguiente paso es cerrar el ensayo completo en la PC de desarrollo (en curso desde
+2026-09-18) y luego instalar y validar el servicio en la PC owner oficial; nada
 corre en producción todavía.
 
 ---
@@ -38,6 +39,16 @@ corre en producción todavía.
 ---
 
 ## Aprobado y pendiente — en orden de ejecución
+
+### 0. Ensayo previo en la PC de desarrollo — en curso (2026-09-18)
+
+Instalador re-ejecutable con pregunta de tokens ya probado dos veces. Falta:
+sesión WinForce estable (una sola vía de login), persistencia tras reiniciar el
+servicio, agente contra el proxy, firewall (el instalador solo imprime el
+comando), carga con `tools/probar_concurrencia.py` y desinstalar el ensayo.
+Hallazgo: la extensión de Chrome forzada por política solo se aplica en PC
+gestionada (dominio/Azure AD); en las demás se carga a mano (Modo de
+desarrollador → Cargar descomprimida → `.extension_build`).
 
 ### 1. Etapa D — PC owner oficial y servicio de Windows
 

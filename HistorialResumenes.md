@@ -13,6 +13,27 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-18 — Sesión — instalador re-ejecutable y preparación del ensayo en la PC dev
+- **Snapshot completo**: `resumenes/2026-09-18.md`.
+- **Decisión**: ensayo completo del proxy en la PC de desarrollo antes de la PC
+  owner oficial (sin coexistir con el proxy de la oficina). La oficina tiene 15 PC
+  hoy; meta 35; piloto de 2 agentes primero.
+- **Hallazgos**: la consola owner no crea acceso directo; el instalador no crea
+  regla de firewall; `winsw install` fallaba en una segunda ejecución.
+- **Cambio**: `install_service.bat` ahora relanza en `cmd /k` (ventana
+  persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un
+  resumen final. `docs/proxy-deploy.md` actualizado.
+- **Bug del paso 5**: `)` sin escapar en `echo` dentro de bloques abortaba el
+  script; corregido con guarda en `tests/test_install_bat.py`. El paso 5 pregunta
+  Conservar/Regenerar tokens. La extensión de Chrome no se carga sola en PC no
+  gestionada (Home/WORKGROUP); el paso 7 avisa y el final explica la carga manual.
+- **Consola owner**: "falta configurar el servicio" era un `PermissionError` sobre
+  `config.yaml`; ahora cae a `127.0.0.1:8080`. `.exe` reconstruido; tests
+  hermeticos (146, ruff limpio).
+- **Pendiente al cierre**: la sesión WinForce murió 3 veces (hipótesis: dos logins
+  en paralelo, sin confirmar); persistencia, agente, firewall y carga; luego
+  Etapa D/E.
+
 ### 2026-09-16 — Sesión — activación RSA real y consola del owner
 - **Snapshot completo**: `resumenes/2026-09-16.md`.
 - **Activación habilitada**: se derivó e incorporó la llave pública del PEM
