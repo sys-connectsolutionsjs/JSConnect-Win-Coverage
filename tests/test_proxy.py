@@ -637,3 +637,17 @@ def test_ip_in_allowed_networks():
     assert server._ip_in_allowed_networks("192.168.5.5", redes) is True
     assert server._ip_in_allowed_networks("8.8.8.8", redes) is False
     assert server._ip_in_allowed_networks("no-es-ip", redes) is False
+
+
+def test_ip_in_allowed_networks_loopback_siempre_permitido():
+    # La PC del proxy usada como agente llega como 127.0.0.1 / ::1.
+    for redes in (["192.168.0.0/16"], []):
+        assert server._ip_in_allowed_networks("127.0.0.1", redes) is True
+        assert server._ip_in_allowed_networks("::1", redes) is True
+
+
+def test_ip_in_allowed_networks_ip_publica_del_router_no_se_permite():
+    # La salida NAT del router (IP publica) no esta en la whitelist ni debe estarlo.
+    redes = ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "100.64.0.0/10"]
+    for publica in ("162.120.185.241", "38.253.147.12", "72.14.201.203"):
+        assert server._ip_in_allowed_networks(publica, redes) is False

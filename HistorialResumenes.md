@@ -13,26 +13,26 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
-### 2026-09-18 — Sesión — instalador re-ejecutable y preparación del ensayo en la PC dev
+### 2026-09-18 — Sesión — ensayo del proxy en la PC dev: instalador re-ejecutable, consola owner y control de acceso
 - **Snapshot completo**: `resumenes/2026-09-18.md`.
-- **Decisión**: ensayo completo del proxy en la PC de desarrollo antes de la PC
-  owner oficial (sin coexistir con el proxy de la oficina). La oficina tiene 15 PC
-  hoy; meta 35; piloto de 2 agentes primero.
-- **Hallazgos**: la consola owner no crea acceso directo; el instalador no crea
-  regla de firewall; `winsw install` fallaba en una segunda ejecución.
-- **Cambio**: `install_service.bat` ahora relanza en `cmd /k` (ventana
-  persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un
-  resumen final. `docs/proxy-deploy.md` actualizado.
-- **Bug del paso 5**: `)` sin escapar en `echo` dentro de bloques abortaba el
-  script; corregido con guarda en `tests/test_install_bat.py`. El paso 5 pregunta
-  Conservar/Regenerar tokens. La extensión de Chrome no se carga sola en PC no
-  gestionada (Home/WORKGROUP); el paso 7 avisa y el final explica la carga manual.
-- **Consola owner**: "falta configurar el servicio" era un `PermissionError` sobre
-  `config.yaml`; ahora cae a `127.0.0.1:8080`. `.exe` reconstruido; tests
-  hermeticos (146, ruff limpio).
-- **Pendiente al cierre**: la sesión WinForce murió 3 veces (hipótesis: dos logins
-  en paralelo, sin confirmar); persistencia, agente, firewall y carga; luego
-  Etapa D/E.
+- **Decisión**: ensayo completo del proxy en la PC de desarrollo antes de la PC owner
+  oficial (sin coexistir con el proxy de la oficina). La oficina tiene 15 PC hoy; meta
+  35; piloto de 2 agentes primero.
+- **Instalador**: `install_service.bat` re-ejecutable (ventana `cmd /k`, cada paso
+  verifica "ya estaba"/"hecho ahora", resumen final) y pregunta Conservar/Regenerar
+  tokens. Bug del paso 5 (`)` sin escapar en `echo` dentro de bloques) corregido con
+  guarda `tests/test_install_bat.py`. Paso 7: aviso (sin bloquear) y carga manual de la
+  extensión cuando la PC no está gestionada (Windows Home/WORKGROUP).
+- **Consola owner**: ya no dice "falta configurar el servicio" (usa `127.0.0.1:8080`
+  ante `config.yaml` ilegible o inexistente en el `.exe`); botón **Reiniciar servicio**
+  (UAC). **Agente**: menú **Activación / Huella de la PC**.
+- **Control de acceso**: `localhost` daba 403; loopback siempre permitido. Decisión
+  documentada: las IP públicas del router no se agregan; VPN futura cubierta (Tailscale)
+  o se añade su rango. Docs: arquitectura, Escalabilidad, glosario, runbook de pendrive.
+- **Calidad**: 157 tests, ruff limpio; `conftest.py` aísla el `config.yaml` real.
+- **Pendiente al cierre**: sesión WinForce que murió 3 veces (hipótesis: dos logins en
+  paralelo, sin confirmar); persistencia tras reinicio, firewall desde otra PC, carga,
+  desinstalar el ensayo; luego Etapa D/E en la PC oficial y Fase 5.
 
 ### 2026-09-16 — Sesión — activación RSA real y consola del owner
 - **Snapshot completo**: `resumenes/2026-09-16.md`.

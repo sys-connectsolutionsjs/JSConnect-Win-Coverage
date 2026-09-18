@@ -71,3 +71,46 @@ def test_consultar_proxy_config_invalida_usa_puerto_por_defecto(monkeypatch):
 
     assert owner_app.consultar_proxy() == "Proxy: no responde localmente"
     assert visitadas == ["http://127.0.0.1:8080/health"]
+
+
+def test_comando_reinicio_pide_elevacion_y_reinicia_el_servicio():
+    comando = owner_app.comando_reinicio()
+    assert comando[0] == "powershell"
+    script = comando[-1]
+    assert "-Verb RunAs" in script
+    assert "Restart-Service JSWinProxy" in script
+
+
+class _Resultado:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def test_reiniciar_servicio_ok():
+    assert owner_app.reiniciar_servicio(lambda *a, **k: _Resultado(0)) == (
+        True,
+        "Servicio reiniciado.",
+    )
+
+
+def test_reiniciar_servicio_uac_cancelado():
+    ok, mensaje = owner_app.reiniciar_servicio(
+        lambda *a, **k: _Resultado(owner_app.CODIGO_UAC_CANCELADO)
+    )
+    assert ok is False
+    assert "UAC" in mensaje
+
+
+def test_reiniciar_servicio_fallo_dentro_de_la_sesion_elevada():
+    ok, mensaje = owner_app.reiniciar_servicio(lambda *a, **k: _Resultado(1))
+    assert ok is False
+    assert "codigo 1" in mensaje
+
+
+def test_reiniciar_servicio_no_lanza_si_powershell_no_existe():
+    def sin_powershell(*a, **k):
+        raise OSError("no existe")
+
+    ok, mensaje = owner_app.reiniciar_servicio(sin_powershell)
+    assert ok is False
+    assert "PowerShell" in mensaje

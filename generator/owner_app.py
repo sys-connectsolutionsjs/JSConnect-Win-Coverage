@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -27,6 +28,45 @@ def estado_servicio(salida: str) -> str:
     if "STOPPED" in salida:
         return "Servicio proxy: detenido"
     return "Servicio proxy: no instalado o sin estado disponible"
+
+
+CODIGO_UAC_CANCELADO = 2
+ESPERA_ARRANQUE_SEGUNDOS = 5
+
+
+def comando_reinicio() -> list[str]:
+    """PowerShell que pide elevacion (aviso UAC) y reinicia el servicio.
+
+    Codigos de salida: 0 = reiniciado, 2 = no se concedio/no se pudo elevar
+    (UAC cancelado), cualquier otro = el reinicio fallo dentro de la sesion elevada."""
+    script = (
+        "try { "
+        "$p = Start-Process powershell -Verb RunAs -Wait -PassThru -WindowStyle Hidden "
+        "-ErrorAction Stop "
+        "-ArgumentList '-NoProfile','-Command','Restart-Service JSWinProxy -ErrorAction Stop'; "
+        "exit $p.ExitCode "
+        f"}} catch {{ exit {CODIGO_UAC_CANCELADO} }}"
+    )
+    return ["powershell", "-NoProfile", "-Command", script]
+
+
+def reiniciar_servicio(runner=subprocess.run) -> tuple[bool, str]:
+    """Reinicia JSWinProxy con permisos de administrador (pide confirmacion UAC).
+
+    La sesion WinForce se conserva: la cookie vive en el keyring, no en memoria."""
+    try:
+        resultado = runner(
+            comando_reinicio(), capture_output=True, text=True, timeout=120, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return False, "El reinicio tardo demasiado. Revisa el estado del servicio."
+    except OSError as exc:
+        return False, f"No se pudo lanzar PowerShell: {exc}"
+    if resultado.returncode == 0:
+        return True, "Servicio reiniciado."
+    if resultado.returncode == CODIGO_UAC_CANCELADO:
+        return False, "No se concedio el permiso de administrador (aviso UAC cancelado)."
+    return False, f"No se pudo reiniciar el servicio (codigo {resultado.returncode})."
 
 
 def consultar_servicio() -> str:
@@ -118,6 +158,10 @@ class OwnerApp(tk.Tk):
         ttk.Button(buttons, text="Renovar sesion WinForce", command=self.renovar_sesion).pack(
             side="left", padx=(8, 0)
         )
+        self.btn_reiniciar = ttk.Button(
+            buttons, text="Reiniciar servicio", command=self.reiniciar_servicio
+        )
+        self.btn_reiniciar.pack(side="left", padx=(8, 0))
 
         self.lbl_llave = ttk.Label(main, text="", foreground="#555555")
         self.lbl_llave.pack(anchor="w", pady=(14, 0))
@@ -159,6 +203,30 @@ class OwnerApp(tk.Tk):
             self.after(0, lambda: self.lbl_proxy.config(text=proxy))
 
         threading.Thread(target=consultar, daemon=True).start()
+
+    def reiniciar_servicio(self) -> None:
+        if not messagebox.askyesno(
+            "Reiniciar servicio",
+            "Se reiniciara el servicio del proxy (Windows pedira permiso de "
+            "administrador).\n\nLa sesion de WinForce se conserva. Los agentes "
+            "pueden fallar unos segundos.\n\n¿Continuar?",
+            parent=self,
+        ):
+            return
+        self.btn_reiniciar.config(state="disabled")
+
+        def reiniciar() -> None:
+            ok, mensaje = reiniciar_servicio()
+            if ok:
+                time.sleep(ESPERA_ARRANQUE_SEGUNDOS)
+            else:
+                self.after(
+                    0, lambda: messagebox.showerror("Reiniciar servicio", mensaje, parent=self)
+                )
+            self.after(0, lambda: self.btn_reiniciar.config(state="normal"))
+            self.after(0, self.actualizar_estado)
+
+        threading.Thread(target=reiniciar, daemon=True).start()
 
     def renovar_sesion(self) -> None:
         def renovar() -> None:

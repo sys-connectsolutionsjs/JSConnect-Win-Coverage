@@ -35,6 +35,7 @@ corre en producción todavía.
 | 2026-09-11 | **Etapa 0.5** — cookie enviada al proceso LocalSystem por HTTP | `f5eb257` |
 | 2026-09-15 | Ensayo del instalador: WinSW 404 y redirecciones CMD corregidos | `abff2e4` `7306b9b` |
 | 2026-09-16 | **Activación RSA + consola owner** — firma real, UX de portapapeles, builds separados y prueba manual exitosa | `784bd27` |
+| 2026-09-18 | **Ensayo en la PC dev** — instalador re-ejecutable, consola owner con Reiniciar servicio, Activación/Huella en el agente, loopback permitido y tests hermeticos (157) | `2c4a757` `63ca477` + cierre del día |
 
 ---
 
@@ -42,11 +43,13 @@ corre en producción todavía.
 
 ### 0. Ensayo previo en la PC de desarrollo — en curso (2026-09-18)
 
-Instalador re-ejecutable con pregunta de tokens ya probado dos veces. Falta:
+Instalador re-ejecutable con pregunta de tokens ya probado dos veces; consola owner
+(con Reiniciar servicio) y agente contra el proxy probados. Falta:
 sesión WinForce estable (una sola vía de login), persistencia tras reiniciar el
 servicio, agente contra el proxy, firewall (el instalador solo imprime el
 comando), carga con `tools/probar_concurrencia.py` y desinstalar el ensayo.
-Hallazgo: la extensión de Chrome forzada por política solo se aplica en PC
+Hallazgo: `localhost` daba 403 por `allowed_networks` (corregido: loopback siempre
+permitido; ver `docs/arquitectura.md`, "Control de acceso"). Hallazgo: la extensión de Chrome forzada por política solo se aplica en PC
 gestionada (dominio/Azure AD); en las demás se carga a mano (Modo de
 desarrollador → Cargar descomprimida → `.extension_build`).
 

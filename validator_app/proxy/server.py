@@ -708,9 +708,13 @@ async def verify_admin_key(
 
 
 def _ip_in_allowed_networks(ip_str: str, networks: list[str]) -> bool:
+    """True si la IP de origen es loopback o esta en `allowed_networks`.
+
+    Loopback (127.0.0.0/8, ::1) siempre se permite: es la propia PC del proxy
+    usandolo como agente. No abre nada: /api/* sigue exigiendo X-Proxy-Token."""
     try:
         ip = ipaddress.ip_address(ip_str)
-        return any(ip in ipaddress.ip_network(net) for net in networks)
+        return ip.is_loopback or any(ip in ipaddress.ip_network(net) for net in networks)
     except Exception:
         return False
 

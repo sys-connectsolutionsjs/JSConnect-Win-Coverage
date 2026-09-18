@@ -35,8 +35,11 @@ winforce_score_timeout: 90         # Consulta score (más lento, SOAP Equifax)
 keepalive_enabled: true
 keepalive_interval_seconds: 900    # 15 min (validado en la investigación de keepalive)
 
-# Redes permitidas para agentes (CIDR)
-# LAN estándar + Tailscale CGNAT (100.64.0.0/10)
+# Redes permitidas para agentes (CIDR): IP de ORIGEN que ve el proxy.
+# LAN estándar + Tailscale CGNAT (100.64.0.0/10). Loopback (127.0.0.1/::1) SIEMPRE
+# se permite. NO agregar las IP públicas del router (salida NAT): solo servirían con
+# el puerto expuesto a Internet. VPN propia/subnet router: añadir su rango aquí y
+# reiniciar el servicio (Restart-Service JSWinProxy).
 allowed_networks:
   - "192.168.0.0/16"
   - "10.0.0.0/8"

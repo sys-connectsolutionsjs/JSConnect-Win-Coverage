@@ -367,7 +367,20 @@ Probar el modo standalone pegando la `PHPSESSID`. Hoy exige borrar a mano
 proxy siempre gana (`main_window.py:75-77`, `:175`) y el diálogo de proxy no
 tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalone.
 
-### Etapa D — PC owner oficial y servicio de Windows  [EN COLA — SIGUIENTE]
+### Etapa D — PC owner oficial y servicio de Windows  [ENSAYO EN PC DEV 2026-09-18 — falta la PC oficial]
+
+> **Ensayo en la PC de desarrollo (2026-09-18)**: `install_service.bat` recorrió los 12
+> pasos y se ejecutó dos veces (idempotente); servicio `RUNNING`, consola owner, agente
+> contra el proxy y botón Reiniciar servicio probados. Hallazgos para el runbook (Etapa
+> E): la extensión forzada por política **no** se aplica en PC no gestionada (carga manual
+> impresa por el instalador); el instalador **no** crea regla de firewall (solo imprime el
+> comando); la consola owner **no** crea acceso directo; `localhost` daba 403 (loopback
+> ahora permitido); cualquier cambio de código/`config.yaml` exige reiniciar el servicio;
+> las IP públicas del router no van en `allowed_networks`. **Sin cerrar aún**: sesión
+> WinForce que murió 3 veces (hipótesis: dos logins en paralelo), persistencia tras
+> reinicio del servicio, carga con `tools/probar_concurrencia.py`, firewall desde otra PC,
+> desinstalar el ensayo y repetir en la PC oficial (ver `docs/proxy-deploy.md`, "Qué llevar
+> a la PC owner").
 
 13. Clonar/actualizar `main` en la PC owner oficial. Transferir
     `private_key.pem` por un canal privado, colocarla en

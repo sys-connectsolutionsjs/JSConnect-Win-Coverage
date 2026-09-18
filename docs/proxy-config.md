@@ -38,6 +38,11 @@
 5. Click **Guardar** → credenciales guardadas en **Windows Keyring** local
 6. La app usa proxy automáticamente en siguiente validación
 
+### Activación y huella de la PC
+El menú **⚙️ Configuración** → **Activación / Huella de la PC** muestra en cualquier
+momento la huella de la máquina y su estado (ACTIVADA / PENDIENTE), con **Copiar
+huella**, **Pegar código** y **ACTIVAR** para reactivarla con un código nuevo del owner.
+
 ### Qué se guarda en Keyring (por usuario Windows)
 ```
 Servicio: JSWinClient
@@ -127,7 +132,7 @@ Si **no hay configuración de proxy** guardada en keyring:
 | "Proxy no configurado" | Keyring vacío | Configurar via GUI o script |
 | "Connection refused" | Proxy caído / IP incorrecta / Firewall | Verificar servicio proxy + firewall + IP |
 | "401 Unauthorized" | Token incorrecto / expirado | Verificar token en keyring = `config.yaml` proxy |
-| "403 Forbidden" | IP no en `allowed_networks` | Verificar red LAN / VPN; proxy config `allowed_networks` |
+| "403 Forbidden" / "IP no permitida: <ip>" | La IP que ve el proxy no está en `allowed_networks` (loopback ya siempre pasa) | Añadir el CIDR de esa IP en `config.yaml` y `Restart-Service JSWinProxy`. No agregar IP públicas del router. Ver `docs/arquitectura.md`, "Control de acceso" |
 | "Timeout" | Proxy sobrecargado / WinForce lento | Reintentar; proxy tiene retry 3x backoff |
 | "Score: error parsing" | WinForce cambió respuesta | Actualizar proxy (pull repo + rebuild service) |
 

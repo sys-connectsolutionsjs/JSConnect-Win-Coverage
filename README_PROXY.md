@@ -125,6 +125,10 @@ curl.exe -H "X-Admin-Key: <admin_key>" http://localhost:8080/admin/status
 
 ### Probar la extensión en desarrollo (sin la política de fuerza-instalación)
 
+> También es la vía de instalación en una **PC no gestionada** (sin dominio/Azure AD),
+> donde Chrome ignora la política. Usa la carpeta `validator_app/proxy/.extension_build`
+> (trae el puerto real) en lugar de `extension/`.
+
 1. **Cargar descomprimida**: `chrome://extensions` → activar "Modo de
    desarrollador" → "Cargar descomprimida" → `validator_app/proxy/extension`.
    (Chrome avisará "Desactiva las extensiones en modo de desarrollador" al abrir;

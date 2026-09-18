@@ -25,6 +25,13 @@
 error, no hace falta modo desarrollador). Tras instalar, **hay que reabrir Chrome**
 una vez para que aparezca.
 
+> **PC no gestionada** (Windows Home/WORKGROUP, o sin dominio/Azure AD): Chrome ignora
+> esa política y la extensión no aparece. El instalador lo avisa y al final imprime la
+> carga manual: `chrome://extensions` → Modo de desarrollador → Cargar descomprimida →
+> `validator_app\proxy\.extension_build`. Alternativa: el icono "Renovar sesion
+> WinForce" del Escritorio. Usar **una sola vía de login a la vez**: dos logins en
+> paralelo pueden invalidar la sesión (hipótesis abierta desde 2026-09-18).
+
 > **Para desarrollo/pruebas** (cargarla descomprimida + proxy local + casos de
 > error): ver `README_PROXY.md` → "Probar la extensión en desarrollo".
 

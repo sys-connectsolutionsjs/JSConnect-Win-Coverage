@@ -77,8 +77,9 @@ flowchart LR
   re-login programático inviable por 2FA). Config: `keepalive_enabled`,
   `keepalive_interval_seconds`.
 - **Autenticación**:
-  - `/api/*`: `X-Proxy-Token` + IP en rangos LAN permitidos
+  - `/api/*`: `X-Proxy-Token` + IP en rangos LAN permitidos (loopback siempre)
   - `/admin/*`: `X-Admin-Key` (solo owner)
+  - Detalle y FAQ en "Control de acceso al proxy" (abajo)
 - **Persistencia**: Cookies de sesión WinForce en **Windows Keyring** (`JSWinProxy`/`credentials_cookies`) → sobreviven a reinicios del servicio
 
 ### WinForce (Sistema externo ISP)
@@ -179,3 +180,33 @@ Agente                    Proxy                        WinForce              Equ
 4. **HTTPS en LAN**: Self-signed cert + `uvicorn --ssl-keyfile --ssl-certfile`
 5. **Provisionamiento administrado**: `GET /admin/config` devuelve `proxy_url`,
    `token`, `timeouts` con `X-Admin-Key`; no debe exponerse como discovery público
+
+---
+
+## Control de acceso al proxy
+
+`/api/*` exige **dos cosas**: (1) que la IP de origen esté en `allowed_networks`
+(o sea loopback, que siempre se permite) y (2) el header `X-Proxy-Token`.
+`/admin/*` exige además `X-Admin-Key`. `/health` es público (solo estado, sin datos).
+Por defecto el instalador permite `192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12` y
+`100.64.0.0/10` (Tailscale) — **el sistema no es de acceso público**.
+
+- **Error "IP no permitida: <ip>" (HTTP 403)**: la IP que aparece en el mensaje es la
+  que ve el proxy. Si es la de la propia PC del proxy usada como agente
+  (`http://localhost:8080`) ya no ocurre: loopback siempre pasa. Si es una IP legítima
+  fuera de los rangos, añade su CIDR a `allowed_networks` en
+  `validator_app/proxy/config.yaml` (como Administrador) y ejecuta
+  `Restart-Service JSWinProxy` (o el botón **Reiniciar servicio** de la consola
+  owner, que pide permiso UAC). El servicio carga código y `config.yaml` solo al
+  arrancar: sin reiniciar, un arreglo no se aplica (caso real del 2026-09-18: el
+  fix de loopback no surtió efecto hasta reiniciar).
+- **Las IP públicas del router de la oficina (p. ej. `162.120.185.241`,
+  `38.253.147.12`, `72.14.201.203`) NO se agregan.** Dentro de la LAN el proxy ve la
+  IP privada del agente (192.168.x.x), ya permitida. Esas IP públicas son la salida
+  NAT hacia Internet, que solo ven WinForce/Equifax. Agregarlas solo tendría efecto
+  con el puerto 8080 expuesto a Internet, que está prohibido.
+- **Agentes remotos por VPN** (futuro): con Tailscale llegan con IP `100.64.0.0/10`,
+  ya permitida: cero cambios. Con otra VPN (WireGuard/OpenVPN propia) o un subnet
+  router, añadir a `allowed_networks` el rango de origen que vea el proxy.
+- Para endurecer la LAN (p. ej. solo `192.168.18.0/24`), reemplazar la lista en
+  `config.yaml` y reiniciar el servicio.

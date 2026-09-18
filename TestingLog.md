@@ -11,15 +11,15 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (141 en total, a 2026-09-16)
+## Inventario de tests (157 en total, a 2026-09-18)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
-| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) |
+| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
 | tests/test_fields.py | 7 | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
 | tests/test_api.py | 22 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding |
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
-| tests/test_proxy.py | 43 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
+| tests/test_proxy.py | 45 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
 | tests/test_client.py | 3 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`) |
 | tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
@@ -28,13 +28,41 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_medir_keepalive.py | 9 | clasificación muerte/transitorio/indeterminado del medidor |
 | tests/test_activation.py | 4 | llave pública real, firma por huella y diagnóstico de código incompleto |
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
-| tests/test_owner_app.py | 5 | formato de huella y lectura del estado del servicio |
+| tests/test_owner_app.py | 12 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError) y el reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell) |
+| tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
+| tests/test_install_bat.py | 3 | guardas estáticas de `install_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, y carga manual de la extensión sin `exit`/`pause` en el paso 7 |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-18 — Ensayo del instalador y del proxy en la PC de desarrollo
+
+- **Bug del paso 5 (rojo encontrado a mano)**: la primera corrida elevada de
+  `install_service.bat` abortaba en el paso 5. Causa (reproducida con `cmd /c`): un `)`
+  sin escapar dentro de un `echo` en un bloque `( ... )` cierra el bloque y CMD aborta
+  al parsearlo entero. **Verde**: se escaparon 7 líneas y `tests/test_install_bat.py`
+  falla si vuelve a aparecer un `)` sin escapar en un `echo` indentado (probado contra la
+  versión anterior: detecta esas 7 líneas).
+- **Trampa**: dentro de `set "VAR=..."` (entre comillas) los `^(`/`^)` se imprimen
+  literales; ahí los paréntesis van sin escapar.
+- **Aislamiento (incidente)**: con `config.yaml` instalado (ACL SYSTEM/Administradores)
+  37 casos de `test_proxy.py` fallaban con `PermissionError` al correr sin elevar.
+  `conftest.py` gana `sin_config_yaml_real` (apunta `yaml_file` a un archivo inexistente,
+  mismo patrón que `test_config.py`). Regla: ningún test depende de archivos reales de la PC.
+- **Consola owner**: "Proxy: falta configurar el servicio" no era Chrome ni la sesión.
+  Primero `PermissionError` (ACL) y, en el `.exe`, `ValidationError` (no existe
+  `config.yaml` en el bundle). `_url_proxy_local()` cae al puerto por defecto ante
+  cualquier fallo; el estado real lo da `/health`. Botón **Reiniciar servicio** con
+  runner inyectable para testear sin PowerShell ni UAC.
+- **Whitelist**: `localhost` daba 403 (`127.0.0.1` fuera de `allowed_networks`). Fix +
+  tests: loopback permitido (v4 y v6) y las tres IP públicas del router bloqueadas.
+- **Lección operativa**: un fix del servidor no cuenta hasta reiniciar el servicio; los
+  logs (`winsw.wrapper.log`, `winsw.out.log`) delataron que corría el código viejo.
+- **Calidad**: **157 tests**, `ruff check .` limpio. Los `ruff format` pendientes son
+  previos (`main_window.py`, `generar.py`) y no se tocaron.
 
 ### Sesión 2026-09-16 — Activación RSA real y consola del owner
 

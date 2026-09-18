@@ -75,6 +75,22 @@ curl http://100.64.12.34:8080/health
 
 ---
 
+## VPN y lista de IP permitidas (`allowed_networks`)
+
+`/api/*` exige IP de origen en `allowed_networks` **y** `X-Proxy-Token`. Por defecto:
+`192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `100.64.0.0/10`; loopback siempre.
+
+- **Tailscale**: los agentes llegan con `100.64.0.0/10` (CGNAT) → ya permitido, sin
+  cambios. Es una de las razones de la decisión de usar Tailscale.
+- **WireGuard/OpenVPN propio o subnet router**: añadir a `config.yaml` el rango o la
+  IP de origen que vea el proxy y reiniciar el servicio (`Restart-Service JSWinProxy`).
+- **Diagnóstico**: el error 403 dice `IP no permitida: <ip>`; esa es la IP a permitir
+  si es legítima.
+- **No** agregar las IP públicas de la oficina (salida NAT): el proxy nunca las ve y
+  sería abrir el sistema a Internet. Ver `docs/arquitectura.md`, "Control de acceso".
+
+---
+
 ## Provisionamiento Administrado
 
 ### Endpoint Ya Preparado en Proxy

@@ -19,6 +19,26 @@ código Base64; el agente lo verifica con la llave pública embebida en
   owner la busca como `private_key.pem` junto a `JSConnect-Win-Owner.exe`.
 - El código solo sirve para la huella firmada. La GUI ofrece **Copiar huella** y
   **Pegar código** para evitar truncar la cadena.
+- **Desde el agente**: menú ⚙ Configuración → **Activación / Huella de la PC** abre el
+  diálogo en cualquier momento (estado ACTIVADA/PENDIENTE, huella, pegar código y
+  reactivar). Estado guardado en `%APPDATA%\JSConnectWinCoverage\activacion.dat`
+  (borrarlo = "resetear" la activación de esa PC; el owner puede volver a firmar).
+- **Consola owner** (`JSConnect-Win-Owner.exe`): además de firmar códigos muestra el
+  estado del servicio/proxy, abre la renovación de WinForce y tiene el botón
+  **Reiniciar servicio** (ver "Reiniciar servicio" abajo). En el `.exe` empaquetado no
+  hay `config.yaml`: consulta `http://127.0.0.1:8080/health` (puerto por defecto).
+
+### allowed_networks (whitelist de IP del proxy)
+Lista de redes CIDR en `validator_app/proxy/config.yaml`. `/api/*` solo responde si la
+**IP de origen que ve el proxy** está en la lista **y** llega `X-Proxy-Token`.
+`/admin/*` exige además `X-Admin-Key`; `/health` es público (solo estado).
+- Por defecto: `192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `100.64.0.0/10`
+  (Tailscale). **Loopback** (127.0.0.1 / ::1) siempre se permite.
+- Error `IP no permitida: <ip>` (HTTP 403): esa `<ip>` es la que ve el proxy. Si es
+  legítima, añadir su CIDR y reiniciar el servicio.
+- **No se agregan las IP públicas del router** (p. ej. `162.120.185.241`): en la LAN
+  el proxy ve la IP privada; la pública es la salida NAT que solo ven
+  WinForce/Equifax. Ver "NAT / IP pública" y `docs/arquitectura.md`.
 
 ### API Interna (WinForce)
 El sistema del ISP (`appwinforce.win.pe`) expone una API JSON interna en `/controllers/*.php` que el navegador usa vía AJAX. **No es pública documentada**, pero no requiere scraping: replicamos las llamadas HTTP directas.
@@ -99,6 +119,13 @@ cotidiano del owner**, ya logueado en WinForce. Vía principal de renovación
   id estable), escribe `updates.xml` local y la política
   `HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionSettings\<id>` = `force_installed`.
   Tras instalar hay que **reabrir Chrome** una vez.
+- **Limitación (hallada 2026-09-18)**: Chrome solo aplica esa política en **PC
+  gestionadas** (unidas a dominio o Azure AD). En Windows Home / WORKGROUP la ignora y
+  la extensión no aparece. `install_service.bat` lo detecta, avisa sin detenerse y al
+  final imprime la carga manual: `chrome://extensions` → Modo de desarrollador →
+  **Cargar descomprimida** → `validator_app\proxy\.extension_build` (Chrome muestra
+  un aviso por el modo desarrollador). Alternativa sin Chrome: el icono "Renovar
+  sesion WinForce" del Escritorio. Ver "PC gestionada".
 
 ---
 
@@ -147,6 +174,21 @@ Hoy el proxy informa `dev`; el SHA embebido se usa en el ejecutable agente.
 
 ---
 
+## I
+
+### Instalador re-ejecutable (`install_service.bat`)
+Cada uno de los 12 pasos comprueba si ya está hecho y lo salta ("ya estaba" vs "hecho
+ahora"), así que se puede ejecutar varias veces sin romper nada; al final imprime un
+resumen por paso. La ventana no se cierra sola (el script se relanza con `cmd /k`).
+- Si ya hay tokens, el paso 5 pregunta **C**onservar (por defecto a los 20 s) o
+  **R**egenerar (reutiliza el puerto y reinicia el servicio).
+- **Trampa de CMD**: un `)` sin escapar dentro de un `echo` en un bloque `( ... )` cierra
+  el bloque y aborta el script (así se cortó el paso 5). Escapar con `^)`; dentro de
+  `set "VAR=..."` (entre comillas) NO se escapa. `tests/test_install_bat.py` lo vigila.
+- El paso 7 (extensión) solo informa; nunca detiene el instalador.
+
+---
+
 ## K
 
 ### Keyring (Windows Credential Manager)
@@ -180,6 +222,12 @@ escucha, no un destino válido) → ahora usa `config.proxy_local_url`
 ---
 
 ## L
+
+### Loopback (127.0.0.1 / ::1)
+La propia PC. El proxy siempre permite el tráfico loopback aunque no esté en
+`allowed_networks` (`server._ip_in_allowed_networks`): así la PC del proxy puede usarse
+como agente con `http://localhost:8080`. No abre nada: `X-Proxy-Token` sigue siendo
+obligatorio. Bug histórico (2026-09-18): sin esto `localhost` daba 403 "IP no permitida".
 
 ### Login asistido (`validator_app/proxy/login_asistido.py`)
 Forma de renovar la sesión WinForce del proxy sin que el owner toque F12 ni copie
@@ -340,7 +388,26 @@ En `server.py`: valida requests antes de llegar a endpoints.
 
 ---
 
+## N
+
+### NAT / IP pública del router
+Los PC de la oficina salen a Internet por una o varias IP públicas del router (aquí
+`162.120.185.241`, `38.253.147.12`, `72.14.201.203`). Son la **salida NAT**: solo las
+ven servidores externos (WinForce, Equifax, páginas de "cuál es mi IP"). El tráfico
+agente → proxy dentro de la LAN usa IPs privadas (192.168.x.x), que es lo que ve
+`allowed_networks`. Por eso **no se agregan a la whitelist**: solo tendrían efecto con el
+puerto 8080 expuesto a Internet, que está prohibido.
+
+---
+
 ## P
+
+### PC gestionada
+PC unida a un dominio de Active Directory o a Azure AD, o inscrita en la gestión de
+Chrome. Solo en ellas Chrome aplica la política `ExtensionSettings`/`force_installed`
+desde un `file:///` que usa el instalador. Windows 10 Pro **no** basta por sí solo: debe
+estar unido a un dominio/Azure AD. El instalador detecta `PartOfDomain` y
+`AzureAdJoined`. En una PC no gestionada la extensión se carga a mano (ver "Extensión").
 
 ### Proxy Local (Reverse Proxy Interno)
 Servidor intermedio en PC oficina que:
@@ -361,6 +428,15 @@ Secreto de 256-bit (64 chars hex) compartido entre proxy y **todos** los agentes
 ---
 
 ## R
+
+### Reiniciar servicio (por qué hace falta)
+El servicio `JSWinProxy` (Python + uvicorn) carga `server.py` y `config.yaml` **una sola
+vez, al arrancar**. Cambiar código, `allowed_networks` o tokens no surte efecto hasta
+reiniciarlo (caso real 2026-09-18: el arreglo de loopback siguió dando 403 porque el
+servicio corría desde las 13:03). Formas: botón **Reiniciar servicio** de la consola
+owner (PowerShell elevado con aviso UAC; códigos de salida 0 ok / 2 UAC cancelado / otro
+fallo), o `Restart-Service JSWinProxy` en PowerShell como Administrador. La sesión
+WinForce se conserva (la cookie vive en el keyring de LocalSystem, no en memoria).
 
 ### Rotación de Credenciales (Cada 1-2 Meses)
 WinForce cambia el user/pass, pero el proxy solo recibe una sesión ya iniciada.
@@ -425,6 +501,16 @@ VPN zero-config basada en WireGuard. Gratis hasta 100 devices.
 
 ---
 
+## U
+
+### UAC (Control de cuentas de usuario)
+Aviso de Windows que pide permiso para ejecutar algo como Administrador. La consola
+owner lo usa en **Reiniciar servicio** (`Start-Process ... -Verb RunAs`) para no tener
+que abrirla como administrador ni escribir comandos. Si se cancela el aviso, el botón
+lo informa sin fallar.
+
+---
+
 ## V
 
 ### ValidatorAPI (Core)
@@ -467,6 +553,10 @@ Herramienta que convierte cualquier exe en servicio Windows nativo.
 | **SOAP** | Simple Object Access Protocol (XML legacy, usa Equifax) |
 | **TLS** | Transport Layer Security (HTTPS) |
 | **CGNAT** | Carrier-Grade NAT (rango 100.64.0.0/10, usado por Tailscale) |
+| **CIDR** | Notación de rango de red, p. ej. `192.168.0.0/16` (lo que va en `allowed_networks`) |
+| **NAT** | Network Address Translation: el router comparte su IP pública entre los PC de la LAN |
+| **UAC** | User Account Control: aviso de Windows para elevar a Administrador |
+| **AAD** | Azure Active Directory (una PC "unida" es PC gestionada) |
 | **mTLS** | Mutual TLS (certificados cliente+servidor, no usado aún) |
 
 ---
@@ -518,5 +608,8 @@ keyring.delete_password("servicio", "usuario")
 | Escalabilidad remota | `docs/escalabilidad-remota.md` + `Escalabilidad.md` |
 | Historial decisiones | `AGENTS.md` (Historial) + `PlanesAprobados.md` |
 | Tests y bugs | `TestingLog.md` |
+| Control de acceso (whitelist + token) | `docs/arquitectura.md` → "Control de acceso al proxy" |
+| VPN y whitelist | `Escalabilidad.md` + `docs/escalabilidad-remota.md` |
+| Qué llevar a la PC owner oficial | `docs/proxy-deploy.md` → "Qué llevar a la PC owner" |
 | Resumen día actual | `ResumenDelDia.md` |
 | Resumenes pasados | `resumenes/YYYY-MM-DD.md` |

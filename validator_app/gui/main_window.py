@@ -13,6 +13,16 @@ from validator_app.updater import check as update_check
 from validator_app.updater import download
 
 
+def activacion_vigente(huella: str) -> bool:
+    """True si esta PC tiene guardado un codigo de activacion valido para su huella."""
+    guardado = activation_state.leer()
+    return bool(
+        guardado
+        and guardado.get("huella") == huella
+        and signer.validar_codigo(huella, guardado.get("codigo", ""))
+    )
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -37,6 +47,9 @@ class App(tk.Tk):
             label="Configurar Sesión (standalone)", command=self._abrir_config_sesion
         )
         menu_config.add_separator()
+        menu_config.add_command(
+            label="Activación / Huella de la PC", command=self._abrir_activacion
+        )
         menu_config.add_command(label="Buscar actualizaciones", command=self._buscar_actualizacion)
 
         main = ttk.Frame(self, padding=16)
@@ -97,25 +110,29 @@ class App(tk.Tk):
             self.lbl_estado.config(text="Estado: modo desarrollo (activacion pendiente)")
             return
         huella = fingerprint.obtener_huella()
-        guardado = activation_state.leer()
-        if (
-            guardado
-            and guardado.get("huella") == huella
-            and signer.validar_codigo(huella, guardado.get("codigo", ""))
-        ):
+        if activacion_vigente(huella):
             return
         self._mostrar_activacion(huella)
 
-    def _mostrar_activacion(self, huella):
+    def _abrir_activacion(self):
+        """Menu: muestra la huella de esta PC y permite (re)activarla en cualquier momento."""
+        self._mostrar_activacion(fingerprint.obtener_huella(), requerida=False)
+
+    def _mostrar_activacion(self, huella, requerida=True):
         dialog = tk.Toplevel(self)
-        dialog.title("Activacion requerida")
-        dialog.geometry("460x280")
+        dialog.title("Activacion requerida" if requerida else "Activacion de esta PC")
+        dialog.geometry("460x310")
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
 
         frame = ttk.Frame(dialog, padding=16)
         frame.pack(fill="both", expand=True)
+        if not requerida:
+            estado = "ACTIVADA" if activacion_vigente(huella) else "PENDIENTE de activar"
+            ttk.Label(frame, text=f"Estado de esta PC: {estado}", font=("", 10, "bold")).pack(
+                anchor="w", pady=(0, 8)
+            )
         ttk.Label(frame, text="Huella de esta computadora:").pack(anchor="w")
         frame_huella = ttk.Frame(frame)
         frame_huella.pack(fill="x", pady=(2, 8))
@@ -161,9 +178,10 @@ class App(tk.Tk):
         botones.pack()
         ttk.Button(botones, text="Pegar codigo", command=pegar_codigo).pack(side="left")
         ttk.Button(botones, text="ACTIVAR", command=activar).pack(side="left", padx=(8, 0))
-        ttk.Label(
-            frame, text="Sin codigo valido la aplicacion no valida.", foreground="gray"
-        ).pack(pady=(10, 0))
+        if requerida:
+            ttk.Label(
+                frame, text="Sin codigo valido la aplicacion no valida.", foreground="gray"
+            ).pack(pady=(10, 0))
 
     def _on_documento_cambio(self, _event=None):
         numero = self.txt_documento.get().strip()

@@ -52,6 +52,8 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 4. Ingresa las coordenadas y/o el documento del cliente.
 5. Pulsa **Validar** → resultado de cobertura y score al instante.
 
+En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver `docs/arquitectura.md` ("Control de acceso al proxy").
+
 ### Modo standalone (desarrollo / pruebas / owner — sin proxy)
 Si no configuras proxy, la app va directa a WinForce. Como el login
 usuario/contraseña es inviable por el 2FA de Microsoft: Menú **⚙️ Configuración →
@@ -75,7 +77,9 @@ El build incluye `validator_app/proxy/client.py` (cliente proxy) pero **NO** `se
 
 ### Consola del owner
 La consola gráfica del owner genera códigos de activación, muestra el estado del
-proxy local y abre la renovación asistida de WinForce. La clave privada **no** se
+proxy local, abre la renovación asistida de WinForce y tiene un botón **Reiniciar
+servicio** (pide permiso de administrador con el aviso UAC de Windows; la sesión
+WinForce se conserva). Úsalo tras cambiar código o `allowed_networks`. La clave privada **no** se
 incluye en los agentes ni se sube al repositorio.
 
 ```powershell
@@ -192,6 +196,8 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 4. Enter the coordinates and/or the customer document.
 5. Press **Validate** → coverage and score results instantly.
 
+At any time, **⚙️ Configuración → Activación / Huella de la PC** shows the activation status and the PC fingerprint (to request a code from the manager). If "IP no permitida" appears, the agent IP is not in the proxy allow-list: see `docs/arquitectura.md` ("Control de acceso al proxy").
+
 ### Standalone mode (dev / testing / owner — no proxy)
 Without a proxy configured, the app talks to WinForce directly. Since
 username/password login is unfeasible (Microsoft 2FA): menu **⚙️ Configuración →
@@ -215,7 +221,10 @@ The build includes `validator_app/proxy/client.py` (proxy client) but **NOT** `s
 
 ### Owner console
 The owner graphical console generates activation codes, displays the local proxy
-state, and opens assisted WinForce session renewal. The private key is **not**
+state, opens assisted WinForce session renewal, and has a **Reiniciar servicio**
+(restart service) button that asks for administrator permission through the Windows
+UAC prompt; the WinForce session is preserved. Use it after changing code or
+`allowed_networks`. The private key is **not**
 included in agent builds and is never committed to the repository.
 
 ```powershell

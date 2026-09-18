@@ -93,6 +93,31 @@ agente).
 
 ---
 
+## Qué llevar a la PC owner (pendrive)
+
+Casi todo se regenera solo desde Git/Internet. **Lo único imposible de regenerar es la
+llave privada.**
+
+| Llevar | Por qué |
+|---|---|
+| **`private_key.pem`** (obligatorio) | Firma los códigos de activación. Va en `dist\private_key.pem` junto a `JSConnect-Win-Owner.exe` (o `generator\private_key.pem`). **No** generar otra: los agentes ya construidos verifican con la llave pública actual. Copiarla por canal privado, restringir su ACL y **borrarla del pendrive** después. |
+| `JSConnect-Win-Owner.exe` (recomendado) | No se publica en Releases; evita instalar el entorno de build en esa PC. Se construye con `build-owner.ps1`. |
+| `JSConnect-Win-Coverage.exe` (opcional) | Para probar como agente en esa PC. Para las 15 PC usar el Release de GitHub (`publish-release.ps1`). |
+| Instalador de Python 3.14.7 (opcional) | Si la PC no tiene Internet estable. Con "Add to PATH". |
+
+**No llevar** (se regeneran o son específicos de cada PC): `config.yaml`,
+`proxy_token.txt`, `admin_key.txt` (el instalador crea tokens nuevos en esa PC; no
+reutilizar los de un ensayo), `winsw.exe` (se descarga), `extension.pem`/`.crx`/
+`updates.xml`/`.extension_build` (se regeneran), `.venv`, `build/`, `*.spec`, `logs/`,
+`.browser_profile/` (perfil de login: no compartir), `activacion.dat` (activación por
+PC) ni entradas del Credential Manager (`JSWinProxy`, `JSWinClient`, `JSWinCoverage`).
+La sesión de WinForce se inicia de nuevo en esa PC.
+
+Además de la carpeta del repo (`git clone` o copia): Git, Python 3.14.7 e Internet
+(Chromium ~150 MB y `winsw.exe` se descargan en la instalación).
+
+---
+
 ## Verificación Post-Instalación
 
 ```powershell
@@ -198,5 +223,7 @@ Resumen rápido:
 | `sc query JSWinProxy` → STATE: STOPPED | Puerto ocupado / Python no en PATH / deps faltantes | Revisar `<repo>\logs\` |
 | `curl /health` → Connection refused | Servicio no inició / firewall bloquea | `sc start JSWinProxy` + firewall rule |
 | Agentes: "Proxy auth failed" | Token distinto / IP no en allowed_networks | Verificar token en keyring agente = config.yaml proxy |
+| Un cambio en `server.py` o `config.yaml` no surte efecto | El servicio Python carga el código y la configuración solo al arrancar | Consola owner → **Reiniciar servicio** (pide UAC) o `Restart-Service JSWinProxy` como Administrador; la sesión WinForce persiste |
+| Agente: "IP no permitida: <ip>" (403) | La IP que ve el proxy no está en `allowed_networks` (localhost siempre pasa) | Añadir su CIDR en `config.yaml` + `Restart-Service JSWinProxy`; las IP públicas del router NO se agregan |
 | WinForce: sesión caducada | Tope absoluto o login expirado | Iniciar sesión y renovar desde extensión/consola owner |
 | `install_service.bat` falla descarga winsw | Sin internet / GitHub bloqueado | Descargar `winsw.exe` manual a `validator_app/proxy/` y reintentar |

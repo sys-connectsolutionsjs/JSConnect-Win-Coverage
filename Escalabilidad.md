@@ -34,7 +34,7 @@ copiar esa llave a sus máquinas.
 ### 2. Auth Simple pero Escalable
 - **Token compartido** (256-bit hex) → un solo secreto para todos los agentes
 - **Admin key separada** → solo owner, para endpoints `/admin/*`
-- **IP binding** → `allowed_networks: ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]` → **incluye rango Tailscale `100.64.0.0/10`**
+- **IP binding** → `allowed_networks: ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "100.64.0.0/10"]` → el último es el rango Tailscale (CGNAT); loopback siempre se permite. Ver "VPN y lista de IP permitidas" abajo.
 
 ### 3. Endpoint de Provisionamiento (Ya Implementado)
 ```http
@@ -93,6 +93,27 @@ curl http://100.64.12.34:8080/health
 ### Paso 5: (Opcional) DNS Interno
 - En Tailscale admin console → DNS → añadir `proxy.oficina.local` → `100.64.12.34`
 - Configurar por GUI/script la URL `http://proxy.oficina.local:8080`
+
+---
+
+## VPN y lista de IP permitidas (`allowed_networks`)
+
+El proxy solo atiende `/api/*` si la IP **de origen que él ve** está en
+`allowed_networks` y llega el token. Con VPN lo que importa es qué IP ve el proxy:
+
+| Escenario | IP de origen que ve el proxy | ¿Hay que cambiar algo? |
+|-----------|------------------------------|------------------------|
+| Agente en la LAN de la oficina | IP privada (192.168.x.x) | No |
+| Agente en la misma PC del proxy (`localhost`) | 127.0.0.1 / ::1 | No (loopback siempre permitido) |
+| Agente remoto con **Tailscale** | 100.64.x.x (rango `100.64.0.0/10`) | **No** — ya está en la lista |
+| Agente remoto con WireGuard/OpenVPN propio | IP del túnel (p. ej. 10.8.0.x) | Solo si el rango no cae en las redes permitidas: añadirlo |
+| VPN con *subnet router*/NAT | IP del router VPN | Añadir esa IP/CIDR |
+
+Diagnóstico ("IP no permitida: <ip>", HTTP 403): esa `<ip>` es la que ve el proxy;
+añade su CIDR en `validator_app/proxy/config.yaml` (Administrador) y
+`Restart-Service JSWinProxy`. **Las IP públicas de la oficina no se agregan**: son
+la salida NAT a Internet y el proxy no las ve; agregarlas solo serviría con el
+puerto expuesto a Internet, prohibido (ver "Lo Que NO Hay Que Hacer").
 
 ---
 
