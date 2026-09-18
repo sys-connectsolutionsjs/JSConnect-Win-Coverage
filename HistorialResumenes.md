@@ -30,6 +30,9 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   documentada: las IP públicas del router no se agregan; VPN futura cubierta (Tailscale)
   o se añade su rango. Docs: arquitectura, Escalabilidad, glosario, runbook de pendrive.
 - **Calidad**: 157 tests, ruff limpio; `conftest.py` aísla el `config.yaml` real.
+- **Semana decisiva**: ensayo de construcción de ambos `.exe` desde un clon limpio (≈3
+  min; rutas cortas por WinError 206; `version.py` a restaurar; sin `gh`). Runbook en
+  `docs/proxy-deploy.md`; el usuario lleva `private_key.pem` a la PC oficial.
 - **Pendiente al cierre**: sesión WinForce que murió 3 veces (hipótesis: dos logins en
   paralelo, sin confirmar); persistencia tras reinicio, firewall desde otra PC, carga,
   desinstalar el ensayo; luego Etapa D/E en la PC oficial y Fase 5.

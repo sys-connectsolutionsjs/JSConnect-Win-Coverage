@@ -64,6 +64,16 @@ fuente de eventos `JSWinProxy`, política de Chrome `ExtensionSettings\<id>`, ic
 **Con `private_key.pem` basta para la firma de códigos**; el resto se regenera con
 Git + Internet (Python 3.14.7, pip, Chromium, winsw). Detalle en `docs/proxy-deploy.md`.
 
+## Ensayo de construcción desde cero (para la semana decisiva)
+
+Clon limpio de `main` (`55952fb`) en una carpeta corta: `venv` + `requirements-dev.txt`
+(76 s), `pytest` 157 passed, `build-owner.ps1` (60 s) y `build.ps1` (45 s) generaron ambos
+`.exe`, que arrancan y responden. Hallazgos: con una ruta larga pip falla (WinError 206;
+usar `C:\jsconnect`); `build.ps1` deja `validator_app/version.py` modificado (restaurar con
+`git checkout`); `gh` no está instalado (el Release se sube a mano). Runbook en
+`docs/proxy-deploy.md` → "Construir los ejecutables en la PC oficial". El usuario llevará
+`private_key.pem` y construirá los ejecutables allí.
+
 ## Siguiente sesión (continuar aquí)
 
 1. Sesión WinForce estable con una sola vía de login; `/health` a 1, 5 y 10 min.

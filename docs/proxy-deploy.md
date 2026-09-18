@@ -118,6 +118,46 @@ Además de la carpeta del repo (`git clone` o copia): Git, Python 3.14.7 e Inter
 
 ---
 
+## Construir los ejecutables en la PC oficial (desde cero)
+
+Ensayado el 2026-09-18 en un clon limpio de `main` (commit `55952fb`): clon 3 s, `venv` +
+dependencias 76 s, `build-owner.ps1` 60 s, `build.ps1` 45 s (≈3 min en total); `pytest`
+en el clon: 157 passed; ambos `.exe` arrancan y responden.
+
+Requisitos: Git, Python 3.14.7 con "Add to PATH", Internet.
+
+```powershell
+# Usar una carpeta CORTA (p. ej. C:\jsconnect): con rutas largas pip falla con
+# "WinError 206: el nombre del archivo o la extensión es demasiado largo".
+git clone https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage.git C:\jsconnect
+cd C:\jsconnect
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+powershell -ExecutionPolicy Bypass -File build-owner.ps1     # -> dist\JSConnect-Win-Owner.exe
+powershell -ExecutionPolicy Bypass -File build.ps1           # -> dist\JSConnect-Win-Coverage.exe (agente)
+git checkout -- validator_app/version.py                     # build.ps1 lo reescribe con el SHA
+```
+
+Después, en `dist\` junto al exe del owner: copiar `private_key.pem` (del pendrive),
+restringir su ACL y **borrarla del pendrive**. Abrir `JSConnect-Win-Owner.exe`: debe decir
+"Llave privada: disponible"; hacer una activación de control (huella de un agente →
+código → activar).
+
+Notas:
+- Hay que **clonar** (no bajar un zip): `build.ps1` embebe `git rev-parse HEAD`; sin `.git`
+  queda `unknown` y la comprobación de actualizaciones no coincide con el Release.
+- El `.exe` que se distribuya a las 15 PC debe ser el que se publique en el Release
+  (SHA-256 incluido): la app compara el commit del Release con el embebido. `publish-
+  release.ps1` solo imprime el comando `gh release create`; si no hay `gh` instalado se
+  sube a mano desde GitHub → Releases → Draft.
+- Sin firma de código, Windows SmartScreen pedirá *Más información → Ejecutar de todas
+  formas* la primera vez.
+- El botón **Renovar sesion WinForce** de la consola owner empaquetada no se ha probado
+  dentro del `.exe` (necesita Chromium/Playwright); en la PC del proxy usar la extensión o
+  el icono del Escritorio (que corren desde el repo con `python`).
+
+---
+
 ## Verificación Post-Instalación
 
 ```powershell

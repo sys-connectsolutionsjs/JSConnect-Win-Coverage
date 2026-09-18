@@ -773,6 +773,10 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   15:06, 15:32 y 15:45 pese a renovaciones 200. Hipótesis sin confirmar: el login del
   Chrome cotidiano y el de la ventana del icono se invalidan entre sí. Prueba: una
   sola vía de login (Chrome + extensión) y `/health` a 1, 5 y 10 minutos.
+- **Construcción desde cero ensayada**: clon limpio → `venv` → `requirements-dev.txt` →
+  `build-owner.ps1` + `build.ps1` (≈3 min, 157 tests, ambos `.exe` arrancan). Usar
+  carpeta corta (WinError 206), restaurar `validator_app/version.py`, `gh` no instalado.
+  Runbook: `docs/proxy-deploy.md` → "Construir los ejecutables en la PC oficial".
 - **Siguiente sesión**: confirmar sesión estable; persistencia tras reiniciar el
   servicio; firewall probado desde otra PC; `tools/probar_concurrencia.py`;
   `uninstall_service.bat`; publicar el agente con `publish-release.ps1` para los 15
