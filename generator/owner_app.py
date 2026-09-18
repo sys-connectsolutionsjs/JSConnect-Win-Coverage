@@ -42,26 +42,24 @@ def consultar_servicio() -> str:
 URL_PROXY_LOCAL_POR_DEFECTO = "http://127.0.0.1:8080"
 
 
-def _url_proxy_local() -> str | None:
-    """URL local del proxy, o None si config.yaml no existe o no es valido.
+def _url_proxy_local() -> str:
+    """URL local del proxy: la de config.yaml si se puede leer, o la de por defecto.
 
-    config.yaml tiene ACL SYSTEM/Administradores: sin elevar da PermissionError,
-    pero /health es publico, asi que se usa el puerto por defecto en vez de
-    fingir que el servicio no esta configurado."""
+    Solo hace falta el puerto para /health, que es publico. config.yaml puede no
+    leerse por ACL (SYSTEM/Administradores: PermissionError) o, en el .exe
+    empaquetado, no existir junto al modulo (ValidationError por tokens
+    obligatorios); en ambos casos el estado real lo dice /health, no un
+    "falta configurar" engañoso."""
     try:
         from validator_app.proxy.config import ProxyConfig
 
         return ProxyConfig().proxy_local_url
-    except PermissionError:
-        return URL_PROXY_LOCAL_POR_DEFECTO
     except Exception:
-        return None
+        return URL_PROXY_LOCAL_POR_DEFECTO
 
 
 def consultar_proxy() -> str:
     url = _url_proxy_local()
-    if url is None:
-        return "Proxy: falta configurar el servicio"
 
     try:
         respuesta = httpx.get(f"{url}/health", timeout=5)

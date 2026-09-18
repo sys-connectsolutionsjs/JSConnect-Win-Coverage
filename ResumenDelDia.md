@@ -40,8 +40,9 @@ también en `resumenes/2026-09-18.md` y en el historial.
   (37 casos); se resuelve al desinstalar el ensayo o ejecutando pytest elevado.
 
 - **Consola owner**: "falta configurar el servicio" era un `PermissionError` al
-  leer `config.yaml`, no Chrome. Ahora usa `127.0.0.1:8080` en ese caso; el `.exe`
-  se reconstruyó. `tests/conftest.py` aísla el `config.yaml` real (146 tests, ruff
+  leer `config.yaml`, no Chrome. Además, en el `.exe` empaquetado `config.yaml`
+  no existe (ValidationError). Ahora cualquier fallo usa `127.0.0.1:8080` y el
+  estado real lo da `/health`; `.exe` reconstruido. `tests/conftest.py` aísla el `config.yaml` real (146 tests, ruff
   limpio).
 - **Abierto**: la sesión WinForce murió tres veces (15:06, 15:32, 15:45) pese a
   renovaciones 200; hipótesis sin confirmar: dos logins en paralelo se invalidan.

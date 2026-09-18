@@ -52,12 +52,22 @@ def test_consultar_proxy_sin_permiso_sobre_config_usa_puerto_por_defecto(monkeyp
     assert visitadas == ["http://127.0.0.1:8080/health"]
 
 
-def test_consultar_proxy_config_invalida_pide_configurar_el_servicio(monkeypatch):
+def test_consultar_proxy_config_invalida_usa_puerto_por_defecto(monkeypatch):
+    """En el .exe empaquetado config.yaml no existe: ProxyConfig() lanza
+    ValidationError. La consola debe consultar /health igualmente."""
     import validator_app.proxy.config as config
 
-    def invalida(*args, **kwargs):
-        raise ValueError("config invalida")
+    def sin_tokens(*args, **kwargs):
+        raise ValueError("proxy_token y admin_key son obligatorios")
 
-    monkeypatch.setattr(config, "ProxyConfig", invalida)
+    visitadas = []
 
-    assert owner_app.consultar_proxy() == "Proxy: falta configurar el servicio"
+    def sin_respuesta(url, timeout):
+        visitadas.append(url)
+        raise OSError("sin conexion")
+
+    monkeypatch.setattr(config, "ProxyConfig", sin_tokens)
+    monkeypatch.setattr(owner_app.httpx, "get", sin_respuesta)
+
+    assert owner_app.consultar_proxy() == "Proxy: no responde localmente"
+    assert visitadas == ["http://127.0.0.1:8080/health"]
