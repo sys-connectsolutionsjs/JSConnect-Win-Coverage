@@ -272,7 +272,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - El repo es público: el código de la API interna será visible. Los endpoints ya son
   públicos de facto (los usa el navegador), pero revisar antes de publicar.
 - **Proxy**: `config.yaml`, `proxy_token.txt`, `admin_key.txt` son GITIGNORED — solo en PC proxy.
-- **Control de acceso (whitelist + token, loopback siempre permitido)**: ver `docs/arquitectura.md`, sección "Control de acceso al proxy". Las IP públicas del router NO se agregan a `allowed_networks`.
+- **Control de acceso (whitelist + token, loopback siempre permitido)**: ver `docs/arquitectura.md`, sección "Control de acceso al proxy". Las IP públicas del router NO se agregan a `allowed_networks`. `/admin/*` exige además origen `127.0.0.1` (no configurable): el admin key expone el `proxy_token` vía `/admin/config`, así que nunca viaja por LAN.
+- **Credenciales del proxy desde la consola owner**: `JSConnect-Win-Owner.exe` tiene un panel "Credenciales del proxy" (Mostrar/Copiar/Rotar) que pide UAC para leer/rotar `config.yaml`. `private_key.pem` **no** se expone ahí ni en ningún otro lugar de la consola — es la única credencial no rotable.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes

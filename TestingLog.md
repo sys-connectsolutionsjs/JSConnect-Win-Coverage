@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (157 en total, a 2026-09-18)
+## Inventario de tests (178 en total, a 2026-09-21)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
@@ -19,7 +19,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
 | tests/test_api.py | 22 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding |
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
-| tests/test_proxy.py | 45 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
+| tests/test_proxy.py | 46 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
 | tests/test_client.py | 3 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`) |
 | tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
@@ -28,15 +28,32 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_medir_keepalive.py | 9 | clasificación muerte/transitorio/indeterminado del medidor |
 | tests/test_activation.py | 4 | llave pública real, firma por huella y diagnóstico de código incompleto |
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
-| tests/test_owner_app.py | 12 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError) y el reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell) |
+| tests/test_owner_app.py | 21 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell) y el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()`) |
 | tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
 | tests/test_install_bat.py | 3 | guardas estáticas de `install_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, y carga manual de la extensión sin `exit`/`pause` en el paso 7 |
+| tests/test_secretos.py | 11 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-21 — Credenciales en la consola owner y `/admin/*` loopback-only
+
+- **Rojo (falso, hallado a mano)**: `test_ruta_instalacion_servicio_no_instalado_cae_a_
+  desarrollo` asumía que `validator_app/proxy/config.yaml` no existía en el repo para
+  probar el fallback de `ruta_instalacion`. Falló porque ese archivo **sí existe** en
+  esta PC (gitignored, de un ensayo previo): el test dependía del filesystem real, no
+  de un estado controlado. **Verde**: se monkeypatcheó `Path.exists` en vez de asumir
+  el estado de la PC — mismo principio que `conftest.py` aplica desde el 2026-09-18.
+- **Efecto colateral del cambio a loopback**: la fixture `client` de `test_proxy.py`
+  (IP `10.0.0.5`, dentro de `allowed_networks` pero no loopback) se usaba también para
+  los tests de `/admin/*`. Al restringir `/admin/*` a `127.0.0.1`, esos tests pasaron
+  a una fixture nueva `admin_client` (IP `127.0.0.1`); se agregó
+  `test_admin_config_rechaza_ip_no_local_403` para cubrir el caso que antes no existía:
+  una IP en la whitelist de LAN pero no loopback debe seguir dando 403 en `/admin/*`.
+- **Calidad**: **178 tests**, suite completa en verde.
 
 ### Sesión 2026-09-18 — Ensayo del instalador y del proxy en la PC de desarrollo
 

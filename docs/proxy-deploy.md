@@ -50,6 +50,10 @@ Si ya hay tokens (`config.yaml`), el paso 5 lo avisa y pregunta: **C** conserva
 regenera (tokens nuevos, se reinicia el servicio y hay que reconfigurar cada
 agente).
 
+Después de instalar, ambos tokens **también** se pueden ver, copiar y rotar desde
+la consola owner (panel "Credenciales del proxy") sin volver a este resumen — ver
+[Recuperar o rotar los tokens desde la consola owner](#recuperar-o-rotar-los-tokens-desde-la-consola-owner).
+
 1. **Verifica Python 3.12+** en PATH
 2. **Instala dependencias** desde la raíz del repositorio
 3. **Instala Chromium** para el login asistido de fallback
@@ -228,6 +232,29 @@ Resumen rápido:
 
 ---
 
+## Recuperar o rotar los tokens desde la consola owner
+
+`JSConnect-Win-Owner.exe` tiene un panel **"Credenciales del proxy"** con, por cada
+token, botones **Mostrar** / **Copiar** / **Rotar**. Requiere correr la consola en
+la **misma PC que el servicio del proxy** (el admin key solo se acepta desde
+`127.0.0.1`, ver Troubleshooting) y pide un aviso UAC de administrador cada vez
+que se usa (`config.yaml` tiene ACL de SYSTEM+Administradores).
+
+- **Mostrar**: revela el valor 30 s y luego se oculta solo; no queda en pantalla.
+- **Copiar**: copia al portapapeles y lo limpia solo a los 60 s.
+- **Rotar**: genera un valor nuevo, reescribe `config.yaml` + el `.txt`, reaplica
+  la ACL y reinicia el servicio. Rotar el **proxy token** invalida el de todos los
+  agentes ya configurados (hay que recargarles el nuevo, igual que con **R** en el
+  instalador); rotar el **admin key** solo afecta a esta consola y a scripts de
+  administración.
+
+No hace falta abrir `config.yaml` a mano ni tener a la vista el resumen final del
+instalador. **`private_key.pem` no aparece aquí ni en ningún otro lugar de la
+consola** — es la única credencial no rotable, y su exposición se maneja aparte
+(ver "Qué llevar a la PC owner").
+
+---
+
 ## Backup y Recuperación
 
 | Qué | Dónde | Frecuencia |
@@ -262,7 +289,8 @@ Resumen rápido:
 |---------|----------------|----------|
 | `sc query JSWinProxy` → STATE: STOPPED | Puerto ocupado / Python no en PATH / deps faltantes | Revisar `<repo>\logs\` |
 | `curl /health` → Connection refused | Servicio no inició / firewall bloquea | `sc start JSWinProxy` + firewall rule |
-| Agentes: "Proxy auth failed" | Token distinto / IP no en allowed_networks | Verificar token en keyring agente = config.yaml proxy |
+| Agentes: "Proxy auth failed" | Token distinto / IP no en allowed_networks | Verificar token en keyring agente = config.yaml proxy (consola owner → panel Credenciales → Mostrar) |
+| `/admin/*` responde 403 desde otra PC | El admin key solo se acepta desde `127.0.0.1` (evita que viaje por LAN: expone el proxy_token vía `/admin/config`) | Usar la consola owner en la propia PC del proxy, o `rotate_creds.py`/scripts locales |
 | Un cambio en `server.py` o `config.yaml` no surte efecto | El servicio Python carga el código y la configuración solo al arrancar | Consola owner → **Reiniciar servicio** (pide UAC) o `Restart-Service JSWinProxy` como Administrador; la sesión WinForce persiste |
 | Agente: "IP no permitida: <ip>" (403) | La IP que ve el proxy no está en `allowed_networks` (localhost siempre pasa) | Añadir su CIDR en `config.yaml` + `Restart-Service JSWinProxy`; las IP públicas del router NO se agregan |
 | WinForce: sesión caducada | Tope absoluto o login expirado | Iniciar sesión y renovar desde extensión/consola owner |

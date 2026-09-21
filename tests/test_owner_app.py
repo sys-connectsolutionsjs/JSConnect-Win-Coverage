@@ -1,5 +1,7 @@
 """Logica sin interfaz de la consola grafica del owner."""
 
+import json
+
 import pytest
 
 from generator import owner_app
@@ -114,3 +116,127 @@ def test_reiniciar_servicio_no_lanza_si_powershell_no_existe():
     ok, mensaje = owner_app.reiniciar_servicio(sin_powershell)
     assert ok is False
     assert "PowerShell" in mensaje
+
+
+def test_comando_propio_en_desarrollo():
+    assert owner_app._comando_propio()[-2:] == ["-m", "generator.owner_app"]
+
+
+def test_comando_propio_congelado(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert owner_app._comando_propio() == [sys.executable]
+
+
+class _ResultadoElevado:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def test_ejecutar_elevado_ok(monkeypatch, tmp_path):
+    """El runner nunca escribe realmente (es PowerShell simulado): quien
+    escribe el archivo temporal es el propio test, imitando lo que haria el
+    subproceso elevado."""
+    capturado = {}
+
+    def runner(args, **kwargs):
+        script = args[-1]
+        capturado["script"] = script
+        # Extrae la ruta de -RedirectStandardOutput para escribir el JSON ahi,
+        # como lo haria el proceso hijo real.
+        marca = "-RedirectStandardOutput '"
+        inicio = script.index(marca) + len(marca)
+        fin = script.index("'", inicio)
+        ruta = script[inicio:fin]
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"proxy_token": "x" * 64, "admin_key": "y" * 64}, f)
+        return _ResultadoElevado(0)
+
+    datos = owner_app._ejecutar_elevado(["--leer-secretos"], runner=runner)
+    assert datos == {"proxy_token": "x" * 64, "admin_key": "y" * 64}
+    assert "-Verb RunAs" in capturado["script"]
+
+
+def test_ejecutar_elevado_uac_cancelado(monkeypatch):
+    def runner(args, **kwargs):
+        return _ResultadoElevado(owner_app.CODIGO_UAC_CANCELADO)
+
+    with pytest.raises(RuntimeError, match="UAC"):
+        owner_app._ejecutar_elevado(["--leer-secretos"], runner=runner)
+
+
+def test_ejecutar_elevado_propaga_error_del_subcomando():
+    def runner(args, **kwargs):
+        script = args[-1]
+        marca = "-RedirectStandardOutput '"
+        inicio = script.index(marca) + len(marca)
+        fin = script.index("'", inicio)
+        ruta = script[inicio:fin]
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"error": "No existe config.yaml"}, f)
+        return _ResultadoElevado(0)
+
+    with pytest.raises(RuntimeError, match="No existe config"):
+        owner_app._ejecutar_elevado(["--leer-secretos"], runner=runner)
+
+
+def test_ejecutar_elevado_borra_el_temporal_incluso_si_falla():
+    ruta_capturada = {}
+
+    def runner(args, **kwargs):
+        script = args[-1]
+        marca = "-RedirectStandardOutput '"
+        inicio = script.index(marca) + len(marca)
+        fin = script.index("'", inicio)
+        ruta_capturada["ruta"] = script[inicio:fin]
+        return _ResultadoElevado(owner_app.CODIGO_UAC_CANCELADO)
+
+    with pytest.raises(RuntimeError):
+        owner_app._ejecutar_elevado(["--leer-secretos"], runner=runner)
+
+    from pathlib import Path
+
+    assert not Path(ruta_capturada["ruta"]).exists()
+
+
+def test_rotar_secreto_elevado_devuelve_solo_el_valor_pedido():
+    def runner(args, **kwargs):
+        script = args[-1]
+        marca = "-RedirectStandardOutput '"
+        inicio = script.index(marca) + len(marca)
+        fin = script.index("'", inicio)
+        ruta = script[inicio:fin]
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump({"admin_key": "z" * 64}, f)
+        return _ResultadoElevado(0)
+
+    assert owner_app.rotar_secreto_elevado("admin_key", runner=runner) == "z" * 64
+
+
+def test_main_subcomando_leer_secretos_imprime_json(monkeypatch, capsys):
+    import sys
+
+    from validator_app.proxy import secretos as secretos_mod
+
+    monkeypatch.setattr(
+        secretos_mod, "ruta_instalacion", lambda: pytest.importorskip("pathlib").Path(".")
+    )
+    monkeypatch.setattr(
+        secretos_mod, "leer_secretos", lambda base_dir: {"proxy_token": "a", "admin_key": "b"}
+    )
+    monkeypatch.setattr(sys, "argv", ["owner_app.exe", "--leer-secretos"])
+
+    assert owner_app.main() == 0
+    salida = json.loads(capsys.readouterr().out)
+    assert salida == {"proxy_token": "a", "admin_key": "b"}
+
+
+def test_main_subcomando_rotar_requiere_argumento_valido(monkeypatch, capsys):
+    import sys
+
+    monkeypatch.setattr(sys, "argv", ["owner_app.exe", "--rotar-secretos", "algo-invalido"])
+
+    assert owner_app.main() == 1
+    salida = json.loads(capsys.readouterr().out)
+    assert "error" in salida

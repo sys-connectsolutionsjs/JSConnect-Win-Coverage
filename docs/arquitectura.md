@@ -78,7 +78,8 @@ flowchart LR
   `keepalive_interval_seconds`.
 - **Autenticación**:
   - `/api/*`: `X-Proxy-Token` + IP en rangos LAN permitidos (loopback siempre)
-  - `/admin/*`: `X-Admin-Key` (solo owner)
+  - `/admin/*`: `X-Admin-Key` + **solo desde 127.0.0.1** (no viaja por LAN: el admin
+    key expone el `proxy_token` vía `/admin/config`, así que nunca se acepta remoto)
   - Detalle y FAQ en "Control de acceso al proxy" (abajo)
 - **Persistencia**: Cookies de sesión WinForce en **Windows Keyring** (`JSWinProxy`/`credentials_cookies`) → sobreviven a reinicios del servicio
 
@@ -187,9 +188,15 @@ Agente                    Proxy                        WinForce              Equ
 
 `/api/*` exige **dos cosas**: (1) que la IP de origen esté en `allowed_networks`
 (o sea loopback, que siempre se permite) y (2) el header `X-Proxy-Token`.
-`/admin/*` exige además `X-Admin-Key`. `/health` es público (solo estado, sin datos).
+`/admin/*` exige `X-Admin-Key` **y** que la petición venga de `127.0.0.1` — a
+diferencia de `/api/*`, esto no es configurable vía `allowed_networks`: el admin
+key da acceso total (incluye el `proxy_token` vía `/admin/config`), así que nunca
+se acepta desde la LAN, aunque la IP esté en los rangos permitidos. La consola
+owner (`JSConnect-Win-Owner.exe`) y `rotate_creds.py` siempre corren en la misma
+PC que el proxy, así que no dependen de acceso remoto a `/admin/*`.
+`/health` es público (solo estado, sin datos).
 Por defecto el instalador permite `192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12` y
-`100.64.0.0/10` (Tailscale) — **el sistema no es de acceso público**.
+`100.64.0.0/10` (Tailscale) para `/api/*` — **el sistema no es de acceso público**.
 
 - **Error "IP no permitida: <ip>" (HTTP 403)**: la IP que aparece en el mensaje es la
   que ve el proxy. Si es la de la propia PC del proxy usada como agente

@@ -13,6 +13,26 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-21 — Sesión — credenciales en la consola owner: panel Mostrar/Copiar/Rotar y `/admin/*` loopback-only
+- **Snapshot completo**: `resumenes/2026-09-21.md`.
+- **Origen**: el owner propuso exponer `proxy_token`/`admin_key` en la consola owner
+  bajo la premisa de un `key.pem` generado por el instalador — premisa incorrecta (el
+  instalador solo genera los dos tokens; la llave crítica es `private_key.pem`, de otro
+  instalador y no rotable). La conclusión se sostuvo igual: la consola ya convive con esa
+  llave, así que exponer tokens rotables ahí no aumenta el riesgo marginal.
+- **Hallazgos**: `admin_key` era superconjunto de `proxy_token` (`/admin/config` lo
+  devolvía en claro) y `verify_admin_key` no validaba IP con el server en `0.0.0.0`;
+  `proxy_token` abre `/api/score` (datos personales por DNI, Ley 29733).
+- **Implementado**: `/admin/*` restringido a loopback (no configurable, a diferencia de
+  `allowed_networks`); comparación de tokens en tiempo constante; `secretos.py` nuevo
+  (lectura/rotación preservando el resto de `config.yaml` + ACL + reinicio del servicio);
+  panel "Credenciales del proxy" en `owner_app.py` (Mostrar/Copiar/Rotar vía relanzo
+  elevado con UAC, sin debilitar la ACL). `private_key.pem` nunca aparece en la GUI.
+- **Calidad**: 157 → **178 tests**, suite completa en verde.
+- **Pendiente**: el flujo elevado no se ha probado en la PC oficial con el servicio
+  instalado (UAC real, `sc qc` contra un binPath real, rotación end-to-end). Sigue abierto
+  todo lo pendiente del 2026-09-18.
+
 ### 2026-09-18 — Sesión — ensayo del proxy en la PC dev: instalador re-ejecutable, consola owner y control de acceso
 - **Snapshot completo**: `resumenes/2026-09-18.md`.
 - **Decisión**: ensayo completo del proxy en la PC de desarrollo antes de la PC owner

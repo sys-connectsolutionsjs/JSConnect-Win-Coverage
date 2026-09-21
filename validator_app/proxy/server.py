@@ -16,7 +16,8 @@ siempre de un login manual en navegador y se inyecta via /admin/login o
 
 Auth:
 - /api/*      -> X-Proxy-Token header + IP en allowed_networks
-- /admin/*    -> X-Admin-Key header (solo owner)
+- /admin/*    -> X-Admin-Key header + solo desde 127.0.0.1 (el admin key expone
+  el proxy_token via /admin/config, asi que nunca viaja por LAN)
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import ipaddress
 import json
 import logging
 import random
+import secrets
 import subprocess
 import threading
 import time
@@ -684,13 +686,19 @@ def get_proxy_api() -> ProxyValidatorAPI:
     return _proxy_api
 
 
+def _es_local(request: Request) -> None:
+    host = request.client.host if request.client else ""
+    if host not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Solo desde la PC del proxy")
+
+
 # Auth dependencies
 async def verify_proxy_token(
     request: Request,
     x_proxy_token: Annotated[str | None, Header(alias="X-Proxy-Token")] = None,
 ) -> None:
     config = get_config()
-    if x_proxy_token != config.proxy_token:
+    if x_proxy_token is None or not secrets.compare_digest(x_proxy_token, config.proxy_token):
         raise HTTPException(status_code=401, detail="Token de proxy invalido")
 
     # Validar IP en redes permitidas
@@ -700,10 +708,14 @@ async def verify_proxy_token(
 
 
 async def verify_admin_key(
+    request: Request,
     x_admin_key: Annotated[str | None, Header(alias="X-Admin-Key")] = None,
 ) -> None:
+    # El admin key da acceso total (incluye el proxy_token via /admin/config), asi
+    # que se restringe a la PC del proxy igual que /local/* - nunca viaja por LAN.
+    _es_local(request)
     config = get_config()
-    if x_admin_key != config.admin_key:
+    if x_admin_key is None or not secrets.compare_digest(x_admin_key, config.admin_key):
         raise HTTPException(status_code=401, detail="Admin key invalida")
 
 
@@ -891,12 +903,6 @@ async def admin_status():
 # la sesion con la PHPSESSID de su login normal de WinForce. Una peticion desde
 # 127.0.0.1 ya es de confianza (no hace falta admin key); ademas el proxy valida
 # la cookie contra WinForce antes de guardarla.
-
-def _es_local(request: Request) -> None:
-    host = request.client.host if request.client else ""
-    if host not in ("127.0.0.1", "::1"):
-        raise HTTPException(status_code=403, detail="Solo desde la PC del proxy")
-
 
 @app.post("/local/renovar", dependencies=[Depends(_es_local)])
 async def local_renovar(request: AdminCookieRequest):

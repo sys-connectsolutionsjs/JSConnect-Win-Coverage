@@ -480,6 +480,20 @@ def client(monkeypatch):
     return TestClient(server.app, client=("10.0.0.5", 5000)), fake
 
 
+@pytest.fixture
+def admin_client(monkeypatch):
+    """TestClient desde 127.0.0.1: /admin/* solo acepta la PC del proxy."""
+    cfg = ProxyConfig(
+        proxy_token=_TOKEN, admin_key=_ADMIN,
+        allowed_networks=["127.0.0.0/8", "10.0.0.0/8"],
+    )
+    monkeypatch.setattr(server, "get_config", lambda: cfg)
+    fake = mock.Mock()
+    fake.get_status.return_value = _STATUS
+    monkeypatch.setattr(server, "get_proxy_api", lambda: fake)
+    return TestClient(server.app, client=("127.0.0.1", 5000)), fake
+
+
 def test_health_publico(client):
     tc, _fake = client
     r = tc.get("/health")
@@ -557,30 +571,38 @@ def test_api_score_documento_invalido_422(client):
     assert r.status_code == 422
 
 
-def test_admin_config_requiere_key(client):
-    tc, _fake = client
+def test_admin_config_requiere_key(admin_client):
+    tc, _fake = admin_client
     assert tc.get("/admin/config").status_code == 401
     r = tc.get("/admin/config", headers={"X-Admin-Key": _ADMIN})
     assert r.status_code == 200
     assert r.json()["token"] == _TOKEN
 
 
-def test_admin_login_inyecta_cookie(client):
-    tc, fake = client
+def test_admin_config_rechaza_ip_no_local_403(client):
+    """El admin key expone el proxy_token via /admin/config: nunca viaja por LAN,
+    aunque la IP este en allowed_networks (eso solo aplica a /api/*)."""
+    tc, _fake = client  # IP 10.0.0.5, dentro de allowed_networks pero no loopback
+    r = tc.get("/admin/config", headers={"X-Admin-Key": _ADMIN})
+    assert r.status_code == 403
+
+
+def test_admin_login_inyecta_cookie(admin_client):
+    tc, fake = admin_client
     r = tc.post("/admin/login", json={"php_sessid": "abc"}, headers={"X-Admin-Key": _ADMIN})
     assert r.status_code == 200
     fake.set_session_cookie.assert_called_once_with("abc")
 
 
-def test_admin_rotar_inyecta_cookie(client):
-    tc, fake = client
+def test_admin_rotar_inyecta_cookie(admin_client):
+    tc, fake = admin_client
     r = tc.post("/admin/rotar", json={"php_sessid": "xyz"}, headers={"X-Admin-Key": _ADMIN})
     assert r.status_code == 200
     fake.set_session_cookie.assert_called_once_with("xyz")
 
 
-def test_admin_status_ok(client):
-    tc, _fake = client
+def test_admin_status_ok(admin_client):
+    tc, _fake = admin_client
     r = tc.get("/admin/status", headers={"X-Admin-Key": _ADMIN})
     assert r.status_code == 200
     assert r.json()["keepalive"]["enabled"] is True
