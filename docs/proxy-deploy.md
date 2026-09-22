@@ -254,15 +254,18 @@ Resumen rápido:
 token, botones **Mostrar** / **Copiar** / **Rotar**. Requiere correr la consola en
 la **misma PC que el servicio del proxy** (el admin key solo se acepta desde
 `127.0.0.1`, ver Troubleshooting) y pide un aviso UAC de administrador cada vez
-que se usa (`config.yaml` tiene ACL de SYSTEM+Administradores).
+que se usa (`config.yaml` tiene ACL de SYSTEM+Administradores). Antes de pedir el
+UAC, la consola pide su propia confirmacion (para que Windows no sorprenda con el
+aviso incluso si se abrio con doble clic, sin "Ejecutar como administrador").
 
 - **Mostrar**: revela el valor 30 s y luego se oculta solo; no queda en pantalla.
 - **Copiar**: copia al portapapeles y lo limpia solo a los 60 s.
-- **Rotar**: genera un valor nuevo, reescribe `config.yaml` + el `.txt`, reaplica
-  la ACL y reinicia el servicio. Rotar el **proxy token** invalida el de todos los
-  agentes ya configurados (hay que recargarles el nuevo, igual que con **R** en el
-  instalador); rotar el **admin key** solo afecta a esta consola y a scripts de
-  administración.
+- **Rotar**: avisa que se pedira UAC, genera un valor nuevo, reescribe
+  `config.yaml` + el `.txt`, reaplica la ACL y reinicia el servicio; el mensaje
+  final indica donde colocar el valor nuevo. Rotar el **proxy token** invalida el
+  de todos los agentes ya configurados (hay que recargarles el nuevo desde ⚙
+  Configuracion → Configurar Proxy, igual que con **R** en el instalador); rotar
+  el **admin key** solo afecta a esta consola y a scripts de administracion.
 
 No hace falta abrir `config.yaml` a mano ni tener a la vista el resumen final del
 instalador. **`private_key.pem` no aparece aquí ni en ningún otro lugar de la

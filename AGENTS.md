@@ -325,6 +325,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 31. **Etapa 0.5 — coherencia del almacén de la cookie con LocalSystem** [COMPLETADO — verificado 2026-09-11]: `rotate_creds.py` ya no escribe la cookie directo al keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía); ahora `push_session_cookie()` la empuja por HTTP: `/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza. `config.py` gana `proxy_local_url` (ignora `proxy_host=0.0.0.0` de producción) — arregla de paso un bug latente de `_verificar_proxy()`. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo (cookie falsa → 401 real de `/local/renovar`). **129 tests, ruff limpio.**
 32. **Activación RSA real + consola owner** [COMPLETADO — verificado 2026-09-16]: `signer.py` contiene la llave pública real y diagnósticos de activación; la GUI del agente copia la huella y pega el código; `generator/owner_app.py` genera/copia códigos, consulta proxy/servicio y lanza la renovación WinForce; `build-owner.ps1` genera el ejecutable separado. La privada permanece ignorada y con ACL restringida. Prueba manual completa aprobada en esta PC y builds limpios de agente/owner. **141 tests, ruff limpio.** La Etapa D en la PC owner oficial sigue pendiente.
 33. **Ensayo del proxy en la PC de desarrollo + instalador re-ejecutable** [EN CURSO — 2026-09-18]: `install_service.bat` se relanza en `cmd /k` (ventana persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un resumen final; el paso 5 avisa si ya hay tokens y pregunta Conservar/Regenerar (por defecto Conservar a los 20 s; al regenerar reutiliza el puerto y reinicia el servicio). Bug corregido: `)` sin escapar en `echo` dentro de bloques `( ... )` abortaba el script en el paso 5; guarda en `tests/test_install_bat.py`. La extensión de Chrome no se carga sola en una PC no gestionada (Windows Home/WORKGROUP: Chrome ignora la política `file:///`): el paso 7 detecta dominio/Azure AD, solo avisa y el final imprime la carga manual (`.extension_build`). `generator/owner_app.py`: usa `127.0.0.1:8080` si `config.yaml` no se puede cargar (ACL o `.exe` empaquetado) y gana el botón **Reiniciar servicio** (PowerShell elevado con UAC; el servicio carga código/config solo al arrancar). Agente: menú ⚙ → **Activación / Huella de la PC** (`activacion_vigente()`). Proxy: loopback siempre permitido en `_ip_in_allowed_networks` (las IP públicas del router NO se agregan; whitelist + token; VPN futura documentada en `Escalabilidad.md`). `tests/conftest.py` aísla el `config.yaml` real. **157 tests, ruff limpio.** Pendiente: sesión WinForce que murió 3 veces (hipótesis: dos logins en paralelo), persistencia tras reinicio, firewall desde otra PC, carga (`probar_concurrencia.py`), desinstalar el ensayo y repetir en la PC oficial (Etapa D/E).
+34. **Credenciales en la consola owner + `/admin/*` loopback-only + releases de owner+agente** [COMPLETADO — 2026-09-21]: panel "Credenciales del proxy" (Mostrar/Copiar/Rotar) en `owner_app.py`, vía relanzo elevado con UAC (`secretos.py` NUEVO: lee/rota `proxy_token`/`admin_key` preservando el resto de `config.yaml`, reaplica ACL, reinicia el servicio). `/admin/*` restringido a loopback (no configurable, a diferencia de `allowed_networks`); comparación de tokens con `secrets.compare_digest`. Primer Release conjunto de owner+agente (`v2026.09.21`); bug encontrado y corregido en el updater: con dos `.exe` en el mismo Release podía elegir el asset equivocado o cruzar checksums (`check.py`/`download.py`). **191 tests, ruff limpio.**
+35. **Fix: UAC falso-cancelado + `sc qc` en español en la consola owner** [COMPLETADO — 2026-09-22]: `_ejecutar_elevado()` combinaba `-Verb RunAs` con `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en PowerShell que hacía fallar la elevación **antes** de mostrar el UAC real, reportado como "UAC cancelado" sin serlo. Fix: la ruta de salida se pasa como argumento posicional; el subcomando elevado escribe el JSON al archivo en vez de stdout. Además, `ruta_instalacion()` (`secretos.py`) buscaba la etiqueta `BINARY_PATH_NAME` de `sc qc` solo en inglés — en Windows en español (toda la oficina) sale como `NOMBRE_RUTA_BINARIO` y nunca matcheaba, así que fallaba con "config.yaml no encontrado" aunque el servicio y el archivo sí existían; ahora reconoce ambas etiquetas (inglés primero, español como segunda opción). Se agregó confirmación propia antes del UAC en **Mostrar** (no tenía ninguna) y se amplió el aviso/mensaje final de **Rotar** (menciona el UAC, indica dónde colocar el valor nuevo). Verificado en vivo de punta a punta (Mostrar y Rotar, ambos secretos) en una PC con el servicio real instalado. Release `v2026.09.22` publicado con ambos `.exe` corregidos. **193 tests, ruff limpio.**
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -790,3 +792,53 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   PC; luego Etapa D/E en la PC oficial (llevar `private_key.pem`; ver
   `docs/proxy-deploy.md`) y Fase 5 (barrido de documentación). Decidir si el firewall
   y el acceso directo de la consola owner deben crearse automáticamente.
+
+### Cierre de la sesión 2026-09-21 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Origen**: el owner propuso mostrar/copiar `proxy_token` y `admin_key` en la
+  consola owner. **Hallazgos de seguridad** en el camino: `admin_key` era
+  superconjunto de `proxy_token` (`/admin/config` lo devolvía en claro);
+  `verify_admin_key` no validaba IP con el server en `0.0.0.0`; `proxy_token` abre
+  `/api/score` (dato personal por DNI).
+- **Hecho**: `/admin/*` restringido a loopback (no configurable); comparación de
+  tokens en tiempo constante; `secretos.py` NUEVO (lectura/rotación preservando el
+  resto de `config.yaml` + ACL + reinicio del servicio); panel "Credenciales del
+  proxy" en `owner_app.py` (Mostrar 30 s / Copiar 60 s / Rotar, vía relanzo elevado
+  con UAC). `private_key.pem` nunca aparece en la GUI.
+- **Traspaso futuro**: `TraspasoInmediato.md` NUEVO (plan sin implementar) para el
+  día que el proxy tenga que moverse de PC.
+- **Releases**: primer Release conjunto de owner+agente (`v2026.09.21`). Bug real
+  encontrado: el updater podía elegir el `.exe` equivocado o cruzar checksums con
+  dos ejecutables en el mismo Release — corregido en `check.py`/`download.py` con
+  `tests/test_updater.py` NUEVO (13 casos), verificado contra la API real de GitHub.
+- **Tests**: 157 → **191**, ruff limpio.
+- **Siguiente sesión**: probar el flujo elevado de credenciales en la PC oficial
+  con el servicio instalado (UAC real, `sc qc` contra un binPath real, rotación
+  end-to-end); probar en vivo la descarga+reemplazo del updater; resto de
+  pendientes del 2026-09-18 sigue abierto.
+
+### Cierre de la sesión 2026-09-22 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Origen**: al probar en vivo (PC de casa, proxy de desarrollo instalado) el
+  panel de credenciales del 2026-09-21, **Mostrar** fallaba con "UAC cancelado"
+  sin que apareciera ningún diálogo real, incluso corriendo la consola como
+  Administrador.
+- **Bug 1**: `_ejecutar_elevado()` combinaba `-Verb RunAs` con
+  `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en
+  PowerShell, rechazada antes de mostrar el UAC. Fix: la ruta de salida se pasa
+  como argumento posicional; el subcomando elevado escribe el JSON al archivo en
+  vez de stdout. Se agregó confirmación propia antes del UAC en **Mostrar** (no
+  tenía ninguna) y se amplió el aviso/mensaje final de **Rotar** (UAC + dónde
+  colocar el valor nuevo).
+- **Bug 2** (destapado al verificar el fix del Bug 1 en vivo): `ruta_instalacion()`
+  buscaba `BINARY_PATH_NAME` en la salida de `sc qc`, pero Windows en español (toda
+  la oficina) la traduce a `NOMBRE_RUTA_BINARIO` — nunca matcheaba y fallaba con
+  "config.yaml no encontrado" aunque el servicio y el archivo sí existían. Fix:
+  reconoce ambas etiquetas, inglés primero, español como segunda opción.
+- **Verificado en vivo** end-to-end (Mostrar y Rotar, `proxy_token` y
+  `admin_key`) en una PC con el servicio real instalado.
+- **Tests**: 191 → **193**, ruff limpio. **Release**: `v2026.09.22` con ambos
+  `.exe` corregidos, reemplazando `v2026.09.21`.
+- **Siguiente sesión**: repetir la verificación del flujo elevado en la PC
+  oficial de la oficina (esta PC es solo de desarrollo/pruebas); resto de
+  pendientes del 2026-09-21 sigue abierto.

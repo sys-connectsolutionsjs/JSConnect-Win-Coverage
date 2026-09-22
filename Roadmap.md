@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-09-18.
+Última actualización: 2026-09-22.
 
 ---
 
@@ -38,6 +38,7 @@ corre en producción todavía.
 | 2026-09-18 | **Ensayo en la PC dev** — instalador re-ejecutable, consola owner con Reiniciar servicio, Activación/Huella en el agente, loopback permitido y tests hermeticos (157) | `2c4a757` `63ca477` + cierre del día |
 | 2026-09-21 | **Credenciales en la consola owner** — panel Mostrar/Copiar/Rotar, `/admin/*` restringido a loopback y comparación en tiempo constante | `9367775` |
 | 2026-09-21 | **Releases de owner + agente** — primer Release conjunto (`v2026.09.21`), fix de selección de asset/checksum en el updater cuando hay dos `.exe`, 191 tests | `3af91f6` |
+| 2026-09-22 | **Fix UAC + idioma en la consola owner** — Mostrar/Rotar ya no fallan con "UAC cancelado" falso ni con `sc qc` en español; confirmaciones ampliadas; Release `v2026.09.22`, 193 tests | `6a6d94e` |
 
 ---
 

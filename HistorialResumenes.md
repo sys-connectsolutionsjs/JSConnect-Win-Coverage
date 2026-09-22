@@ -13,6 +13,37 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
+- **Snapshot completo**: `resumenes/2026-09-22.md`.
+- **Origen**: al probar en vivo (PC de casa, proxy de desarrollo instalado) el panel de
+  credenciales agregado ayer, el botón **Mostrar** fallaba con "UAC cancelado"
+  **sin que apareciera ningún diálogo real**, incluso corriendo la consola como
+  Administrador.
+- **Bug 1**: `_ejecutar_elevado()` combinaba `-Verb RunAs` con
+  `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en
+  PowerShell (una exige `UseShellExecute=true`, la otra `false`), rechazada antes de
+  mostrar ningún UAC. Fix: la ruta de salida se pasa como argumento posicional; el
+  subcomando elevado escribe el JSON directo al archivo en vez de usar stdout.
+- **Confirmaciones**: **Mostrar** ahora pide confirmación propia antes del UAC (no
+  tenía ninguna); **Rotar** menciona que pedirá UAC y su mensaje final indica dónde
+  colocar el valor nuevo (proxy_token → reconfigurar agentes; admin_key → solo local).
+- **Bug 2** (destapado al verificar el fix del Bug 1 en vivo): `ruta_instalacion()`
+  buscaba la etiqueta en inglés `BINARY_PATH_NAME` en la salida de `sc qc`, pero
+  Windows en español (como toda la oficina) la traduce a `NOMBRE_RUTA_BINARIO` —
+  nunca matcheaba, caía a un fallback inválido en el `.exe` empaquetado y fallaba
+  aunque el servicio y `config.yaml` sí existían. Habría afectado a cualquier PC de
+  la oficina. Fix (decisión del owner: detectar idioma, no cambiar de comando):
+  reconoce ambas etiquetas, inglés primero, español como segunda opción.
+- **Verificado en vivo end-to-end** en esta PC (servicio real instalado): Mostrar y
+  Rotar completos, para `proxy_token` y `admin_key`.
+- **Calidad**: 191 → **193 tests** (`test_owner_app.py` 21→22, `test_secretos.py`
+  11→12), suite completa en verde, ruff limpio.
+- **Release**: `v2026.09.22` publicado con ambos `.exe` corregidos, reemplazando
+  `v2026.09.21` (que tenía los dos bugs sin detectar).
+- **Pendiente**: repetir la verificación del flujo elevado en la PC oficial de la
+  oficina (esta PC es solo de desarrollo/pruebas). Resto de pendientes del
+  2026-09-21 sigue abierto.
+
 ### 2026-09-21 — Sesión — credenciales en la consola owner, `/admin/*` loopback-only, y releases de owner+agente
 - **Snapshot completo**: `resumenes/2026-09-21.md`.
 - **Origen**: el owner propuso exponer `proxy_token`/`admin_key` en la consola owner
