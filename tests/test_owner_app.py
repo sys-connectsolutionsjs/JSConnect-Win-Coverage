@@ -134,6 +134,15 @@ class _ResultadoElevado:
         self.returncode = returncode
 
 
+def _extraer_ruta_salida(script: str) -> str:
+    """El ultimo elemento de -ArgumentList es la ruta de salida."""
+    marca = "-ArgumentList "
+    inicio = script.index(marca) + len(marca)
+    fin = script.index(" -Verb RunAs", inicio)
+    lista = script[inicio:fin]
+    return lista.rstrip(",").rsplit(",", 1)[-1].strip("'")
+
+
 def test_ejecutar_elevado_ok(monkeypatch, tmp_path):
     """El runner nunca escribe realmente (es PowerShell simulado): quien
     escribe el archivo temporal es el propio test, imitando lo que haria el
@@ -143,12 +152,7 @@ def test_ejecutar_elevado_ok(monkeypatch, tmp_path):
     def runner(args, **kwargs):
         script = args[-1]
         capturado["script"] = script
-        # Extrae la ruta de -RedirectStandardOutput para escribir el JSON ahi,
-        # como lo haria el proceso hijo real.
-        marca = "-RedirectStandardOutput '"
-        inicio = script.index(marca) + len(marca)
-        fin = script.index("'", inicio)
-        ruta = script[inicio:fin]
+        ruta = _extraer_ruta_salida(script)
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump({"proxy_token": "x" * 64, "admin_key": "y" * 64}, f)
         return _ResultadoElevado(0)
@@ -156,6 +160,7 @@ def test_ejecutar_elevado_ok(monkeypatch, tmp_path):
     datos = owner_app._ejecutar_elevado(["--leer-secretos"], runner=runner)
     assert datos == {"proxy_token": "x" * 64, "admin_key": "y" * 64}
     assert "-Verb RunAs" in capturado["script"]
+    assert "-RedirectStandardOutput" not in capturado["script"]
 
 
 def test_ejecutar_elevado_uac_cancelado(monkeypatch):
@@ -169,10 +174,7 @@ def test_ejecutar_elevado_uac_cancelado(monkeypatch):
 def test_ejecutar_elevado_propaga_error_del_subcomando():
     def runner(args, **kwargs):
         script = args[-1]
-        marca = "-RedirectStandardOutput '"
-        inicio = script.index(marca) + len(marca)
-        fin = script.index("'", inicio)
-        ruta = script[inicio:fin]
+        ruta = _extraer_ruta_salida(script)
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump({"error": "No existe config.yaml"}, f)
         return _ResultadoElevado(0)
@@ -186,10 +188,7 @@ def test_ejecutar_elevado_borra_el_temporal_incluso_si_falla():
 
     def runner(args, **kwargs):
         script = args[-1]
-        marca = "-RedirectStandardOutput '"
-        inicio = script.index(marca) + len(marca)
-        fin = script.index("'", inicio)
-        ruta_capturada["ruta"] = script[inicio:fin]
+        ruta_capturada["ruta"] = _extraer_ruta_salida(script)
         return _ResultadoElevado(owner_app.CODIGO_UAC_CANCELADO)
 
     with pytest.raises(RuntimeError):
@@ -203,10 +202,7 @@ def test_ejecutar_elevado_borra_el_temporal_incluso_si_falla():
 def test_rotar_secreto_elevado_devuelve_solo_el_valor_pedido():
     def runner(args, **kwargs):
         script = args[-1]
-        marca = "-RedirectStandardOutput '"
-        inicio = script.index(marca) + len(marca)
-        fin = script.index("'", inicio)
-        ruta = script[inicio:fin]
+        ruta = _extraer_ruta_salida(script)
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump({"admin_key": "z" * 64}, f)
         return _ResultadoElevado(0)
@@ -214,22 +210,23 @@ def test_rotar_secreto_elevado_devuelve_solo_el_valor_pedido():
     assert owner_app.rotar_secreto_elevado("admin_key", runner=runner) == "z" * 64
 
 
-def test_main_subcomando_leer_secretos_imprime_json(monkeypatch, capsys):
+def test_main_subcomando_leer_secretos_escribe_json(monkeypatch, tmp_path):
     import sys
 
     from validator_app.proxy import secretos as secretos_mod
 
-    monkeypatch.setattr(
-        secretos_mod, "ruta_instalacion", lambda: pytest.importorskip("pathlib").Path(".")
-    )
+    monkeypatch.setattr(secretos_mod, "ruta_instalacion", lambda: tmp_path)
     monkeypatch.setattr(
         secretos_mod, "leer_secretos", lambda base_dir: {"proxy_token": "a", "admin_key": "b"}
     )
-    monkeypatch.setattr(sys, "argv", ["owner_app.exe", "--leer-secretos"])
+    ruta_salida = tmp_path / "out.json"
+    monkeypatch.setattr(sys, "argv", ["owner_app.exe", "--leer-secretos", str(ruta_salida)])
 
     assert owner_app.main() == 0
-    salida = json.loads(capsys.readouterr().out)
-    assert salida == {"proxy_token": "a", "admin_key": "b"}
+    assert json.loads(ruta_salida.read_text(encoding="utf-8")) == {
+        "proxy_token": "a",
+        "admin_key": "b",
+    }
 
 
 def test_main_subcomando_rotar_requiere_argumento_valido(monkeypatch, capsys):
@@ -240,3 +237,19 @@ def test_main_subcomando_rotar_requiere_argumento_valido(monkeypatch, capsys):
     assert owner_app.main() == 1
     salida = json.loads(capsys.readouterr().out)
     assert "error" in salida
+
+
+def test_main_subcomando_rotar_secretos_escribe_json(monkeypatch, tmp_path):
+    import sys
+
+    from validator_app.proxy import secretos as secretos_mod
+
+    monkeypatch.setattr(secretos_mod, "ruta_instalacion", lambda: tmp_path)
+    monkeypatch.setattr(secretos_mod, "rotar", lambda base_dir, cual: "z" * 64)
+    ruta_salida = tmp_path / "out.json"
+    monkeypatch.setattr(
+        sys, "argv", ["owner_app.exe", "--rotar-secretos", "admin_key", str(ruta_salida)]
+    )
+
+    assert owner_app.main() == 0
+    assert json.loads(ruta_salida.read_text(encoding="utf-8")) == {"admin_key": "z" * 64}

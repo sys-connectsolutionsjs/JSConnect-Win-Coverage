@@ -24,6 +24,11 @@ _LINEA_CLAVE = re.compile(r'^(?P<clave>proxy_token|admin_key):\s*"(?P<valor>[^"]
 # el servicio de Windows no esta instalado (config.py:20-22 usa la misma ruta).
 _BASE_DIR_DESARROLLO = Path(__file__).resolve().parent
 
+# Etiqueta de "BINARY_PATH_NAME" en la salida de `sc qc`: varia con el idioma
+# de Windows. Ingles primero (mas comun en instalaciones corporativas base),
+# espanol como segunda opcion (idioma real de las PC de la oficina).
+_ETIQUETAS_BINARY_PATH = ("BINARY_PATH_NAME", "NOMBRE_RUTA_BINARIO")
+
 
 class SecretosError(Exception):
     """Error legible por el owner (se muestra tal cual en la GUI)."""
@@ -38,6 +43,10 @@ def ruta_instalacion(runner=subprocess.run) -> Path:
     install_service.bat registra el servicio con el binPath apuntando a
     validator_app\\proxy dentro de la instalacion real, asi que se deriva de
     ahi via `sc qc`.
+
+    La etiqueta de `sc qc` para el binPath cambia con el idioma de Windows
+    ("BINARY_PATH_NAME" en ingles, "NOMBRE_RUTA_BINARIO" en espanol) -
+    _ETIQUETAS_BINARY_PATH prueba ambas, ingles primero.
     """
     try:
         resultado = runner(
@@ -48,7 +57,8 @@ def ruta_instalacion(runner=subprocess.run) -> Path:
 
     if resultado.returncode == 0:
         for linea in resultado.stdout.splitlines():
-            if "BINARY_PATH_NAME" not in linea.upper():
+            linea_mayus = linea.upper()
+            if not any(etq in linea_mayus for etq in _ETIQUETAS_BINARY_PATH):
                 continue
             bin_path = linea.split(":", 1)[1].strip()
             # El binPath es el .exe de WinSW dentro de validator_app\proxy; a veces

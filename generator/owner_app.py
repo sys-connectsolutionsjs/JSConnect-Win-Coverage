@@ -142,23 +142,24 @@ def _comando_propio() -> list[str]:
 
 
 def _ejecutar_elevado(args_extra: list[str], runner=subprocess.run) -> dict:
-    """Relanza este programa elevado con `args_extra`, captura su stdout (JSON)
-    y lo devuelve como dict. Mismo patron de codigos que comando_reinicio():
-    CODIGO_UAC_CANCELADO si el usuario cancela el UAC.
+    """Relanza este programa elevado con `args_extra`, lee el JSON que escribe en
+    un archivo temporal y lo devuelve como dict. Mismo patron de codigos que
+    comando_reinicio(): CODIGO_UAC_CANCELADO si el usuario cancela el UAC.
 
-    Usa Start-Process -RedirectStandardOutput en vez de anidar redirecciones de
-    shell: evita el escapado de comillas de un comando dentro de otro."""
+    La ruta del archivo va como argumento posicional extra (no como
+    -RedirectStandardOutput): ese parametro exige UseShellExecute=false, mientras
+    que -Verb RunAs exige UseShellExecute=true para poder elevar - combinarlos
+    hace que PowerShell rechace el Start-Process antes de mostrar el UAC."""
     fd, ruta_salida = tempfile.mkstemp(prefix="jsconnect_owner_", suffix=".json")
     os.close(fd)
     try:
-        partes = _comando_propio() + args_extra
+        partes = _comando_propio() + args_extra + [ruta_salida]
         archivo, resto = partes[0], partes[1:]
         lista_args = ",".join(f"'{a}'" for a in resto)
         script = (
             "try { "
             f"$p = Start-Process -FilePath '{archivo}' -ArgumentList {lista_args} "
-            f"-Verb RunAs -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop "
-            f"-RedirectStandardOutput '{ruta_salida}'; "
+            f"-Verb RunAs -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop; "
             "exit $p.ExitCode "
             f"}} catch {{ exit {CODIGO_UAC_CANCELADO} }}"
         )
@@ -188,27 +189,28 @@ def _ejecutar_elevado(args_extra: list[str], runner=subprocess.run) -> dict:
             Path(ruta_salida).unlink(missing_ok=True)
 
 
-def _correr_subcomando_leer() -> int:
+def _correr_subcomando_leer(ruta_salida: str) -> int:
     from validator_app.proxy import secretos
 
     try:
         base_dir = secretos.ruta_instalacion()
-        valores = secretos.leer_secretos(base_dir)
-        print(json.dumps(valores))
+        resultado = secretos.leer_secretos(base_dir)
     except secretos.SecretosError as exc:
-        print(json.dumps({"error": str(exc)}))
+        resultado = {"error": str(exc)}
+    Path(ruta_salida).write_text(json.dumps(resultado), encoding="utf-8")
     return 0
 
 
-def _correr_subcomando_rotar(cual: str) -> int:
+def _correr_subcomando_rotar(cual: str, ruta_salida: str) -> int:
     from validator_app.proxy import secretos
 
     try:
         base_dir = secretos.ruta_instalacion()
         valor_nuevo = secretos.rotar(base_dir, cual)
-        print(json.dumps({cual: valor_nuevo}))
+        resultado = {cual: valor_nuevo}
     except secretos.SecretosError as exc:
-        print(json.dumps({"error": str(exc)}))
+        resultado = {"error": str(exc)}
+    Path(ruta_salida).write_text(json.dumps(resultado), encoding="utf-8")
     return 0
 
 
@@ -367,6 +369,14 @@ class OwnerApp(tk.Tk):
         entry.config(state="readonly")
 
     def mostrar_secreto(self, cual: str) -> None:
+        if not messagebox.askyesno(
+            "Credenciales",
+            "Para mostrar esta credencial, Windows pedira permiso de "
+            "administrador (aviso UAC).\n\n¿Continuar?",
+            parent=self,
+        ):
+            return
+
         boton = self.botones_mostrar[cual]
         boton.config(state="disabled")
 
@@ -422,13 +432,25 @@ class OwnerApp(tk.Tk):
             aviso = (
                 "Se generara un PROXY TOKEN nuevo.\n\n"
                 "Todos los agentes ya configurados dejaran de funcionar hasta que "
-                "reciban el token nuevo.\n\n¿Continuar?"
+                "reciban el token nuevo.\n\n"
+                "Windows pedira permiso de administrador (aviso UAC).\n\n¿Continuar?"
+            )
+            mensaje_exito = (
+                "Credencial rotada y servicio reiniciado.\n\n"
+                "El PROXY TOKEN cambio: hay que actualizarlo en cada agente "
+                "(Menu ⚙ Configuracion → Configurar Proxy, o el script de "
+                "keyring) antes de que puedan volver a conectarse."
             )
         else:
             aviso = (
                 "Se generara un ADMIN KEY nuevo.\n\n"
                 "Solo afecta a esta consola y a herramientas de administracion.\n\n"
-                "¿Continuar?"
+                "Windows pedira permiso de administrador (aviso UAC).\n\n¿Continuar?"
+            )
+            mensaje_exito = (
+                "Credencial rotada y servicio reiniciado.\n\n"
+                "El ADMIN KEY nuevo solo lo usa esta consola y las herramientas "
+                "de administracion; no hace falta distribuirlo a los agentes."
             )
         if not messagebox.askyesno("Rotar credencial", aviso, parent=self):
             return
@@ -454,9 +476,7 @@ class OwnerApp(tk.Tk):
                 self.botones_rotar[cual].config(state="normal")
                 self.botones_mostrar[cual].config(state="normal")
                 self._reprogramar_ocultar(cual)
-                messagebox.showinfo(
-                    "Rotar credencial", "Credencial rotada y servicio reiniciado.", parent=self
-                )
+                messagebox.showinfo("Rotar credencial", mensaje_exito, parent=self)
 
             self.after(0, aplicar)
 
@@ -524,12 +544,16 @@ class OwnerApp(tk.Tk):
 def main() -> int:
     argv = sys.argv[1:]
     if argv and argv[0] == _FLAG_LEER:
-        return _correr_subcomando_leer()
-    if argv and argv[0] == _FLAG_ROTAR:
-        if len(argv) < 2 or argv[1] not in ("proxy_token", "admin_key"):
-            print(json.dumps({"error": f"{_FLAG_ROTAR} requiere 'proxy_token' o 'admin_key'"}))
+        if len(argv) < 2:
+            print(json.dumps({"error": f"{_FLAG_LEER} requiere la ruta de salida"}))
             return 1
-        return _correr_subcomando_rotar(argv[1])
+        return _correr_subcomando_leer(argv[1])
+    if argv and argv[0] == _FLAG_ROTAR:
+        if len(argv) < 3 or argv[1] not in ("proxy_token", "admin_key"):
+            mensaje = f"{_FLAG_ROTAR} requiere 'proxy_token' o 'admin_key' y la ruta de salida"
+            print(json.dumps({"error": mensaje}))
+            return 1
+        return _correr_subcomando_rotar(argv[1], argv[2])
 
     OwnerApp().mainloop()
     return 0

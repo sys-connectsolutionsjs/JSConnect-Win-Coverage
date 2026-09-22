@@ -142,6 +142,22 @@ def test_ruta_instalacion_usa_binpath_del_servicio(tmp_path, monkeypatch):
     assert secretos.ruta_instalacion(runner=runner) == carpeta
 
 
+def test_ruta_instalacion_usa_binpath_del_servicio_en_espanol(tmp_path, monkeypatch):
+    """Windows en espanol traduce BINARY_PATH_NAME a NOMBRE_RUTA_BINARIO en la
+    salida de `sc qc`; debe detectarse igual que en ingles."""
+    carpeta = tmp_path / "validator_app" / "proxy"
+    carpeta.mkdir(parents=True)
+    (carpeta / "config.yaml").write_text(_CONFIG_YAML_VALIDO, encoding="utf-8")
+    exe = carpeta / "JSWinProxy.exe"
+
+    salida = f'        NOMBRE_RUTA_BINARIO: "{exe}"\n'
+
+    def runner(args, **kwargs):
+        return _Resultado(0, stdout=salida)
+
+    assert secretos.ruta_instalacion(runner=runner) == carpeta
+
+
 def test_ruta_instalacion_servicio_no_instalado_cae_a_desarrollo(monkeypatch):
     from pathlib import Path
 
