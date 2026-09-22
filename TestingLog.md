@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (178 en total, a 2026-09-21)
+## Inventario de tests (191 en total, a 2026-09-21)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
@@ -32,6 +32,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
 | tests/test_install_bat.py | 3 | guardas estáticas de `install_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, y carga manual de la extensión sin `exit`/`pause` en el paso 7 |
 | tests/test_secretos.py | 11 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback |
+| tests/test_updater.py | 13 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
@@ -54,6 +55,30 @@ validan con `ruff` e import.
   `test_admin_config_rechaza_ip_no_local_403` para cubrir el caso que antes no existía:
   una IP en la whitelist de LAN pero no loopback debe seguir dando 403 en `/admin/*`.
 - **Calidad**: **178 tests**, suite completa en verde.
+
+**Segunda mitad de la sesión — releases de owner + agente**
+
+- **Bug real, no en el plan original**: al implementar la publicación conjunta de
+  ambos `.exe` en un mismo Release de GitHub, se encontró que
+  `validator_app/updater/check.py::hay_actualizacion()` elegía el asset por
+  `nombre.lower().endswith(".exe")` — con dos `.exe` en el release (agente +
+  owner), podía devolver el equivocado y el agente intentaría autoactualizarse
+  con el binario del owner. Mismo problema en
+  `download.py::extraer_checksum()`: un solo `re.search` sobre todas las notas
+  del release podía extraer el hash del owner y compararlo contra el `.exe` del
+  agente descargado, lo que habría hecho fallar la verificación de integridad
+  siempre (checksum nunca coincide).
+- **Verde**: `check.py` compara por nombre exacto (`NOMBRE_ASSET_AGENTE`);
+  `extraer_checksum(notas, nombre_archivo)` recorta las notas al bloque de ese
+  archivo antes de buscar el hash. No existía cobertura de `validator_app/
+  updater/` — se agregó `tests/test_updater.py` (13 casos), incluyendo un caso
+  específico que reproduce el bug (release con los dos assets, el del owner
+  primero en la lista) para que no regrese.
+- **Verificación en vivo, no solo unitaria**: tras publicar el Release real
+  (`v2026.09.21`), se simuló un `.exe` viejo contra la API real de GitHub y se
+  confirmó que detecta la actualización, elige el asset del agente (con el del
+  owner presente en el mismo release) y extrae el checksum correcto.
+- **Calidad**: **191 tests**, suite completa en verde, ruff limpio.
 
 ### Sesión 2026-09-18 — Ensayo del instalador y del proxy en la PC de desarrollo
 

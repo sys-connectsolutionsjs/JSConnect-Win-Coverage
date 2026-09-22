@@ -13,7 +13,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
-### 2026-09-21 — Sesión — credenciales en la consola owner: panel Mostrar/Copiar/Rotar y `/admin/*` loopback-only
+### 2026-09-21 — Sesión — credenciales en la consola owner, `/admin/*` loopback-only, y releases de owner+agente
 - **Snapshot completo**: `resumenes/2026-09-21.md`.
 - **Origen**: el owner propuso exponer `proxy_token`/`admin_key` en la consola owner
   bajo la premisa de un `key.pem` generado por el instalador — premisa incorrecta (el
@@ -28,10 +28,25 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   (lectura/rotación preservando el resto de `config.yaml` + ACL + reinicio del servicio);
   panel "Credenciales del proxy" en `owner_app.py` (Mostrar/Copiar/Rotar vía relanzo
   elevado con UAC, sin debilitar la ACL). `private_key.pem` nunca aparece en la GUI.
-- **Calidad**: 157 → **178 tests**, suite completa en verde.
-- **Pendiente**: el flujo elevado no se ha probado en la PC oficial con el servicio
-  instalado (UAC real, `sc qc` contra un binPath real, rotación end-to-end). Sigue abierto
-  todo lo pendiente del 2026-09-18.
+- **Traspaso futuro**: `TraspasoInmediato.md` nuevo (plan sin implementar) para el día que
+  el proxy tenga que moverse de PC — por qué no usar una semilla compartida para los
+  tokens, sincronizar `config.yaml` en su lugar, y que el problema real es la IP fija de
+  cada agente, no los tokens.
+- **Releases**: se publicó por primera vez el `.exe` del owner junto al del agente en el
+  mismo Release de GitHub (`v2026.09.21`, commit `3af91f6`). Al implementar se encontró un
+  bug real no planeado: el chequeo de actualizaciones elegía el asset `.exe` por sufijo
+  (cualquiera que terminara en `.exe`), y el checksum se extraía con un solo `re.search`
+  sobre todas las notas — con dos `.exe` en el mismo release, el agente podía
+  autoactualizarse con el binario equivocado o fallar la verificación de integridad
+  siempre. Corregido (`check.py` por nombre exacto, `download.py` por bloque de notas) y
+  verificado en vivo contra la API real de GitHub, no solo con tests.
+- **Calidad**: 157 → **191 tests** (`test_secretos.py`, `test_updater.py` nuevos;
+  `test_owner_app.py`/`test_proxy.py` ampliados), suite completa en verde.
+- **Pendiente**: el flujo elevado de credenciales no se ha probado en la PC oficial con el
+  servicio instalado (UAC real, `sc qc` contra un binPath real, rotación end-to-end). La
+  ruta completa de descarga+reemplazo del updater está cubierta por tests unitarios pero
+  no en vivo (necesita una segunda versión futura). Sigue abierto todo lo pendiente del
+  2026-09-18.
 
 ### 2026-09-18 — Sesión — ensayo del proxy en la PC dev: instalador re-ejecutable, consola owner y control de acceso
 - **Snapshot completo**: `resumenes/2026-09-18.md`.

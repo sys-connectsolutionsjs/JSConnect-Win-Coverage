@@ -36,7 +36,8 @@ corre en producción todavía.
 | 2026-09-15 | Ensayo del instalador: WinSW 404 y redirecciones CMD corregidos | `abff2e4` `7306b9b` |
 | 2026-09-16 | **Activación RSA + consola owner** — firma real, UX de portapapeles, builds separados y prueba manual exitosa | `784bd27` |
 | 2026-09-18 | **Ensayo en la PC dev** — instalador re-ejecutable, consola owner con Reiniciar servicio, Activación/Huella en el agente, loopback permitido y tests hermeticos (157) | `2c4a757` `63ca477` + cierre del día |
-| 2026-09-21 | **Credenciales en la consola owner** — panel Mostrar/Copiar/Rotar, `/admin/*` restringido a loopback y comparación en tiempo constante (178 tests) | commit de este cierre |
+| 2026-09-21 | **Credenciales en la consola owner** — panel Mostrar/Copiar/Rotar, `/admin/*` restringido a loopback y comparación en tiempo constante | `9367775` |
+| 2026-09-21 | **Releases de owner + agente** — primer Release conjunto (`v2026.09.21`), fix de selección de asset/checksum en el updater cuando hay dos `.exe`, 191 tests | `3af91f6` |
 
 ---
 

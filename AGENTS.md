@@ -139,6 +139,12 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
 - El .exe descargado se valida por SHA-256 (checksum publicado en las notas del
   Release) antes de reemplazar al actual.
 - Límite de API sin autenticación: 60 consultas/hora (suficiente para botón manual).
+- **Desde 2026-09-21, el Release trae dos `.exe`** (agente + consola owner, ver
+  `publish-release.ps1`): `updater/check.py` elige el asset por nombre EXACTO
+  (`NOMBRE_ASSET_AGENTE`), nunca por sufijo `.exe`, y `updater/download.py::
+  extraer_checksum()` recorta las notas al bloque del archivo pedido antes de
+  buscar el hash — evita que el agente se autoactualice con el `.exe` del owner
+  o cruce checksums entre ambos.
 
 ## Implementaciones futuras
 ### 1. Mapa interactivo de cobertura
