@@ -29,8 +29,20 @@ def sha256_de(archivo: Path) -> str:
     return digest.hexdigest().upper()
 
 
-def extraer_checksum(notas: str):
-    match = re.search(r"(?i)(?:sha[- ]?256|checksum)[:=\s]*([0-9a-f]{64})", notas or "")
+def extraer_checksum(notas: str, nombre_archivo: str | None = None):
+    """Busca un checksum SHA-256 en las notas del release.
+
+    Si `nombre_archivo` se pasa (release con mas de un asset, cada uno con su
+    propio bloque "## <nombre>\nSHA-256: ..."), recorta las notas a ese bloque
+    primero - evita extraer el hash de OTRO archivo cuando el release trae
+    varios (p.ej. agente + consola owner en el mismo release)."""
+    texto = notas or ""
+    if nombre_archivo:
+        bloque = re.search(
+            rf"(?i){re.escape(nombre_archivo)}.*?(?=\n##\s|\Z)", texto, re.DOTALL
+        )
+        texto = bloque.group(0) if bloque else ""
+    match = re.search(r"(?i)(?:sha[- ]?256|checksum)[:=\s`]*([0-9a-f]{64})", texto)
     return match.group(1) if match else None
 
 
@@ -48,7 +60,7 @@ def aplicar_actualizacion(info: dict) -> bool:
 
     descargar(url, nuevo)
 
-    checksum = extraer_checksum(info.get("notes", ""))
+    checksum = extraer_checksum(info.get("notes", ""), nombre_archivo="JSConnect-Win-Coverage.exe")
     if checksum and sha256_de(nuevo) != checksum:
         raise ValueError("Checksum no coincide: el archivo esta corrupto o fue manipulado.")
 

@@ -186,6 +186,22 @@ Get-ChildItem .\logs\
 
 ## Configuración de Agentes (20 máquinas)
 
+### Cómo consigue el trabajador el `.exe`
+
+No hace falta `git` ni cuenta de GitHub para descargarlo: entra a la pestaña
+**Releases** del repositorio en GitHub (`.../releases/latest`), y descarga el
+asset **`JSConnect-Win-Coverage.exe`** de la versión más reciente — el nombre
+ya lo distingue de `JSConnect-Win-Owner.exe`, que se publica en el mismo
+release pero es para la consola del owner, no para los agentes. Ejecutarlo no
+requiere instalación.
+
+Si se prefiere distribuirlo por otro medio (WhatsApp, USB, carpeta compartida):
+como WhatsApp bloquea archivos `.exe` sueltos, hay que comprimirlo primero en
+un `.zip`. Esto **no rompe el chequeo de actualizaciones** — la app compara el
+commit embebido en el propio `.exe` contra el último Release, sin importar por
+qué canal llegó a la PC — siempre que sea una copia íntegra de un build real
+(no un `.exe` recortado o re-empaquetado).
+
 ### Opción A: Configuración manual (una vez por máquina)
 1. Activar la PC: **Copiar huella** en el agente → generar/copiar código en
    `JSConnect-Win-Owner.exe` → **Pegar código** y **Activar** en el agente.

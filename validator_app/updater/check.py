@@ -8,6 +8,11 @@ from validator_app import version
 
 log = logging.getLogger(__name__)
 
+# El Release puede traer mas de un asset .exe (agente + consola owner, desde
+# que ambos se publican juntos): elegir por nombre exacto, nunca por posicion
+# ni por "termina en .exe" - lo segundo puede devolver el .exe equivocado.
+NOMBRE_ASSET_AGENTE = "JSConnect-Win-Coverage.exe"
+
 
 def version_actual() -> str:
     return version.BUILD_COMMIT
@@ -38,7 +43,7 @@ def hay_actualizacion():
         return None
 
     asset = next(
-        (a for a in release.get("assets", []) if a.get("name", "").lower().endswith(".exe")),
+        (a for a in release.get("assets", []) if a.get("name") == NOMBRE_ASSET_AGENTE),
         None,
     )
     return {
