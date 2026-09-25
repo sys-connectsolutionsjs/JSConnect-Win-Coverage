@@ -2,7 +2,9 @@
 
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox
+
+import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
 
 from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
@@ -20,6 +22,22 @@ def _a_dict(objeto):
     return objeto.__dict__ if hasattr(objeto, "__dict__") else objeto
 
 
+_BOOTSTYLE_POR_RIESGO = {
+    "MUY ALTO": "danger",
+    "ALTO": "danger",
+    "MEDIO": "warning",
+    "BAJO": "success",
+    "MUY BAJO": "success",
+}
+
+
+def _bootstyle_riesgo(riesgo: str | None) -> str:
+    """Color del score segun el nivel de riesgo que devuelve WinForce: rojo si
+    es muy riesgoso vender, ambar en el medio, verde si es un cliente seguro.
+    Desconocido/vacio -> gris neutro (no se inventa un color)."""
+    return _BOOTSTYLE_POR_RIESGO.get((riesgo or "").strip().upper(), "secondary")
+
+
 def activacion_vigente(huella: str) -> bool:
     """True si esta PC tiene guardado un codigo de activacion valido para su huella."""
     guardado = activation_state.leer()
@@ -30,9 +48,9 @@ def activacion_vigente(huella: str) -> bool:
     )
 
 
-class App(tk.Tk):
+class App(ttk.Window):
     def __init__(self):
-        super().__init__()
+        super().__init__(themename="cosmo")
         self.title("JSConnect Win Coverage")
         self.geometry("540x580")
         self.resizable(False, False)
@@ -73,15 +91,22 @@ class App(tk.Tk):
         self.lbl_tipo.grid(row=3, column=1, sticky="w", padx=(8, 0))
         self.txt_documento.bind("<KeyRelease>", self._on_documento_cambio)
 
-        self.btn_validar = ttk.Button(main, text="VALIDAR", command=self._validar)
+        self.btn_validar = ttk.Button(
+            main, text="VALIDAR", command=self._validar, bootstyle="primary"
+        )
         self.btn_validar.grid(row=4, column=0, columnspan=2, pady=10, sticky="we")
 
-        frame_res = ttk.LabelFrame(main, text="Resultado", padding=10)
+        frame_res = ttk.LabelFrame(main, text="Resultado", padding=10, bootstyle="info")
         frame_res.grid(row=5, column=0, columnspan=2, sticky="we")
         self.lbl_cobertura = ttk.Label(frame_res, text="Cobertura: \u2014")
         self.lbl_cobertura.pack(anchor="w")
         self.lbl_score = ttk.Label(frame_res, text="Score: \u2014")
         self.lbl_score.pack(anchor="w")
+        # Se capturan al crear el widget para poder "resetear" la fuente del
+        # score entre validaciones (ver _mostrar_resultado): la fuente normal
+        # de la etiqueta de hoy vs. una version en negrita para destacar el numero.
+        self._font_score_normal = self.lbl_score.cget("font")
+        self._font_score_destacado = (self._font_score_normal, 11, "bold")
 
         self.lbl_estado = ttk.Label(main, text="Estado: iniciando...", anchor="w")
         self.lbl_estado.grid(row=6, column=0, columnspan=2, sticky="we", pady=(10, 0))
@@ -184,7 +209,9 @@ class App(tk.Tk):
         botones = ttk.Frame(frame)
         botones.pack()
         ttk.Button(botones, text="Pegar codigo", command=pegar_codigo).pack(side="left")
-        ttk.Button(botones, text="ACTIVAR", command=activar).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            botones, text="ACTIVAR", command=activar, bootstyle="success"
+        ).pack(side="left", padx=(8, 0))
         if requerida:
             ttk.Label(
                 frame, text="Sin codigo valido la aplicacion no valida.", foreground="gray"
@@ -301,21 +328,30 @@ class App(tk.Tk):
     def _mostrar_resultado(self, resultado):
         cobertura = resultado["cobertura"]
         if cobertura is None:
-            self.lbl_cobertura.config(text="Cobertura: \u2014 (no se ingresaron coordenadas)")
-        else:
             self.lbl_cobertura.config(
-                text=f"Cobertura: {'SI' if cobertura['hay_cobertura'] else 'NO'}"
+                text="Cobertura: \u2014 (no se ingresaron coordenadas)", bootstyle="secondary"
             )
+        elif cobertura["hay_cobertura"]:
+            self.lbl_cobertura.config(text="\u2713 Cobertura: SI", bootstyle="success")
+        else:
+            self.lbl_cobertura.config(text="\u2717 Cobertura: NO", bootstyle="danger")
 
         score = resultado.get("score")
         if score:
-            texto_score = f"Score: {score.get('valor', '?')} - "
+            riesgo = score.get("riesgo") or "?"
+            texto_score = f"Score: {score.get('valor', '?')} \u2014 {riesgo} \u2014 "
             texto_score += "VALIDO" if score.get("valido") else "NO VALIDO"
-            self.lbl_score.config(text=texto_score)
-        elif not resultado.get("se_pidio_documento"):
-            self.lbl_score.config(text="Score: \u2014 (no se ingres\u00f3 documento)")
+            self.lbl_score.config(
+                text=texto_score,
+                bootstyle=_bootstyle_riesgo(score.get("riesgo")),
+                font=self._font_score_destacado,
+            )
         else:
-            self.lbl_score.config(text="Score: \u2014 (sin cobertura)")
+            if not resultado.get("se_pidio_documento"):
+                texto = "Score: \u2014 (no se ingres\u00f3 documento)"
+            else:
+                texto = "Score: \u2014 (sin cobertura)"
+            self.lbl_score.config(text=texto, bootstyle="secondary", font=self._font_score_normal)
         self._fin_validar("Estado: listo")
 
     def _fin_validar(self, estado):
@@ -381,7 +417,8 @@ class App(tk.Tk):
             side="right", padx=(8, 0)
         )
         ttk.Button(
-            btn_frame, text="Guardar", command=lambda: self._save_proxy_config(dialog)
+            btn_frame, text="Guardar", command=lambda: self._save_proxy_config(dialog),
+            bootstyle="primary",
         ).pack(side="right")
 
         frame.columnconfigure(0, weight=1)
@@ -508,10 +545,12 @@ class App(tk.Tk):
         ttk.Button(
             btn_frame, text="Quitar sesion guardada",
             command=lambda: self._quitar_sesion(dialog),
+            bootstyle="danger-outline",
         ).pack(side="right", padx=(8, 0))
         self.btn_sesion_test = ttk.Button(
             btn_frame, text="Probar y guardar",
             command=lambda: self._probar_y_guardar_sesion(dialog),
+            bootstyle="primary",
         )
         self.btn_sesion_test.pack(side="right")
 

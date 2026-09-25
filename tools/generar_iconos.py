@@ -1,7 +1,9 @@
 """Genera los iconos del proyecto (agente, owner, extension de Chrome).
 
-Dev-only: requiere Pillow (`requirements-dev.txt`), NO se empaqueta en los
-.exe. Los archivos que produce SI se commitean (son estaticos, no secretos):
+Es un script dev-only (no lo importa la app), pero Pillow en si YA viaja en
+los .exe desde que la GUI usa ttkbootstrap (la trae como dependencia real,
+ver requirements.txt). Los archivos que produce este script SI se commitean
+(son estaticos, no secretos):
     assets/icons/agent.ico + .png   -> --icon de build.ps1
     assets/icons/owner.ico + .png   -> --icon de build-owner.ps1
     validator_app/proxy/extension/icon.png (+ icon16.png / icon48.png)

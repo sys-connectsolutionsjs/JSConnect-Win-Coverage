@@ -15,10 +15,11 @@ import threading
 import time
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 from urllib.parse import urlsplit
 
 import httpx
+import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
 
 from generator import generar
 
@@ -173,6 +174,31 @@ def puerto_proxy_local() -> int:
     return puerto if puerto is not None else 8080
 
 
+def ruta_extension_build(ruta_instalacion=None) -> tuple[Path | None, str]:
+    """Carpeta ".extension_build" real de esta instalacion, para "Cargar
+    descomprimida" en chrome://extensions. Se resuelve con
+    secretos.ruta_instalacion() (vive el directorio real via `sc qc`, no un
+    directorio a mano) porque en el .exe onefile construir la ruta a partir de
+    este propio modulo apuntaria al directorio temporal de extraccion de
+    PyInstaller, no a la instalacion real (mismo problema que config.yaml,
+    ver secretos.py).
+
+    Devuelve (ruta, aviso): `ruta` es None si el servicio no esta instalado
+    todavia, y `aviso` explica por que en ese caso."""
+    from validator_app.proxy import secretos
+
+    if ruta_instalacion is None:
+        ruta_instalacion = secretos.ruta_instalacion
+    try:
+        base = ruta_instalacion()
+    except secretos.SecretosError as exc:
+        return None, (
+            f"No se pudo ubicar la instalacion del proxy ({exc}). "
+            "Instala el servicio primero con install_service.bat."
+        )
+    return base / ".extension_build", ""
+
+
 # ==================== SUBCOMANDOS ELEVADOS (sin GUI) ====================
 # config.yaml tiene ACL de SYSTEM+Administradores (install_service.bat:273-276):
 # leerlo o rotarlo exige correr elevado. En vez de debilitar la ACL (expondria
@@ -276,9 +302,9 @@ def rotar_secreto_elevado(cual: str, runner=subprocess.run) -> str:
     return datos[cual]
 
 
-class OwnerApp(tk.Tk):
+class OwnerApp(ttk.Window):
     def __init__(self):
-        super().__init__()
+        super().__init__(themename="superhero")
         self.title("JSConnect Win Coverage — Owner")
         self.geometry("590x620")
         self.resizable(False, False)
@@ -324,12 +350,15 @@ class OwnerApp(tk.Tk):
         ttk.Button(url_frame, text="Copiar", command=self.copiar_url_agentes).pack(
             side="left", padx=(8, 0)
         )
-        self.lbl_url_agentes_aviso = ttk.Label(proxy, text="", foreground="#8a1f1f")
+        # "warning" (ambar), no "danger" (rojo): sobre el fondo oscuro de
+        # "superhero" el rojo da un contraste WCAG de solo 2.78:1 (ilegible,
+        # bajo el minimo de 4.5:1); el ambar da 5.66:1. Ver AGENTS.md 2026-09-25.
+        self.lbl_url_agentes_aviso = ttk.Label(proxy, text="", bootstyle="warning")
         self.lbl_url_agentes_aviso.pack(anchor="w", pady=(2, 0))
         ttk.Label(
             proxy,
             text="Si el agente no conecta: revisa el firewall de esta PC para ese puerto.",
-            foreground="#555555",
+            bootstyle="secondary",
         ).pack(anchor="w", pady=(4, 10))
 
         buttons = ttk.Frame(proxy)
@@ -344,6 +373,10 @@ class OwnerApp(tk.Tk):
             buttons, text="Reiniciar servicio", command=self.reiniciar_servicio
         )
         self.btn_reiniciar.pack(side="left", padx=(8, 0))
+        ttk.Button(
+            buttons, text="Instalar extensión en Chrome",
+            command=self.mostrar_instrucciones_extension, bootstyle="secondary",
+        ).pack(side="left", padx=(8, 0))
 
         secretos_frame = ttk.LabelFrame(main, text="Credenciales del proxy", padding=12)
         secretos_frame.pack(fill="x", pady=(14, 0))
@@ -391,11 +424,11 @@ class OwnerApp(tk.Tk):
                 "DNI. No las compartas por chat ni capturas. Si se filtraron, rotalas\n"
                 "aqui mismo."
             ),
-            foreground="#8a1f1f",
+            bootstyle="warning",  # ver nota de contraste junto a lbl_url_agentes_aviso
             justify="left",
         ).grid(row=len(etiquetas) * 2, column=0, columnspan=4, sticky="w", pady=(12, 0))
 
-        self.lbl_llave = ttk.Label(main, text="", foreground="#555555")
+        self.lbl_llave = ttk.Label(main, text="", bootstyle="secondary")
         self.lbl_llave.pack(anchor="w", pady=(14, 0))
 
     def generar_codigo(self) -> None:
@@ -639,6 +672,66 @@ class OwnerApp(tk.Tk):
                 )
 
         threading.Thread(target=renovar, daemon=True).start()
+
+    def mostrar_instrucciones_extension(self) -> None:
+        """Dialogo con los pasos para cargar la extension 'Renovar sesion
+        WinForce' a mano en chrome://extensions (mismo texto que imprime
+        install_service.bat al final, con la ruta real de esta instalacion)."""
+        ruta, aviso = ruta_extension_build()
+
+        dialog = tk.Toplevel(self)
+        dialog.title("Instalar extensión en Chrome")
+        dialog.geometry("520x340")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        frame = ttk.Frame(dialog, padding=16)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(
+            frame,
+            text=(
+                "1. Abre Chrome y escribe: chrome://extensions\n"
+                "2. Activa «Modo de desarrollador» (arriba a la derecha).\n"
+                "3. Pulsa «Cargar descomprimida» y elige esta carpeta:"
+            ),
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+
+        frame_ruta = ttk.Frame(frame)
+        frame_ruta.pack(fill="x", pady=(0, 4))
+        self.txt_ruta_extension = ttk.Entry(frame_ruta, font=("Consolas", 9), state="readonly")
+        self.txt_ruta_extension.pack(side="left", fill="x", expand=True)
+        self._set_entry(self.txt_ruta_extension, str(ruta) if ruta else "")
+        btn_copiar = ttk.Button(
+            frame_ruta, text="Copiar ruta",
+            command=lambda: self._copiar_de_entry(
+                self.txt_ruta_extension, "Instalar extensión", "Ruta copiada.", limpiar=False
+            ),
+        )
+        btn_copiar.pack(side="left", padx=(8, 0))
+        if not ruta:
+            btn_copiar.config(state="disabled")
+            ttk.Label(frame, text=aviso, bootstyle="warning", justify="left", wraplength=480).pack(
+                anchor="w", pady=(4, 0)
+            )
+
+        ttk.Label(
+            frame,
+            text=(
+                "4. Fija el icono con el puzzle y el pin, en la barra de Chrome.\n\n"
+                "Chrome muestra un aviso por el modo desarrollador: es normal.\n"
+                "Sin extension tambien se puede renovar la sesion con el icono\n"
+                "«Renovar sesion WinForce» del Escritorio."
+            ),
+            justify="left",
+            bootstyle="secondary",
+        ).pack(anchor="w", pady=(12, 0))
+
+        ttk.Button(frame, text="Cerrar", command=dialog.destroy, bootstyle="secondary").pack(
+            anchor="e", pady=(16, 0)
+        )
 
 
 def main() -> int:

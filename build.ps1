@@ -28,12 +28,10 @@ REPO_NAME = "JSConnect-Win-Coverage"
 Set-Content -Path "$root\validator_app\version.py" -Value $content -Encoding UTF8
 
 # 3. Empaquetar con PyInstaller (un solo .exe, sin consola)
-# --exclude-module PIL: Pillow es dev-only (tools/generar_iconos.py). Si esta
-# instalado en el venv, algun hook de PyInstaller lo detecta y lo arrastra al
-# bundle aunque la app nunca lo importa (~7 MB de mas, sin uso real).
+# Nota (2026-09-25): Pillow SI viaja en el .exe desde que la GUI usa
+# ttkbootstrap (lo trae como dependencia real, no dev-only) -- no excluir.
 & $python -m PyInstaller --clean --noconfirm --onefile --windowed `
     --icon "$root\assets\icons\agent.ico" `
-    --exclude-module PIL `
     --name "JSConnect-Win-Coverage" main.py
 if ($LASTEXITCODE -ne 0) {
     throw "No se pudo construir el ejecutable de agentes."

@@ -151,6 +151,28 @@ def test_puerto_proxy_local_por_defecto(monkeypatch):
     assert owner_app.puerto_proxy_local() == 8080
 
 
+def test_ruta_extension_build_con_servicio_instalado():
+    from pathlib import Path
+
+    ruta, aviso = owner_app.ruta_extension_build(
+        ruta_instalacion=lambda: Path(r"C:\proxy\validator_app\proxy")
+    )
+    assert ruta == Path(r"C:\proxy\validator_app\proxy\.extension_build")
+    assert aviso == ""
+
+
+def test_ruta_extension_build_sin_servicio_instalado():
+    from validator_app.proxy import secretos
+
+    def falla():
+        raise secretos.SecretosError("servicio JSWinProxy no instalado")
+
+    ruta, aviso = owner_app.ruta_extension_build(ruta_instalacion=falla)
+    assert ruta is None
+    assert "install_service.bat" in aviso
+    assert "no instalado" in aviso
+
+
 def test_comando_reinicio_pide_elevacion_y_reinicia_el_servicio():
     comando = owner_app.comando_reinicio()
     assert comando[0] == "powershell"

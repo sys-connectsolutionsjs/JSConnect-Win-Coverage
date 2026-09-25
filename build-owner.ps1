@@ -8,11 +8,9 @@ if (-not (Test-Path $python)) {
     $python = "python"
 }
 
-# --exclude-module PIL: ver la nota en build.ps1 (Pillow es dev-only, se cuela
-# via un hook de PyInstaller si esta instalado en el venv).
+# Nota (2026-09-25): ver build.ps1 -- Pillow viaja en el .exe via ttkbootstrap.
 & $python -m PyInstaller --clean --noconfirm --onefile --windowed `
     --icon "$root\assets\icons\owner.ico" `
-    --exclude-module PIL `
     --name "JSConnect-Win-Owner" generator\owner_app.py
 if ($LASTEXITCODE -ne 0) {
     throw "No se pudo construir la consola del owner."

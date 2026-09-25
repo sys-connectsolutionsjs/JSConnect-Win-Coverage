@@ -2,3 +2,4 @@ requests>=2.31
 keyring>=25.0
 cryptography>=42.0
 httpx>=0.27  # lo usa validator_app/proxy/client.py, que la GUI importa siempre (ProxyClient)
+ttkbootstrap>=1.10  # tema visual del agente y la consola owner; trae Pillow (real, no dev-only)
