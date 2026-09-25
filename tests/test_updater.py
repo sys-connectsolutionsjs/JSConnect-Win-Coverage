@@ -58,17 +58,20 @@ def test_hay_actualizacion_elige_el_asset_del_agente_aunque_el_owner_venga_prime
     release = _release(assets=[ASSET_OWNER, ASSET_AGENTE])
     monkeypatch.setattr(check, "consultar_ultimo_release", lambda: release)
     monkeypatch.setattr(check, "version_actual", lambda: "otro-commit")
+    monkeypatch.setattr(check, "_commit_de_tag", lambda tag: "sha-remoto-nuevo")
 
     info = check.hay_actualizacion()
 
     assert info["asset"]["name"] == "JSConnect-Win-Coverage.exe"
     assert info["url_descarga"] == "https://example.com/JSConnect-Win-Coverage.exe"
+    assert info["commit"] == "sha-remoto-nuevo"
 
 
 def test_hay_actualizacion_asset_ausente_si_solo_esta_el_del_owner(monkeypatch):
     release = _release(assets=[ASSET_OWNER])
     monkeypatch.setattr(check, "consultar_ultimo_release", lambda: release)
     monkeypatch.setattr(check, "version_actual", lambda: "otro-commit")
+    monkeypatch.setattr(check, "_commit_de_tag", lambda tag: "sha-remoto-nuevo")
 
     info = check.hay_actualizacion()
 
@@ -77,9 +80,10 @@ def test_hay_actualizacion_asset_ausente_si_solo_esta_el_del_owner(monkeypatch):
 
 
 def test_hay_actualizacion_none_si_mismo_commit(monkeypatch):
-    release = _release(assets=[ASSET_AGENTE], target_commitish="mismo")
+    release = _release(assets=[ASSET_AGENTE])
     monkeypatch.setattr(check, "consultar_ultimo_release", lambda: release)
-    monkeypatch.setattr(check, "version_actual", lambda: "mismo")
+    monkeypatch.setattr(check, "version_actual", lambda: "mismo-sha")
+    monkeypatch.setattr(check, "_commit_de_tag", lambda tag: "mismo-sha")
 
     assert check.hay_actualizacion() is None
 
@@ -95,6 +99,64 @@ def test_hay_actualizacion_none_si_consulta_lanza(monkeypatch):
 
     monkeypatch.setattr(check, "consultar_ultimo_release", falla)
     assert check.hay_actualizacion() is None
+
+
+def test_hay_actualizacion_none_si_no_se_puede_resolver_el_commit_del_tag(monkeypatch):
+    """Bug real (2026-09-25): target_commitish es la RAMA ('main'), no un SHA,
+    asi que nunca coincidia con version_actual() y el chequeo siempre creia que
+    habia una version nueva. Si ademas falla la resolucion del commit real del
+    tag (red, 404), no debe nagear una falsa actualizacion: mejor None que un
+    falso positivo."""
+    release = _release(assets=[ASSET_AGENTE], target_commitish="main")
+    monkeypatch.setattr(check, "consultar_ultimo_release", lambda: release)
+    monkeypatch.setattr(check, "version_actual", lambda: "sha-real-embebido")
+    monkeypatch.setattr(check, "_commit_de_tag", lambda tag: None)
+
+    assert check.hay_actualizacion() is None
+
+
+def test_hay_actualizacion_ignora_target_commitish_y_usa_el_tag(monkeypatch):
+    """target_commitish trae la rama ('main'); hay_actualizacion debe resolver
+    el commit real a partir de tag_name, no leer target_commitish."""
+    release = _release(assets=[ASSET_AGENTE], target_commitish="main", tag_name="v2026.09.25")
+    monkeypatch.setattr(check, "consultar_ultimo_release", lambda: release)
+    monkeypatch.setattr(check, "version_actual", lambda: "commit-viejo")
+    tags_consultados = []
+
+    def commit_de_tag(tag):
+        tags_consultados.append(tag)
+        return "commit-nuevo"
+
+    monkeypatch.setattr(check, "_commit_de_tag", commit_de_tag)
+
+    info = check.hay_actualizacion()
+
+    assert tags_consultados == ["v2026.09.25"]
+    assert info["commit"] == "commit-nuevo"
+
+
+def test_commit_de_tag_parsea_el_sha_de_la_respuesta(monkeypatch):
+    monkeypatch.setattr(
+        check.requests,
+        "get",
+        lambda *a, **k: _Respuesta(json_data={"sha": "abc123"}),
+    )
+    assert check._commit_de_tag("v2026.09.25") == "abc123"
+
+
+def test_commit_de_tag_devuelve_none_si_la_consulta_falla(monkeypatch):
+    def falla(*args, **kwargs):
+        raise RuntimeError("sin red")
+
+    monkeypatch.setattr(check.requests, "get", falla)
+    assert check._commit_de_tag("v2026.09.25") is None
+
+
+def test_commit_de_tag_devuelve_none_si_el_tag_no_existe(monkeypatch):
+    monkeypatch.setattr(
+        check.requests, "get", lambda *a, **k: _Respuesta(status_code=404)
+    )
+    assert check._commit_de_tag("v9999.99.99") is None
 
 
 def test_consultar_ultimo_release_404_devuelve_none(monkeypatch):

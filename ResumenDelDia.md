@@ -22,16 +22,23 @@ Ver el detalle completo en `resumenes/2026-09-25.md`. En síntesis:
   `anotaciones.md`, `AGENTS.md`, `Roadmap.md`, `HistorialResumenes.md`.
 - **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos.
 
+## Segunda parte de la sesión
+
+- **Fix**: el chequeo de actualización (`updater/check.py`) comparaba el commit
+  embebido contra `release["target_commitish"]` — que en la API de GitHub
+  Releases es la rama del tag (`"main"`), no un SHA — así que siempre creía que
+  había una versión nueva. `_commit_de_tag()` (NUEVO) resuelve el SHA real vía
+  `/commits/{tag}`. Verificado en vivo contra `v2026.09.25`: resuelve el commit
+  correcto. 201 → **206 tests**, ruff limpio.
+- **Decisión de proceso**: un Release ya no se publica por cada commit — solo
+  cuando el usuario lo pide explícitamente. Este fix quedó comiteado y pusheado
+  **sin Release nuevo**.
+
 ## Pendiente al cerrar hoy
 
 - Confirmar en la PC del agente real que reportó el error que copiar la URL desde
   la consola owner resuelve el `WinError 10061`.
 - El instalador (`install_service.bat`) sigue sin crear una regla de firewall para
   el puerto del proxy — siguiente sospechoso si el agente aún no conecta.
-- **Observación sin corregir** (fuera de alcance de hoy):
-  `validator_app/updater/check.py:41` compara el commit embebido contra
-  `release["target_commitish"]`, que en nuestros Releases vale literalmente
-  `"main"` — nunca coincide, así que el chequeo de actualización puede dar
-  siempre positivo.
 - Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
   documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

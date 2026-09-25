@@ -40,6 +40,7 @@ corre en producción todavía.
 | 2026-09-21 | **Releases de owner + agente** — primer Release conjunto (`v2026.09.21`), fix de selección de asset/checksum en el updater cuando hay dos `.exe`, 191 tests | `3af91f6` |
 | 2026-09-22 | **Fix UAC + idioma en la consola owner** — Mostrar/Rotar ya no fallan con "UAC cancelado" falso ni con `sc qc` en español; confirmaciones ampliadas; Release `v2026.09.22`, 193 tests | `6a6d94e` |
 | 2026-09-25 | **"URL para los agentes" en la consola owner** — detecta la IP de LAN y la muestra lista para copiar, arreglando `WinError 10061` al configurar un agente en PC distinta a la del proxy (primer despliegue multi-PC real); Release `v2026.09.25`, 201 tests | `a575e85` |
+| 2026-09-25 | **Fix del chequeo de actualización** — `target_commitish` es la rama, no un SHA; el updater creía siempre que había una versión nueva. Resuelve el commit real del tag vía `/commits/{tag}`. Sin Release nuevo (decisión: Release solo a pedido explícito, no por cada commit). 206 tests | *(pendiente de commit)* |
 
 ---
 

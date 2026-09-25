@@ -151,9 +151,11 @@ Notas:
 - Hay que **clonar** (no bajar un zip): `build.ps1` embebe `git rev-parse HEAD`; sin `.git`
   queda `unknown` y la comprobación de actualizaciones no coincide con el Release.
 - El `.exe` que se distribuya a las 15 PC debe ser el que se publique en el Release
-  (SHA-256 incluido): la app compara el commit del Release con el embebido. `publish-
-  release.ps1` solo imprime el comando `gh release create`; si no hay `gh` instalado se
-  sube a mano desde GitHub → Releases → Draft.
+  (SHA-256 incluido): la app resuelve el commit real del tag del Release (`GET
+  /commits/{tag}`, no `target_commitish` — ese campo es la rama, no un SHA; bug
+  corregido 2026-09-25) y lo compara con el embebido. `publish-release.ps1` solo
+  imprime el comando `gh release create`; si no hay `gh` instalado se sube a mano
+  desde GitHub → Releases → Draft.
 - Sin firma de código, Windows SmartScreen pedirá *Más información → Ejecutar de todas
   formas* la primera vez.
 - El botón **Renovar sesion WinForce** de la consola owner empaquetada no se ha probado

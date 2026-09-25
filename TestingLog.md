@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (201 en total, a 2026-09-25)
+## Inventario de tests (206 en total, a 2026-09-25)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
@@ -32,13 +32,50 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
 | tests/test_install_bat.py | 3 | guardas estáticas de `install_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, y carga manual de la extensión sin `exit`/`pause` en el paso 7 |
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
-| tests/test_updater.py | 13 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
+| tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-25 (segunda parte) — el chequeo de actualización siempre "encontraba" una versión nueva
+
+- **Origen**: al cerrar la primera parte de la sesión, se reportó como pendiente
+  fuera de alcance que `updater/check.py:41` comparaba el commit embebido contra
+  `release["target_commitish"]`. El usuario pidió revisarlo, y de paso señaló que
+  esto no debería obligar a publicar un Release por cada commit.
+- **Investigación**: `gh release view v2026.09.22 --json targetCommitish` y
+  `gh release view v2026.09.25 --json targetCommitish` devuelven ambos
+  literalmente `"main"` — confirmado que `target_commitish` es el nombre de la
+  rama sobre la que se creó el tag, nunca un SHA. Como `version.BUILD_COMMIT` sí
+  es un SHA real (`git rev-parse HEAD`), la comparación `commit_remoto ==
+  version_actual()` era imposible de cumplir: `hay_actualizacion()` devolvía
+  "hay una versión nueva" **siempre**, sin importar si el `.exe` ya era el
+  último.
+- **Rojo**: 8 tests nuevos/modificados en `tests/test_updater.py` que mockean
+  `check._commit_de_tag` (todavía inexistente) en vez de depender de
+  `target_commitish` → `AttributeError` confirmado en los 8, el resto de la
+  suite (10 tests) seguía en verde.
+- **Verde**: `_commit_de_tag(tag_name)` (NUEVO) pide
+  `GET /repos/{owner}/{repo}/commits/{tag_name}` — ese endpoint resuelve un tag
+  igual que un SHA o una rama — y devuelve `resp.json()["sha"]`; cualquier
+  excepción (red, 404) se loguea y devuelve `None`. `hay_actualizacion()` ahora
+  saca `tag_name` de `release["tag_name"]` y resuelve el commit real con
+  `_commit_de_tag()` en vez de leer `target_commitish`. Un `None` de
+  `_commit_de_tag` (fallo de red al resolver el tag) hace que
+  `hay_actualizacion()` devuelva `None` — se prefiere no nagear a un falso
+  positivo.
+- **Verificación real** (no mockeada): `check._commit_de_tag("v2026.09.25")`
+  contra la API real de GitHub devolvió `ec575f3f354655bde554f626fcbc2ea39e12f59d`,
+  exactamente el commit que `build.ps1` había embebido en el `.exe` publicado en
+  ese Release — confirma que el fix resuelve el commit correcto en un caso real,
+  no solo en los mocks.
+- **Decisión de proceso**: no se publica un Release nuevo por este fix — no
+  cambia nada que el agente ya instalado necesite, y el usuario pidió que los
+  Releases dejen de ir atados a cada commit. Solo commit + push.
+- 201 → **206 tests**, ruff limpio.
 
 ### Sesión 2026-09-25 — "URL para los agentes" en la consola owner (fix WinError 10061)
 

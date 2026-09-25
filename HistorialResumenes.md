@@ -31,10 +31,16 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   fila en troubleshooting), `README.md` (es/en), `TestingLog.md`.
 - **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos,
   reemplazando `v2026.09.22`.
-- **Observación pendiente, sin corregir hoy**: `updater/check.py:41` compara el
-  commit embebido contra `release["target_commitish"]`, que en nuestros
-  Releases es literalmente `"main"` — nunca coincide, así que el chequeo de
-  actualización puede dar siempre positivo.
+- **Segunda parte de la sesión — fix del chequeo de actualización**: la
+  observación de arriba sobre `target_commitish` se revisó el mismo día.
+  Confirmado (`gh release view ... --json targetCommitish` → `"main"`) que ese
+  campo es la rama del tag, nunca un SHA, así que `hay_actualizacion()` siempre
+  creía que había una versión nueva. Fix: `_commit_de_tag()` (NUEVO) resuelve el
+  SHA real vía `GET /commits/{tag}`. Verificado en vivo:
+  `_commit_de_tag("v2026.09.25")` devolvió el commit exacto embebido en ese
+  Release. 8 tests nuevos, 201 → **206 tests**, ruff limpio. **Decisión de
+  proceso**: un Release ya no se publica por cada commit, solo a pedido
+  explícito — este fix quedó comiteado y pusheado sin Release nuevo.
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.

@@ -134,11 +134,15 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
 ## Versionado y actualizaciones
 - La "versión" = SHA del commit + tag del Release.
 - `build.ps1` lee `git rev-parse HEAD` y lo embebe en `validator_app/version.py`.
-- La app consulta `GET /repos/{owner}/{repo}/releases/latest` y compara el commit
-  del Release con el embebido. Si difieren → ofrece descargar el asset .exe.
+- La app consulta `GET /repos/{owner}/{repo}/releases/latest`, resuelve el commit
+  real del tag con `GET /repos/{owner}/{repo}/commits/{tag}` (`_commit_de_tag()`;
+  `target_commitish` del release NO sirve — es el nombre de la rama, no un SHA;
+  bug corregido 2026-09-25) y lo compara con el embebido. Si difieren → ofrece
+  descargar el asset .exe.
 - El .exe descargado se valida por SHA-256 (checksum publicado en las notas del
   Release) antes de reemplazar al actual.
-- Límite de API sin autenticación: 60 consultas/hora (suficiente para botón manual).
+- Límite de API sin autenticación: 60 consultas/hora (dos llamadas por chequeo desde
+  2026-09-25: `releases/latest` + `commits/{tag}`; sigue sobrando para botón manual).
 - **Desde 2026-09-21, el Release trae dos `.exe`** (agente + consola owner, ver
   `publish-release.ps1`): `updater/check.py` elige el asset por nombre EXACTO
   (`NOMBRE_ASSET_AGENTE`), nunca por sufijo `.exe`, y `updater/download.py::
@@ -328,6 +332,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 34. **Credenciales en la consola owner + `/admin/*` loopback-only + releases de owner+agente** [COMPLETADO — 2026-09-21]: panel "Credenciales del proxy" (Mostrar/Copiar/Rotar) en `owner_app.py`, vía relanzo elevado con UAC (`secretos.py` NUEVO: lee/rota `proxy_token`/`admin_key` preservando el resto de `config.yaml`, reaplica ACL, reinicia el servicio). `/admin/*` restringido a loopback (no configurable, a diferencia de `allowed_networks`); comparación de tokens con `secrets.compare_digest`. Primer Release conjunto de owner+agente (`v2026.09.21`); bug encontrado y corregido en el updater: con dos `.exe` en el mismo Release podía elegir el asset equivocado o cruzar checksums (`check.py`/`download.py`). **191 tests, ruff limpio.**
 35. **Fix: UAC falso-cancelado + `sc qc` en español en la consola owner** [COMPLETADO — 2026-09-22]: `_ejecutar_elevado()` combinaba `-Verb RunAs` con `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en PowerShell que hacía fallar la elevación **antes** de mostrar el UAC real, reportado como "UAC cancelado" sin serlo. Fix: la ruta de salida se pasa como argumento posicional; el subcomando elevado escribe el JSON al archivo en vez de stdout. Además, `ruta_instalacion()` (`secretos.py`) buscaba la etiqueta `BINARY_PATH_NAME` de `sc qc` solo en inglés — en Windows en español (toda la oficina) sale como `NOMBRE_RUTA_BINARIO` y nunca matcheaba, así que fallaba con "config.yaml no encontrado" aunque el servicio y el archivo sí existían; ahora reconoce ambas etiquetas (inglés primero, español como segunda opción). Se agregó confirmación propia antes del UAC en **Mostrar** (no tenía ninguna) y se amplió el aviso/mensaje final de **Rotar** (menciona el UAC, indica dónde colocar el valor nuevo). Verificado en vivo de punta a punta (Mostrar y Rotar, ambos secretos) en una PC con el servicio real instalado. Release `v2026.09.22` publicado con ambos `.exe` corregidos. **193 tests, ruff limpio.**
 36. **Fix: "URL para los agentes" en la consola owner (WinError 10061)** [COMPLETADO — 2026-09-25]: primer despliegue real con agente y owner en PC distintas — configurar el agente con `http://localhost:8080` fallaba con `[WinError 10061]` porque `localhost` en la PC del agente apunta al propio agente, no a la del proxy. `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a `8.8.8.8:80` + `getsockname()`, respaldo `getaddrinfo` sin ruta por defecto, descarta loopback/APIPA), `puerto_proxy_local()` y `url_para_agentes()`; la UI muestra "URL para los agentes" lista para copiar junto al estado del proxy. Verificado en esta PC: detecta `192.168.18.49`, coincide con `ipconfig`. Release `v2026.09.25` publicado con ambos `.exe` reconstruidos. **201 tests, ruff limpio.**
+37. **Fix: el chequeo de actualización siempre creía que había una versión nueva** [COMPLETADO — 2026-09-25]: `updater/check.py::hay_actualizacion()` comparaba el commit embebido contra `release["target_commitish"]`, que en la API de GitHub Releases es la **rama** del tag (`"main"`), no un SHA — nunca coincidía, así que el chequeo daba siempre "hay actualización" sin importar la versión instalada. Fix: `_commit_de_tag()` (NUEVO) resuelve el SHA real vía `GET /commits/{tag_name}` y se compara contra eso; un fallo al resolverlo devuelve `None` en vez de un falso positivo. Verificado en vivo: `_commit_de_tag("v2026.09.25")` coincide con el commit real del Release publicado. Decisión de proceso: no se publica Release por cada commit, solo a pedido explícito — este fix quedó comiteado y pusheado sin Release nuevo. **206 tests, ruff limpio.**
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -867,16 +872,31 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   bug con el de 2026-09-18, + entrada nueva "URL para los agentes"), `Roadmap.md`.
 - **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos,
   reemplazando `v2026.09.22` como "Latest".
-- **Observación pendiente, sin corregir en esta sesión** (fuera de alcance,
-  reportada al usuario): `validator_app/updater/check.py:41` compara el commit
-  embebido contra `release["target_commitish"]`, que en nuestros Releases vale
-  literalmente `"main"` (no un SHA) — nunca coinciden, así que el chequeo de
-  actualización del agente puede dar siempre "hay actualización disponible"
-  aunque ya esté al día.
+- **Segundo hallazgo, mismo día — el chequeo de actualización siempre "encontraba"
+  una versión nueva**: reportado al usuario al cierre de la primera parte de la
+  sesión, y corregido a continuación (mismo día). Causa:
+  `validator_app/updater/check.py::hay_actualizacion()` comparaba el commit
+  embebido contra `release["target_commitish"]` — ese campo de la API de GitHub
+  Releases es la **rama** sobre la que se creó el tag (`"main"`, verificado con
+  `gh release view ... --json targetCommitish`), no un SHA, así que nunca
+  coincidía con el commit real y el chequeo creía SIEMPRE que había una
+  actualización pendiente. **No era necesario publicar un Release por cada
+  commit** — el bug estaba en la comparación, no en la cadencia de Releases.
+  Fix: `_commit_de_tag()` (NUEVO) resuelve el SHA real vía
+  `GET /repos/{owner}/{repo}/commits/{tag_name}` (ese endpoint resuelve tags
+  igual que SHAs o ramas) y `hay_actualizacion()` compara contra eso; un fallo al
+  resolverlo devuelve `None` (no nagea) en vez de un falso positivo. Verificado
+  en vivo contra `v2026.09.25`: `_commit_de_tag("v2026.09.25")` devuelve
+  `ec575f3f...` — coincide exactamente con el commit embebido en el `.exe`
+  publicado. 8 tests nuevos en `test_updater.py` (TDD rojo→verde). **201 → 206
+  tests, ruff limpio.**
+- **Decisión de proceso** (pedido explícito del usuario): un Release **no** se
+  publica automáticamente al cerrar cada sesión — solo cuando el usuario lo pide
+  de forma explícita. Este fix del updater se dejó comiteado y pusheado **sin
+  Release nuevo**, porque no cambia nada que el agente ya instalado necesite.
 - **Siguiente sesión**: confirmar en la PC del agente real que reportó el error
   que la URL copiada desde la consola owner resuelve el `WinError 10061`; si aún
   falla, revisar el firewall de Windows en la PC del proxy (el instalador no crea
-  esa regla, pendiente desde 2026-09-18); considerar corregir la comparación de
-  `target_commitish` en `updater/check.py`. Resto de pendientes de cierres
+  esa regla, pendiente desde 2026-09-18). Resto de pendientes de cierres
   anteriores (Etapa D/E en la PC oficial, Fase 5 de documentación, decisión de
   `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

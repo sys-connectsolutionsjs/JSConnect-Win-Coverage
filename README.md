@@ -110,7 +110,7 @@ Git. Este flujo ya fue validado manualmente de extremo a extremo.
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
 ```
-El Release se publica con el .exe y su checksum SHA-256. La app detecta la nueva versión comparando el commit del Release con el embebido en el ejecutable.
+El Release se publica con el .exe y su checksum SHA-256. La app detecta la nueva versión resolviendo el commit real al que apunta el tag del Release (vía `GET /commits/{tag}`, no `target_commitish` — ese campo trae la rama, no un SHA) y comparándolo con el embebido en el ejecutable.
 
 ### Instalación del Proxy (PC Oficina — una sola vez)
 ```powershell
@@ -261,7 +261,7 @@ validated end to end.
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
 ```
-The release includes the .exe and its SHA-256 checksum. The app detects a new version by comparing the release commit with the one embedded in the executable.
+The release includes the .exe and its SHA-256 checksum. The app detects a new version by resolving the actual commit the release's tag points to (via `GET /commits/{tag}`, not `target_commitish` — that field holds the branch, not a SHA) and comparing it with the one embedded in the executable.
 
 ### Proxy Installation (Office PC — one time)
 ```powershell
