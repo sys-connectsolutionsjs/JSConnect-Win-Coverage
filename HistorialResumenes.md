@@ -66,6 +66,11 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   devolvió `Score 862/BAJO riesgo` (HTTP 200) — confirma que WinForce no
   requiere coordenadas para el score. `10412031` queda como DNI de prueba fijo
   del proyecto. 209 → **212 tests**, ruff limpio.
+- **Cierre técnico**: reconstruido el `.exe` del agente (commit `513a2f7`);
+  owner reutilizado sin cambios. Release **`v2026.09.25.1`** publicado (tag
+  nuevo, no reemplaza `v2026.09.25` de la mañana). Los 4 casos de validación
+  parcial se confirmaron con una instancia REAL de `App` (`mainloop()` de
+  verdad, no solo el smoke headless) a pedido del usuario.
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.

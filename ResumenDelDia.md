@@ -52,13 +52,23 @@ Ver el detalle completo en `resumenes/2026-09-25.md`. En síntesis:
   token dado por el usuario): score sin coordenadas para el DNI de prueba
   **10412031** devolvió Score 862/BAJO riesgo. 209 → **212 tests**, ruff limpio.
 
+## Cierre técnico de la sesión
+
+- Reconstruido `JSConnect-Win-Coverage.exe` (commit `513a2f7`, incluye los 4
+  cambios de hoy); `JSConnect-Win-Owner.exe` reutilizado sin cambios (su código
+  no se tocó desde el build de esta mañana). Publicado **Release
+  `v2026.09.25.1`** (nuevo tag, no pisa `v2026.09.25` de esta mañana — decisión
+  del usuario) con ambos `.exe` y checksums SHA-256.
+- **Confirmado con la app real** (no solo el smoke headless de antes): instancia
+  real de `App`, cliente falso con las dataclasses reales de `ProxyClient`,
+  `mainloop()` de verdad. Los 4 casos (solo coordenadas, solo documento, ambos,
+  ninguno) se comportaron exactamente como se diseñó.
+
 ## Pendiente al cerrar hoy
 
 - Confirmar en la PC del agente real que reportó ambos errores que ya conecta de
   punta a punta.
 - Probar el paso `[11/13]` en una instalación/reinstalación real (no ejecutable
   desde este entorno).
-- Probar a mano en la GUI real los 4 casos de validación parcial (smoke headless
-  ya hecho).
 - Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
   documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.
