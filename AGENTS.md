@@ -338,7 +338,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 37. **Fix: el chequeo de actualización siempre creía que había una versión nueva** [COMPLETADO — 2026-09-25]: `updater/check.py::hay_actualizacion()` comparaba el commit embebido contra `release["target_commitish"]`, que en la API de GitHub Releases es la **rama** del tag (`"main"`), no un SHA — nunca coincidía, así que el chequeo daba siempre "hay actualización" sin importar la versión instalada. Fix: `_commit_de_tag()` (NUEVO) resuelve el SHA real vía `GET /commits/{tag_name}` y se compara contra eso; un fallo al resolverlo devuelve `None` en vez de un falso positivo. Verificado en vivo: `_commit_de_tag("v2026.09.25")` coincide con el commit real del Release publicado. Decisión de proceso: no se publica Release por cada commit, solo a pedido explícito — este fix quedó comiteado y pusheado sin Release nuevo. **206 tests, ruff limpio.**
 38. **Fix: el instalador no abría el puerto del proxy en el Firewall de Windows** [COMPLETADO — 2026-09-25]: con la IP correcta ya configurada (tarea 36), un agente en otra PC pasó de `WinError 10061` a **Timeout** — la firma de un firewall que descarta el paquete en silencio en vez de rechazarlo. `install_service.bat` ya imprimía el comando `New-NetFirewallRule` como nota manual pero nunca lo ejecutaba (gap anotado desde el 2026-09-18). Fix: nuevo paso `[11/13]` (idempotente vía `Get-NetFirewallRule`, con fallback manual si el firewall está gobernado por Directiva de Grupo/dominio) — instalador renumerado de 12 a 13 pasos; `uninstall_service.bat` quita la regla al desinstalar. Guarda nueva en `test_install_bat.py` (`test_los_pasos_numerados_son_consistentes`) contra volver a olvidar renumerar un paso. **209 tests, ruff limpio.**
 39. **Validar cobertura o score por separado (sin exigir ambos datos)** [COMPLETADO — 2026-09-25]: el botón VALIDAR exigía coordenadas Y documento siempre; un agente con solo uno de los dos no podía validar nada. Ahora son independientes: `core/api.py::validar_score()` acepta `lat`/`lon` en `None` (van en blanco en el payload, mismo patrón que los ~19 campos de geodata opcionales — decisión "payload mínimo" 2026-08-27), propagado por `proxy/server.py::ScoreRequest` y `proxy/client.py::ProxyClient.validar_score()`. La GUI (`main_window.py`) detecta qué campo(s) llenó el agente: solo coordenadas → cobertura; solo documento → score directo (`cobertura="NO"`); ambos → el flujo combinado de siempre, sin cambios. Nuevo helper `_a_dict()` normaliza el resultado (`ProxyClient` devuelve dataclasses, el core standalone dicts planos) para que la GUI trate ambos modos igual. **Verificado en vivo contra WinForce real**: `POST /api/score` con `lat`/`lon` en `null` para el DNI de prueba **10412031** devolvió `Score 862 / BAJO riesgo` (HTTP 200) — confirma que WinForce no requiere coordenadas para el score. `10412031` queda fijado como DNI de prueba del proyecto de ahora en adelante. 3 tests nuevos (`test_api.py`, `test_proxy.py`, `test_client.py`). **212 tests, ruff limpio.** Los 4 casos también se confirmaron con una instancia real de `App` (mainloop de verdad, cliente falso con las dataclasses reales de `ProxyClient`), no solo con el smoke headless.
-40. **Rediseño visual: iconos + tema + navegación extensible** [EN CURSO — 2026-09-25, Etapa 1/3 completada]: decisión de framework (investigada, no una "skill" descargable — eso no existe): **ttkbootstrap**, no CustomTkinter — CustomTkinter no soporta `--onefile` (documentación oficial: exige `--onedir`), lo que rompería el `.exe` portable del que dependen el updater y la distribución a 15-35 PC; ttkbootstrap sí funciona con `--onefile --windowed` (trae su propio hook de PyInstaller) retemando los mismos widgets `ttk.*` ya usados. Plan aprobado en 3 etapas: 1) iconos, 2) tema (agente claro `cosmo` / owner oscuro `superhero`), 3) barra lateral de navegación en el agente (extensible para funciones futuras, "Cobertura y Score" por defecto). **Etapa 1 completada**: `tools/generar_iconos.py` (NUEVO, dev-only con Pillow) dibuja `assets/icons/agent.ico`/`.png` (pin blanco sobre azul), `assets/icons/owner.ico`/`.png` (llave ámbar sobre navy), y el icono de la extensión de Chrome (`validator_app/proxy/extension/icon.png`, antes un cuadrado verde liso, ahora una flecha de renovación + `icon16.png`/`icon48.png` nuevos, `manifest.json` actualizado). `build.ps1`/`build-owner.ps1` ganan `--icon`. **Bug real encontrado y corregido en el camino**: instalar Pillow en el venv hizo que un hook de PyInstaller lo arrastrara al `.exe` aunque la app nunca lo importa (agente 26.5→33.9 MB, owner 65→72.6 MB) — fix: `--exclude-module PIL` explícito en ambos scripts, tamaños de vuelta a la normalidad, verificado extrayendo el icono real embebido de cada `.exe` compilado (no solo el PNG fuente) y con un smoke de arranque. 212 tests, ruff limpio.
+40. **Rediseño visual: iconos + tema + navegación extensible** [COMPLETADO — 2026-09-25, las 3 etapas]: decisión de framework (investigada, no una "skill" descargable — eso no existe): **ttkbootstrap**, no CustomTkinter — CustomTkinter no soporta `--onefile` (documentación oficial: exige `--onedir`), lo que rompería el `.exe` portable del que dependen el updater y la distribución a 15-35 PC; ttkbootstrap sí funciona con `--onefile --windowed` (trae su propio hook de PyInstaller) retemando los mismos widgets `ttk.*` ya usados. Plan aprobado en 3 etapas: 1) iconos, 2) tema (agente claro `cosmo` / owner oscuro `superhero`), 3) barra lateral de navegación en el agente (extensible para funciones futuras, "Cobertura y Score" por defecto). **Etapa 1 completada**: `tools/generar_iconos.py` (NUEVO, dev-only con Pillow) dibuja `assets/icons/agent.ico`/`.png` (pin blanco sobre azul), `assets/icons/owner.ico`/`.png` (llave ámbar sobre navy), y el icono de la extensión de Chrome (`validator_app/proxy/extension/icon.png`, antes un cuadrado verde liso, ahora una flecha de renovación + `icon16.png`/`icon48.png` nuevos, `manifest.json` actualizado). `build.ps1`/`build-owner.ps1` ganan `--icon`. **Bug real encontrado y corregido en el camino**: instalar Pillow en el venv hizo que un hook de PyInstaller lo arrastrara al `.exe` aunque la app nunca lo importa (agente 26.5→33.9 MB, owner 65→72.6 MB) — fix: `--exclude-module PIL` explícito en ambos scripts, tamaños de vuelta a la normalidad, verificado extrayendo el icono real embebido de cada `.exe` compilado (no solo el PNG fuente) y con un smoke de arranque. 212 tests, ruff limpio.
 **Etapa 2 completada**: `App`/`OwnerApp` pasan de `tk.Tk` a
 `ttkbootstrap.Window` (`cosmo` claro / `superhero` oscuro); el alias `ttk`
 pasa a apuntar a `ttkbootstrap` (drop-in), botones/labels clave ganan
@@ -356,8 +356,22 @@ de los 4 pasos + ruta real (`ruta_extension_build()` vía
 `secretos.ruta_instalacion()`). 7 tests nuevos. **219 tests, ruff limpio.**
 Verificado con `mainloop()` real + `ttk.Style().lookup()` (sin repetir la
 captura de pantalla que por un bug de coordenadas capturó contenido ajeno de
-la pantalla del usuario — se borró de inmediato, ver Historial). **Pendiente**:
-Etapa 3 (barra lateral de navegación).
+la pantalla del usuario — se borró de inmediato, ver Historial).
+**Etapa 3 completada**: `_build_ui()` gana un contenedor de dos columnas
+(barra lateral + área de contenido); el contenido de siempre se re-parenta sin
+cambiar de nombre ni de comportamiento — cero cambios en `_validar`/
+`_validar_en_hilo`/`_mostrar_resultado`/diálogos. Mecanismo `self._paginas` +
+`_mostrar_pagina()` (`tkraise()`) listo para agregar funciones futuras.
+Primer intento con `ttk.Radiobutton(bootstyle="toolbutton")`: feedback del
+usuario — con un solo ítem se ve siempre "seleccionado" (relleno sólido, dos
+líneas), leyéndose como un botón enorme en vez de una pestaña de menú, y el
+fondo gris (`bootstyle="secondary"`) de la barra lateral tampoco convenció.
+Rediseño a **ítem de navegación plano**: `_agregar_item_nav()` arma una fila
+sin caja de botón — solo una barra de acento de ~3px a la izquierda (color
+real del tema vía `ttk.Style().colors.primary`/`.bg`, no hardcodeado) + una
+`Label` de una sola línea con `bind` de click; `_mostrar_pagina()` alterna la
+barra/el `bootstyle` del texto entre activo e inactivo. **Con esto se cierran
+las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -964,9 +978,31 @@ Etapa 3 (barra lateral de navegación).
   se ingresó documento); solo documento → `Cobertura: —` (no se ingresaron
   coordenadas) / `Score: 862 - VALIDO`; ambos → ambos resueltos; ninguno → error
   "Ingresa coordenadas y/o un documento." sin llamar al cliente.
+- **Quinta y sexta parte — rediseño visual (3 etapas)**: pedido nuevo del
+  usuario, ver tarea 40 para el detalle completo. Decisión de framework
+  (ttkbootstrap, no CustomTkinter — este último no soporta `--onefile`).
+  Etapa 1 (iconos, con un bug real de bundling de Pillow encontrado y
+  corregido), Etapa 2 (tema `cosmo`/`superhero` + indicadores de cobertura/score
+  coloreados por riesgo + fix de contraste WCAG en el owner + instrucciones de
+  la extensión en la consola owner), Etapa 3 (barra lateral de navegación del
+  agente, rediseñada a ítem plano tras dos rondas de feedback del usuario).
+  Cada etapa se comiteó por separado, verificada con `mainloop()` real y
+  `ttk.Style().lookup()`/`.colors` (nunca con capturas de pantalla reales tras
+  el incidente de la Etapa 2 — ver más abajo). **219 tests, ruff limpio** al
+  cierre de las 3 etapas.
+- **Incidente de una captura de pantalla** (Etapa 2, verificación de la
+  consola owner): un bug de coordenadas en un script de PowerShell para
+  capturar la ventana del owner capturó por error un fragmento de contenido
+  ajeno de la pantalla del usuario (no relacionado con la app). Se borró de
+  inmediato sin usarlo ni describir su contenido, y no se volvió a intentar
+  ninguna captura de pantalla real en el resto de la sesión — la verificación
+  visual pasó a hacerse con `ttk.Style().lookup()`/`.colors` (colores y estilos
+  reales, sin tocar la pantalla) y dejando las ventanas reales abiertas para
+  que el usuario mismo las revise.
 - **Siguiente sesión**: confirmar en la PC del agente real que reportó ambos
   errores de conexión que ya conecta de punta a punta; probar el paso `[11/13]`
   del instalador en una instalación/reinstalación real (no se pudo ejecutar el
-  `.bat` desde aquí). Resto de pendientes de cierres anteriores (Etapa D/E en la
-  PC oficial, Fase 5 de documentación, decisión de
+  `.bat` desde aquí); seguir puliendo el rediseño visual si el usuario lo pide
+  (ya avisó que lo retocará otro día). Resto de pendientes de cierres
+  anteriores (Etapa D/E en la PC oficial, Fase 5 de documentación, decisión de
   `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

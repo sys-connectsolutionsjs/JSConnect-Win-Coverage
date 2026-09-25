@@ -82,12 +82,49 @@ Ver el detalle completo en `resumenes/2026-09-25.md`. En síntesis:
   de cada `.exe` compilado.
 - 212 tests, ruff limpio. Sin Release (pendiente completar las 3 etapas).
 
+## Sexta parte — rediseño visual (Etapas 2 y 3, cierre de las 3 etapas)
+
+- **Etapa 2 (tema)**: `App`/`OwnerApp` pasan a `ttkbootstrap.Window` (`cosmo`
+  claro / `superhero` oscuro). Descubierto en el camino: esta versión de
+  ttkbootstrap NO retema los widgets `ttk.*` planos como la 1.x investigada —
+  hace falta `bootstyle=` explícito en cada widget que deba destacar.
+  `requirements.txt` gana `ttkbootstrap` (trae Pillow real); se revierte el
+  `--exclude-module PIL` de la Etapa 1.
+- **Etapa 2.1 (feedback tras ver las ventanas reales)**: indicadores de
+  cobertura/score coloreados según el riesgo real de WinForce (verde/ámbar/
+  rojo); contraste del owner corregido con la fórmula WCAG (el rojo daba
+  2.78:1 sobre el fondo oscuro, por debajo del mínimo 4.5:1 — cambiado a
+  ámbar, 5.66:1); nuevo botón "Instalar extensión en Chrome" con diálogo de
+  los 4 pasos + la ruta real.
+- **Etapa 3 (navegación)**: barra lateral en el agente con el mecanismo
+  `_paginas`/`_mostrar_pagina()` listo para funciones futuras. Dos rondas de
+  feedback del usuario: el radiobutton "toolbutton" se veía como un botón
+  enorme (con un solo ítem, siempre "seleccionado") y el fondo gris de la
+  barra tampoco convenció — rediseño final a un ítem de navegación plano
+  (barra de acento de color real del tema + texto de una línea, sin caja de
+  botón).
+- **Incidente**: un bug de coordenadas en un script de captura de pantalla
+  (verificando el tema oscuro del owner) capturó por error contenido ajeno de
+  la pantalla del usuario — se borró de inmediato sin usarlo, y no se volvió a
+  intentar ninguna captura real; el resto de la verificación visual se hizo
+  con `ttk.Style().lookup()`/`.colors` y dejando las ventanas reales abiertas.
+- **Con esto se cierran las 3 etapas del rediseño visual.** 219 tests, ruff
+  limpio. El usuario planea seguir puliéndolo otro día.
+
+## Cierre técnico de esta parte
+
+- Reconstruido `JSConnect-Win-Coverage.exe` (agente) con la Etapa 3;
+  `JSConnect-Win-Owner.exe` reutilizado sin cambios (su código no se tocó en
+  esta parte). Publicado **Release `v2026.09.25.2`** con ambos `.exe` y sus
+  checksums SHA-256.
+
 ## Pendiente al cerrar hoy
 
-- Confirmar en la PC del agente real que reportó ambos errores que ya conecta de
-  punta a punta.
+- Confirmar en la PC del agente real que reportó ambos errores de conexión que
+  ya conecta de punta a punta.
 - Probar el paso `[11/13]` en una instalación/reinstalación real (no ejecutable
   desde este entorno).
-- Etapas 2 y 3 del rediseño visual (tema ttkbootstrap + barra lateral del agente).
+- Seguir puliendo el rediseño visual cuando el usuario lo pida (ya avisó que
+  lo retocará otro día).
 - Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
   documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

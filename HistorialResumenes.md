@@ -85,6 +85,25 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   ambos scripts de build, verificado con el tamaño normal y extrayendo el
   icono real de cada `.exe` compilado. 212 tests, ruff limpio. Sin Release
   (pendiente completar las 3 etapas).
+- **Sexta parte — rediseño visual, Etapas 2 y 3 (cierre)**: `App`/`OwnerApp`
+  pasan a `ttkbootstrap.Window` (`cosmo` claro / `superhero` oscuro).
+  Descubierto en el camino: esta versión de ttkbootstrap NO retema los widgets
+  `ttk.*` planos como la 1.x investigada — hace falta `bootstyle=` explícito.
+  **Etapa 2.1** (feedback al ver las ventanas reales): indicadores de
+  cobertura/score coloreados por el riesgo real de WinForce (verde/ámbar/rojo);
+  contraste del owner corregido con la fórmula WCAG (rojo daba 2.78:1 sobre el
+  fondo oscuro, bajo el mínimo 4.5:1 — cambiado a ámbar, 5.66:1); botón nuevo
+  "Instalar extensión en Chrome" con diálogo de los 4 pasos + ruta real.
+  **Etapa 3**: barra lateral de navegación en el agente
+  (`self._paginas`/`_mostrar_pagina()`, lista para funciones futuras) — dos
+  rondas de feedback ("parece un botón enorme", "el uso de los colores no me
+  convence") llevaron a un ítem de navegación plano (barra de acento de color
+  real del tema, sin caja de botón, sin fondo gris en la barra). Un bug de
+  coordenadas en un script de captura de pantalla capturó por error contenido
+  ajeno de la pantalla del usuario — se borró de inmediato, no se repitió.
+  **Con esto se cierran las 3 etapas.** 219 tests, ruff limpio. Reconstruido
+  `JSConnect-Win-Coverage.exe` (owner reutilizado sin cambios). Release
+  **`v2026.09.25.2`** publicado.
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.

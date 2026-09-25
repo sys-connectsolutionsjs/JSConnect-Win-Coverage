@@ -42,6 +42,8 @@ corre en producción todavía.
 | 2026-09-25 | **"URL para los agentes" en la consola owner** — detecta la IP de LAN y la muestra lista para copiar, arreglando `WinError 10061` al configurar un agente en PC distinta a la del proxy (primer despliegue multi-PC real); Release `v2026.09.25`, 201 tests | `a575e85` |
 | 2026-09-25 | **Fix del chequeo de actualización** — `target_commitish` es la rama, no un SHA; el updater creía siempre que había una versión nueva. Resuelve el commit real del tag vía `/commits/{tag}`. Sin Release nuevo (decisión: Release solo a pedido explícito, no por cada commit). 206 tests | `55cc7a6` |
 | 2026-09-25 | **Firewall automático en el instalador** — `install_service.bat` abre el puerto del proxy en Windows Firewall (era solo una nota impresa); sin regla, un agente remoto fallaba con timeout en vez de error inmediato. Idempotente, con fallback manual si el firewall es de dominio; `uninstall_service.bat` la quita. 209 tests | `534b54e` |
+| 2026-09-25 | **Validar cobertura o score por separado** — el botón VALIDAR ya no exige coordenadas Y documento a la vez; verificado en vivo contra WinForce real (score sin coordenadas, DNI de prueba 10412031). Release `v2026.09.25.1`, 212 tests | `513a2f7` |
+| 2026-09-25 | **Rediseño visual (3 etapas)** — iconos distintos agente/owner/extensión (bug de bundling de Pillow corregido en el camino), tema ttkbootstrap (agente claro `cosmo` / owner oscuro `superhero`) con indicadores de cobertura/score coloreados por riesgo y fix de contraste WCAG en el owner, barra lateral de navegación extensible en el agente (rediseñada a ítem plano tras feedback). 219 tests | `d45d221`…`fefc16a` |
 
 ---
 
