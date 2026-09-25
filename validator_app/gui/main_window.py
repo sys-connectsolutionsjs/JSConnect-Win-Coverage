@@ -52,7 +52,7 @@ class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="cosmo")
         self.title("JSConnect Win Coverage")
-        self.geometry("540x580")
+        self.geometry("660x580")  # +120px para la barra lateral de navegacion
         self.resizable(False, False)
         self._proxy_client: ProxyClient | None = None
         self._session_client: api.ValidatorAPI | None = None
@@ -77,8 +77,33 @@ class App(ttk.Window):
         )
         menu_config.add_command(label="Buscar actualizaciones", command=self._buscar_actualizacion)
 
-        main = ttk.Frame(self, padding=16)
-        main.pack(fill="both", expand=True)
+        # Barra lateral de navegacion + area de contenido. Hoy solo hay una
+        # funcion (Cobertura y Score); el mecanismo ya queda listo para las
+        # que se vayan agregando (ver _mostrar_pagina).
+        contenedor = ttk.Frame(self)
+        contenedor.pack(fill="both", expand=True)
+
+        # Fondo neutro (igual al resto de la ventana, sin panel gris) — cada
+        # item de navegacion es una fila plana (sin caja de boton), con una
+        # barra de acento de ~3px a la izquierda que marca cual esta activa.
+        sidebar = ttk.Frame(contenedor, padding=(0, 16))
+        sidebar.pack(side="left", fill="y")
+
+        self._nav_items: dict[str, dict] = {}
+        self._agregar_item_nav("cobertura_score", "\U0001f4cd Cobertura y Score", sidebar)
+        # Para agregar una funcion nueva: crear su Frame(content, padding=16),
+        # .grid(row=0, column=0, sticky="nsew"), guardarlo en
+        # self._paginas["clave"] = frame, y llamar de nuevo a
+        # self._agregar_item_nav("clave", "texto del item", sidebar).
+
+        content = ttk.Frame(contenedor)
+        content.pack(side="left", fill="both", expand=True)
+        content.grid_rowconfigure(0, weight=1)
+        content.grid_columnconfigure(0, weight=1)
+
+        main = ttk.Frame(content, padding=16)
+        main.grid(row=0, column=0, sticky="nsew")
+        self._paginas = {"cobertura_score": main}
 
         ttk.Label(main, text="Coordenadas (latitud, longitud):").grid(row=0, column=0, sticky="w")
         self.txt_coordenadas = ttk.Entry(main, width=52)
@@ -110,6 +135,33 @@ class App(ttk.Window):
 
         self.lbl_estado = ttk.Label(main, text="Estado: iniciando...", anchor="w")
         self.lbl_estado.grid(row=6, column=0, columnspan=2, sticky="we", pady=(10, 0))
+
+        self._mostrar_pagina("cobertura_score")
+
+    def _agregar_item_nav(self, clave: str, texto: str, sidebar: ttk.Frame) -> None:
+        """Item de navegacion plano (sin caja de boton): una barra de acento
+        de color a la izquierda + texto, que se resalta cuando esta activo.
+        Se guarda en self._nav_items para que _mostrar_pagina lo actualice."""
+        fila = ttk.Frame(sidebar)
+        fila.pack(fill="x")
+        barra = tk.Frame(fila, width=3)
+        barra.pack(side="left", fill="y")
+        lbl = ttk.Label(fila, text=texto, padding=(8, 10), cursor="hand2")
+        lbl.pack(side="left", fill="x", expand=True)
+        lbl.bind("<Button-1>", lambda _e: self._mostrar_pagina(clave))
+        self._nav_items[clave] = {"barra": barra, "label": lbl}
+
+    def _mostrar_pagina(self, nombre: str) -> None:
+        """Muestra la pagina `nombre` en el area de contenido (las demas quedan
+        detras, sin destruirse) y resalta su item en la barra lateral. Unica
+        forma de cambiar de funcion; ver el comentario en _build_ui para
+        agregar una pagina nueva."""
+        self._paginas[nombre].tkraise()
+        colores = ttk.Style().colors
+        for clave, item in self._nav_items.items():
+            activo = clave == nombre
+            item["barra"].configure(bg=colores.primary if activo else colores.bg)
+            item["label"].configure(bootstyle="primary" if activo else "default")
 
     def _load_proxy_config(self) -> None:
         """Carga la config de proxy (o la sesion standalone) desde keyring."""
