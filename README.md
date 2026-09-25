@@ -82,6 +82,12 @@ servicio** (pide permiso de administrador con el aviso UAC de Windows; la sesió
 WinForce se conserva). Úsalo tras cambiar código o `allowed_networks`. La clave privada **no** se
 incluye en los agentes ni se sube al repositorio.
 
+También detecta la IP de LAN de la PC del proxy y muestra **"URL para los
+agentes"** lista para copiar (`http://<ip-detectada>:<puerto>`) — evita
+configurar por error `localhost` en un agente que corre en otra PC, que falla
+con `WinError 10061` (conexión rechazada) porque ahí `localhost` apunta al
+propio agente, no al proxy.
+
 ```powershell
 python generator/owner_app.py
 powershell -ExecutionPolicy Bypass -File build-owner.ps1
@@ -226,6 +232,12 @@ state, opens assisted WinForce session renewal, and has a **Reiniciar servicio**
 UAC prompt; the WinForce session is preserved. Use it after changing code or
 `allowed_networks`. The private key is **not**
 included in agent builds and is never committed to the repository.
+
+It also detects the proxy PC's LAN IP and shows a ready-to-copy **"URL para
+los agentes"** (`http://<detected-ip>:<port>`) — avoids accidentally setting
+`localhost` on an agent running on a different PC, which fails with
+`WinError 10061` (connection refused) because `localhost` there points at the
+agent itself, not at the proxy.
 
 ```powershell
 python generator/owner_app.py

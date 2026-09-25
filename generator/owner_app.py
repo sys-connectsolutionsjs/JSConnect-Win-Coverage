@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -14,6 +16,7 @@ import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -123,6 +126,53 @@ def consultar_proxy() -> str:
     return "Proxy: operativo; sin sesion WinForce"
 
 
+def _ip_valida(ip: str) -> bool:
+    """Descarta loopback (127.x) y direcciones APIPA (169.254.x, sin DHCP)."""
+    try:
+        direccion = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return not (direccion.is_loopback or direccion.is_link_local)
+
+
+def detectar_ip_lan(socket_factory=socket.socket, resolver=socket.getaddrinfo) -> str | None:
+    """IP de LAN de esta PC (donde corre el proxy), para armar la URL de agentes.
+
+    Metodo principal: socket UDP a una IP publica y leer con que interfaz saldria
+    (no llega a enviar nada, "connect" en UDP solo fija la ruta). Si no hay ruta
+    por defecto (sin red), respaldo con getaddrinfo(hostname). En ambos casos se
+    descartan loopback y APIPA; solo importa la IP de LAN real."""
+    try:
+        with socket_factory(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            ip = sock.getsockname()[0]
+        if _ip_valida(ip):
+            return ip
+    except OSError:
+        pass
+
+    try:
+        candidatas = resolver(socket.gethostname(), None, socket.AF_INET)
+    except OSError:
+        return None
+    for _familia, _tipo, _proto, _canonico, direccion in candidatas:
+        ip = direccion[0]
+        if _ip_valida(ip):
+            return ip
+    return None
+
+
+def url_para_agentes(ip: str | None, puerto: int) -> str:
+    if not ip:
+        return ""
+    return f"http://{ip}:{puerto}"
+
+
+def puerto_proxy_local() -> int:
+    puerto = urlsplit(_url_proxy_local()).port
+    return puerto if puerto is not None else 8080
+
+
 # ==================== SUBCOMANDOS ELEVADOS (sin GUI) ====================
 # config.yaml tiene ACL de SYSTEM+Administradores (install_service.bat:273-276):
 # leerlo o rotarlo exige correr elevado. En vez de debilitar la ACL (expondria
@@ -230,7 +280,7 @@ class OwnerApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("JSConnect Win Coverage — Owner")
-        self.geometry("590x560")
+        self.geometry("590x620")
         self.resizable(False, False)
         self._build_ui()
         self.actualizar_estado()
@@ -260,7 +310,28 @@ class OwnerApp(tk.Tk):
         self.lbl_servicio = ttk.Label(proxy, text="Servicio proxy: comprobando...")
         self.lbl_servicio.pack(anchor="w")
         self.lbl_proxy = ttk.Label(proxy, text="Proxy: comprobando...")
-        self.lbl_proxy.pack(anchor="w", pady=(4, 10))
+        self.lbl_proxy.pack(anchor="w", pady=(4, 8))
+
+        ttk.Label(proxy, text="URL para los agentes (Menu ⚙ → Configurar Proxy):").pack(
+            anchor="w"
+        )
+        url_frame = ttk.Frame(proxy)
+        url_frame.pack(fill="x", pady=(3, 0))
+        self.txt_url_agentes = ttk.Entry(
+            url_frame, width=40, font=("Consolas", 9), state="readonly"
+        )
+        self.txt_url_agentes.pack(side="left", fill="x", expand=True)
+        ttk.Button(url_frame, text="Copiar", command=self.copiar_url_agentes).pack(
+            side="left", padx=(8, 0)
+        )
+        self.lbl_url_agentes_aviso = ttk.Label(proxy, text="", foreground="#8a1f1f")
+        self.lbl_url_agentes_aviso.pack(anchor="w", pady=(2, 0))
+        ttk.Label(
+            proxy,
+            text="Si el agente no conecta: revisa el firewall de esta PC para ese puerto.",
+            foreground="#555555",
+        ).pack(anchor="w", pady=(4, 10))
+
         buttons = ttk.Frame(proxy)
         buttons.pack(fill="x")
         ttk.Button(buttons, text="Actualizar estado", command=self.actualizar_estado).pack(
@@ -342,7 +413,25 @@ class OwnerApp(tk.Tk):
     def copiar_codigo(self) -> None:
         self._copiar_de_entry(self.txt_codigo, "Activacion", "Codigo copiado al portapapeles.")
 
-    def _copiar_de_entry(self, entry: ttk.Entry, titulo: str, mensaje_ok: str) -> None:
+    def copiar_url_agentes(self) -> None:
+        if not self.txt_url_agentes.get():
+            messagebox.showinfo(
+                "URL para agentes",
+                "No se detecto la IP de red de esta PC. Usa `ipconfig` (IPv4) "
+                "y arma la URL manualmente.",
+                parent=self,
+            )
+            return
+        self._copiar_de_entry(
+            self.txt_url_agentes,
+            "URL para agentes",
+            "URL copiada. Pegala en cada agente (Menu ⚙ → Configurar Proxy).",
+            limpiar=False,
+        )
+
+    def _copiar_de_entry(
+        self, entry: ttk.Entry, titulo: str, mensaje_ok: str, limpiar: bool = True
+    ) -> None:
         valor = entry.get()
         if not valor:
             return
@@ -350,6 +439,8 @@ class OwnerApp(tk.Tk):
         self.clipboard_append(valor)
         self.update()
         messagebox.showinfo(titulo, mensaje_ok, parent=self)
+        if not limpiar:
+            return
         # El portapapeles conserva secretos entre aplicaciones; se limpia solo
         # si nadie mas lo sobreescribio mientras tanto.
         self.after(SEGUNDOS_LIMPIAR_PORTAPAPELES * 1000, lambda: self._limpiar_portapapeles(valor))
@@ -494,10 +585,19 @@ class OwnerApp(tk.Tk):
         def consultar() -> None:
             servicio = consultar_servicio()
             proxy = consultar_proxy()
+            ip = detectar_ip_lan()
+            url_agentes = url_para_agentes(ip, puerto_proxy_local())
             self.after(0, lambda: self.lbl_servicio.config(text=servicio))
             self.after(0, lambda: self.lbl_proxy.config(text=proxy))
+            self.after(0, lambda: self._aplicar_url_agentes(url_agentes))
 
         threading.Thread(target=consultar, daemon=True).start()
+
+    def _aplicar_url_agentes(self, url: str) -> None:
+        self._set_entry(self.txt_url_agentes, url)
+        self.lbl_url_agentes_aviso.config(
+            text="" if url else "No se pudo detectar la IP de red; usa `ipconfig` (IPv4)."
+        )
 
     def reiniciar_servicio(self) -> None:
         if not messagebox.askyesno(

@@ -75,6 +75,82 @@ def test_consultar_proxy_config_invalida_usa_puerto_por_defecto(monkeypatch):
     assert visitadas == ["http://127.0.0.1:8080/health"]
 
 
+def test_detectar_ip_lan_usa_socket_udp():
+    class SocketFalso:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def connect(self, destino):
+            pass
+
+        def getsockname(self):
+            return ("192.168.1.50", 12345)
+
+    assert owner_app.detectar_ip_lan(socket_factory=lambda *a, **k: SocketFalso()) == "192.168.1.50"
+
+
+def test_detectar_ip_lan_usa_respaldo_si_falla_el_socket():
+    def socket_roto(*args, **kwargs):
+        raise OSError("sin ruta por defecto")
+
+    def resolver_falso(host, puerto, family):
+        return [(None, None, None, None, ("192.168.1.77", 0))]
+
+    ip = owner_app.detectar_ip_lan(socket_factory=socket_roto, resolver=resolver_falso)
+    assert ip == "192.168.1.77"
+
+
+def test_detectar_ip_lan_descarta_loopback_y_apipa():
+    def socket_roto(*args, **kwargs):
+        raise OSError("sin ruta por defecto")
+
+    def resolver_falso(host, puerto, family):
+        return [
+            (None, None, None, None, ("127.0.0.1", 0)),
+            (None, None, None, None, ("169.254.1.2", 0)),
+            (None, None, None, None, ("192.168.1.77", 0)),
+        ]
+
+    ip = owner_app.detectar_ip_lan(socket_factory=socket_roto, resolver=resolver_falso)
+    assert ip == "192.168.1.77"
+
+
+def test_detectar_ip_lan_devuelve_none_si_no_hay_candidatas():
+    def socket_roto(*args, **kwargs):
+        raise OSError("sin ruta por defecto")
+
+    def resolver_falso(host, puerto, family):
+        return [(None, None, None, None, ("127.0.0.1", 0))]
+
+    assert owner_app.detectar_ip_lan(socket_factory=socket_roto, resolver=resolver_falso) is None
+
+
+def test_url_para_agentes_con_ip():
+    assert owner_app.url_para_agentes("192.168.1.50", 8080) == "http://192.168.1.50:8080"
+
+
+def test_url_para_agentes_sin_ip():
+    assert owner_app.url_para_agentes(None, 8080) == ""
+
+
+def test_puerto_proxy_local_usa_puerto_de_la_url(monkeypatch):
+    monkeypatch.setattr(owner_app, "_url_proxy_local", lambda: "http://0.0.0.0:8090")
+    assert owner_app.puerto_proxy_local() == 8090
+
+
+def test_puerto_proxy_local_por_defecto(monkeypatch):
+    monkeypatch.setattr(
+        owner_app, "_url_proxy_local", lambda: owner_app.URL_PROXY_LOCAL_POR_DEFECTO
+    )
+    assert owner_app.puerto_proxy_local() == 8080
+
+
 def test_comando_reinicio_pide_elevacion_y_reinicia_el_servicio():
     comando = owner_app.comando_reinicio()
     assert comando[0] == "powershell"

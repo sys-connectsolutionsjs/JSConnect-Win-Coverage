@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (193 en total, a 2026-09-22)
+## Inventario de tests (201 en total, a 2026-09-25)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
@@ -28,7 +28,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_medir_keepalive.py | 9 | clasificación muerte/transitorio/indeterminado del medidor |
 | tests/test_activation.py | 4 | llave pública real, firma por huella y diagnóstico de código incompleto |
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
-| tests/test_owner_app.py | 22 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell) y el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) |
+| tests/test_owner_app.py | 30 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell), el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) y **detección de IP de LAN para la "URL para los agentes"** (`detectar_ip_lan`: socket UDP, respaldo con `getaddrinfo`, descarte de loopback/APIPA, sin candidatas; `url_para_agentes`; `puerto_proxy_local`) |
 | tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
 | tests/test_install_bat.py | 3 | guardas estáticas de `install_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, y carga manual de la extensión sin `exit`/`pause` en el paso 7 |
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
@@ -39,6 +39,37 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-25 — "URL para los agentes" en la consola owner (fix WinError 10061)
+
+- **Origen**: primer despliegue real con agente y owner en PC distintas. Al
+  configurar el agente con `http://localhost:8080`, falló con
+  `[WinError 10061] ... denegó expresamente dicha conexión`. Causa:
+  `localhost`/`127.0.0.1` en la PC del agente apunta al propio agente, no a la
+  PC del proxy — nunca se había probado antes con agente y proxy separados.
+- **Rojo**: se escribieron 8 tests en `tests/test_owner_app.py` contra funciones
+  que todavía no existían (`detectar_ip_lan`, `url_para_agentes`,
+  `puerto_proxy_local`) → `AttributeError` confirmado en las 8, resto de la suite
+  intacta (22 pasando).
+- **Verde**: `detectar_ip_lan(socket_factory=..., resolver=...)` — método
+  principal con un socket UDP conectado a `8.8.8.8:80` (no envía nada; UDP
+  `connect()` solo fija la ruta) y `getsockname()[0]`; respaldo con
+  `socket.getaddrinfo(gethostname(), ...)` si no hay ruta por defecto (`OSError`,
+  por ejemplo sin red); ambos caminos descartan loopback y APIPA
+  (`ipaddress.ip_address(...).is_loopback/.is_link_local`). `url_para_agentes()` y
+  `puerto_proxy_local()` (reutiliza `_url_proxy_local()` ya existente) son
+  triviales. Los 4 parámetros de fábrica (`socket_factory`/`resolver`) siguen el
+  mismo patrón de inyección que `runner=subprocess.run` en el resto del archivo,
+  para no depender de la red real en los tests.
+- **UI**: campo de solo lectura + botón Copiar en el recuadro "Proxy y sesion
+  WinForce", relleno desde el mismo hilo de `actualizar_estado()` que ya consulta
+  `/health`. `_copiar_de_entry` gana un parámetro `limpiar: bool = True` porque
+  la URL no es secreta (no debe borrarse del portapapeles a los 60s como los
+  tokens).
+- **Verificación manual** (no automatizable: depende de la red real de esta PC):
+  `detectar_ip_lan()` devolvió `192.168.18.49`, coincide con `ipconfig`.
+- **Ruff**: dos líneas >100 columnas (el `Entry` nuevo y un test) — cortadas.
+- 193 → **201 tests**, ruff limpio.
 
 ### Sesión 2026-09-21 — Credenciales en la consola owner y `/admin/*` loopback-only
 

@@ -228,6 +228,10 @@ La propia PC. El proxy siempre permite el tráfico loopback aunque no esté en
 `allowed_networks` (`server._ip_in_allowed_networks`): así la PC del proxy puede usarse
 como agente con `http://localhost:8080`. No abre nada: `X-Proxy-Token` sigue siendo
 obligatorio. Bug histórico (2026-09-18): sin esto `localhost` daba 403 "IP no permitida".
+**Ojo, no confundir con el bug de 2026-09-25**: eso era `localhost` en la MISMA PC
+del proxy; si el agente corre en OTRA PC, `localhost` ahí apunta al agente mismo
+(nada escuchando) y da `WinError 10061`, no 403 — hace falta la IP de LAN real del
+proxy (la consola owner la detecta sola, ver "URL para los agentes" más abajo).
 
 ### Login asistido (`validator_app/proxy/login_asistido.py`)
 Forma de renovar la sesión WinForce del proxy sin que el owner toque F12 ni copie
@@ -508,6 +512,17 @@ Aviso de Windows que pide permiso para ejecutar algo como Administrador. La cons
 owner lo usa en **Reiniciar servicio** (`Start-Process ... -Verb RunAs`) para no tener
 que abrirla como administrador ni escribir comandos. Si se cancela el aviso, el botón
 lo informa sin fallar.
+
+### "URL para los agentes" (consola owner)
+Campo de solo lectura en el recuadro "Proxy y sesion WinForce" con
+`http://<ip-de-LAN-detectada>:<puerto>`, listo para copiar y pegar en cada agente
+(⚙ Configuración → Configurar Proxy). `generator/owner_app.py::detectar_ip_lan()`
+la obtiene con un socket UDP conectado a `8.8.8.8:80` (no envía nada; `connect()`
+en UDP solo fija la ruta) y lee `getsockname()[0]`; si no hay ruta por defecto,
+respaldo con `socket.getaddrinfo(gethostname(), ...)`. Existe porque, con agente y
+proxy en PC distintas, configurar `localhost` en el agente da `WinError 10061`
+(ver nota en "Loopback" más arriba) — se agregó 2026-09-25 al primer despliegue
+real multi-PC.
 
 ---
 

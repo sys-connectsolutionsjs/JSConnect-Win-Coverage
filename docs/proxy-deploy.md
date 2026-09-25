@@ -208,7 +208,12 @@ qué canal llegó a la PC — siempre que sea una copia íntegra de un build rea
 2. Ejecutar `JSConnect-Win-Coverage.exe`
 3. Menú **⚙️ Configuración** → **Configurar Proxy**
 4. Ingresar:
-   - **URL del proxy**: `http://192.168.1.50:8080`
+   - **URL del proxy**: `http://192.168.1.50:8080` — **nunca `localhost`** (el
+     agente corre en otra PC: `localhost` ahí apunta al propio agente, no al
+     proxy, y da `WinError 10061`). La IP correcta se copia con el botón
+     **Copiar** junto a "URL para los agentes" en `JSConnect-Win-Owner.exe`
+     (la detecta sola); si hace falta a mano, `ipconfig` en la PC del proxy →
+     dirección IPv4.
    - **Token**: `a1b2c3d4e5f6...` (el token mostrado al instalar proxy)
 5. Click **Probar conexión** → debe informar proxy conectado y estado de sesión
 6. Click **Guardar**
@@ -310,6 +315,7 @@ consola** — es la única credencial no rotable, y su exposición se maneja apa
 | `curl /health` → Connection refused | Servicio no inició / firewall bloquea | `sc start JSWinProxy` + firewall rule |
 | Agentes: "Proxy auth failed" | Token distinto / IP no en allowed_networks | Verificar token en keyring agente = config.yaml proxy (consola owner → panel Credenciales → Mostrar) |
 | `/admin/*` responde 403 desde otra PC | El admin key solo se acepta desde `127.0.0.1` (evita que viaje por LAN: expone el proxy_token vía `/admin/config`) | Usar la consola owner en la propia PC del proxy, o `rotate_creds.py`/scripts locales |
+| Agente: "No se pudo conectar al proxy" con `WinError 10061` | Se configuró `http://localhost:8080` (o `127.0.0.1`) en un agente que corre en otra PC — ahí `localhost` apunta al propio agente, no al proxy | Copiar la IP real desde `JSConnect-Win-Owner.exe` ("URL para los agentes") y usarla en el agente; si sigue fallando, revisar el firewall del puerto en la PC del proxy |
 | Un cambio en `server.py` o `config.yaml` no surte efecto | El servicio Python carga el código y la configuración solo al arrancar | Consola owner → **Reiniciar servicio** (pide UAC) o `Restart-Service JSWinProxy` como Administrador; la sesión WinForce persiste |
 | Agente: "IP no permitida: <ip>" (403) | La IP que ve el proxy no está en `allowed_networks` (localhost siempre pasa) | Añadir su CIDR en `config.yaml` + `Restart-Service JSWinProxy`; las IP públicas del router NO se agregan |
 | WinForce: sesión caducada | Tope absoluto o login expirado | Iniciar sesión y renovar desde extensión/consola owner |
