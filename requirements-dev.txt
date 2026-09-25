@@ -5,3 +5,4 @@
 pytest>=8.0
 ruff>=0.5
 pyinstaller>=6.0
+Pillow>=10.0  # solo para tools/generar_iconos.py; NO se empaqueta en los .exe

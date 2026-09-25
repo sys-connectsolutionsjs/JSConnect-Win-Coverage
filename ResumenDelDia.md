@@ -64,11 +64,30 @@ Ver el detalle completo en `resumenes/2026-09-25.md`. En síntesis:
   `mainloop()` de verdad. Los 4 casos (solo coordenadas, solo documento, ambos,
   ninguno) se comportaron exactamente como se diseñó.
 
+## Quinta parte — rediseño visual (Etapa 1/3: iconos)
+
+- Pedido nuevo: iconos distintos para agente/owner, icono real para la
+  extensión de Chrome, y rediseño visual con navegación extensible en el
+  agente. Investigué (WebSearch, no una "skill descargable") CustomTkinter vs
+  ttkbootstrap: **CustomTkinter no soporta `--onefile`** (rompería el modelo de
+  un solo `.exe`) — se eligió **ttkbootstrap**. Plan en 3 etapas aprobado:
+  iconos → tema (agente claro/owner oscuro) → barra lateral de navegación.
+- **Etapa 1 completada**: `tools/generar_iconos.py` (NUEVO, Pillow, dev-only)
+  genera `assets/icons/agent.ico`/`owner.ico` + la extensión gana un icono real
+  (antes un cuadrado verde liso). `build.ps1`/`build-owner.ps1` ganan `--icon`.
+- **Bug real encontrado y corregido**: Pillow instalado en el venv hizo que un
+  hook de PyInstaller lo arrastrara al `.exe` sin que la app lo use (agente
+  +7MB, owner +7.5MB) — fix: `--exclude-module PIL` en ambos scripts,
+  verificado con el tamaño de vuelta a la normalidad y extrayendo el icono real
+  de cada `.exe` compilado.
+- 212 tests, ruff limpio. Sin Release (pendiente completar las 3 etapas).
+
 ## Pendiente al cerrar hoy
 
 - Confirmar en la PC del agente real que reportó ambos errores que ya conecta de
   punta a punta.
 - Probar el paso `[11/13]` en una instalación/reinstalación real (no ejecutable
   desde este entorno).
+- Etapas 2 y 3 del rediseño visual (tema ttkbootstrap + barra lateral del agente).
 - Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
   documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

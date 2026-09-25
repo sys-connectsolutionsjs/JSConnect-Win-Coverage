@@ -71,6 +71,20 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   nuevo, no reemplaza `v2026.09.25` de la mañana). Los 4 casos de validación
   parcial se confirmaron con una instancia REAL de `App` (`mainloop()` de
   verdad, no solo el smoke headless) a pedido del usuario.
+- **Quinta parte — rediseño visual, Etapa 1/3 (iconos)**: pedido de iconos
+  distintos agente/owner/extensión + navegación extensible en el agente.
+  Investigación (WebSearch): **CustomTkinter no soporta `--onefile`**
+  (documentación oficial exige `--onedir`, rompería el `.exe` portable) →
+  decisión **ttkbootstrap** (sí soporta `--onefile`). Plan en 3 etapas: iconos
+  → tema (agente claro `cosmo` / owner oscuro `superhero`) → barra lateral de
+  navegación. **Etapa 1 completada**: `tools/generar_iconos.py` (NUEVO,
+  Pillow) genera `assets/icons/agent.ico`/`owner.ico` (pin azul / llave ámbar)
+  y el icono real de la extensión (antes un cuadrado verde liso). Bug real
+  encontrado: Pillow instalado en el venv hacía que un hook de PyInstaller lo
+  arrastrara al `.exe` sin uso real (+7 MB); fix `--exclude-module PIL` en
+  ambos scripts de build, verificado con el tamaño normal y extrayendo el
+  icono real de cada `.exe` compilado. 212 tests, ruff limpio. Sin Release
+  (pendiente completar las 3 etapas).
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.
