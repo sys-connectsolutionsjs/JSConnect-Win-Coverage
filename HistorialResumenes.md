@@ -13,6 +13,29 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-25 — Sesión — "URL para los agentes" en la consola owner (fix WinError 10061) + release v2026.09.25
+- **Snapshot completo**: `resumenes/2026-09-25.md`.
+- **Origen**: primer despliegue real con agente y owner en PC distintas. Al
+  configurar el agente con `http://localhost:8080` falló con
+  `[WinError 10061] ... denegó expresamente dicha conexión`, porque `localhost`
+  en la PC del agente apunta al propio agente, no a la PC del proxy.
+- **Fix**: `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a
+  `8.8.8.8:80` + `getsockname()`, respaldo `getaddrinfo` sin ruta por defecto,
+  descarta loopback/APIPA), `puerto_proxy_local()` y `url_para_agentes()`. La UI
+  muestra "URL para los agentes" (`http://<ip-detectada>:<puerto>`) lista para
+  copiar en el recuadro de estado del proxy.
+- **Verificado**: en esta PC detecta `192.168.18.49`, coincide con `ipconfig`.
+- **Calidad**: 193 → **201 tests** (8 nuevos en `test_owner_app.py`, TDD
+  rojo→verde), ruff limpio.
+- **Documentación**: `docs/proxy-deploy.md` (aviso de no usar `localhost` +
+  fila en troubleshooting), `README.md` (es/en), `TestingLog.md`.
+- **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos,
+  reemplazando `v2026.09.22`.
+- **Observación pendiente, sin corregir hoy**: `updater/check.py:41` compara el
+  commit embebido contra `release["target_commitish"]`, que en nuestros
+  Releases es literalmente `"main"` — nunca coincide, así que el chequeo de
+  actualización puede dar siempre positivo.
+
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.
 - **Origen**: al probar en vivo (PC de casa, proxy de desarrollo instalado) el panel de

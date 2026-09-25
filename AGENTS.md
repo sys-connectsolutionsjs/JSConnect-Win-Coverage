@@ -327,6 +327,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 33. **Ensayo del proxy en la PC de desarrollo + instalador re-ejecutable** [EN CURSO — 2026-09-18]: `install_service.bat` se relanza en `cmd /k` (ventana persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un resumen final; el paso 5 avisa si ya hay tokens y pregunta Conservar/Regenerar (por defecto Conservar a los 20 s; al regenerar reutiliza el puerto y reinicia el servicio). Bug corregido: `)` sin escapar en `echo` dentro de bloques `( ... )` abortaba el script en el paso 5; guarda en `tests/test_install_bat.py`. La extensión de Chrome no se carga sola en una PC no gestionada (Windows Home/WORKGROUP: Chrome ignora la política `file:///`): el paso 7 detecta dominio/Azure AD, solo avisa y el final imprime la carga manual (`.extension_build`). `generator/owner_app.py`: usa `127.0.0.1:8080` si `config.yaml` no se puede cargar (ACL o `.exe` empaquetado) y gana el botón **Reiniciar servicio** (PowerShell elevado con UAC; el servicio carga código/config solo al arrancar). Agente: menú ⚙ → **Activación / Huella de la PC** (`activacion_vigente()`). Proxy: loopback siempre permitido en `_ip_in_allowed_networks` (las IP públicas del router NO se agregan; whitelist + token; VPN futura documentada en `Escalabilidad.md`). `tests/conftest.py` aísla el `config.yaml` real. **157 tests, ruff limpio.** Pendiente: sesión WinForce que murió 3 veces (hipótesis: dos logins en paralelo), persistencia tras reinicio, firewall desde otra PC, carga (`probar_concurrencia.py`), desinstalar el ensayo y repetir en la PC oficial (Etapa D/E).
 34. **Credenciales en la consola owner + `/admin/*` loopback-only + releases de owner+agente** [COMPLETADO — 2026-09-21]: panel "Credenciales del proxy" (Mostrar/Copiar/Rotar) en `owner_app.py`, vía relanzo elevado con UAC (`secretos.py` NUEVO: lee/rota `proxy_token`/`admin_key` preservando el resto de `config.yaml`, reaplica ACL, reinicia el servicio). `/admin/*` restringido a loopback (no configurable, a diferencia de `allowed_networks`); comparación de tokens con `secrets.compare_digest`. Primer Release conjunto de owner+agente (`v2026.09.21`); bug encontrado y corregido en el updater: con dos `.exe` en el mismo Release podía elegir el asset equivocado o cruzar checksums (`check.py`/`download.py`). **191 tests, ruff limpio.**
 35. **Fix: UAC falso-cancelado + `sc qc` en español en la consola owner** [COMPLETADO — 2026-09-22]: `_ejecutar_elevado()` combinaba `-Verb RunAs` con `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en PowerShell que hacía fallar la elevación **antes** de mostrar el UAC real, reportado como "UAC cancelado" sin serlo. Fix: la ruta de salida se pasa como argumento posicional; el subcomando elevado escribe el JSON al archivo en vez de stdout. Además, `ruta_instalacion()` (`secretos.py`) buscaba la etiqueta `BINARY_PATH_NAME` de `sc qc` solo en inglés — en Windows en español (toda la oficina) sale como `NOMBRE_RUTA_BINARIO` y nunca matcheaba, así que fallaba con "config.yaml no encontrado" aunque el servicio y el archivo sí existían; ahora reconoce ambas etiquetas (inglés primero, español como segunda opción). Se agregó confirmación propia antes del UAC en **Mostrar** (no tenía ninguna) y se amplió el aviso/mensaje final de **Rotar** (menciona el UAC, indica dónde colocar el valor nuevo). Verificado en vivo de punta a punta (Mostrar y Rotar, ambos secretos) en una PC con el servicio real instalado. Release `v2026.09.22` publicado con ambos `.exe` corregidos. **193 tests, ruff limpio.**
+36. **Fix: "URL para los agentes" en la consola owner (WinError 10061)** [COMPLETADO — 2026-09-25]: primer despliegue real con agente y owner en PC distintas — configurar el agente con `http://localhost:8080` fallaba con `[WinError 10061]` porque `localhost` en la PC del agente apunta al propio agente, no a la del proxy. `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a `8.8.8.8:80` + `getsockname()`, respaldo `getaddrinfo` sin ruta por defecto, descarta loopback/APIPA), `puerto_proxy_local()` y `url_para_agentes()`; la UI muestra "URL para los agentes" lista para copiar junto al estado del proxy. Verificado en esta PC: detecta `192.168.18.49`, coincide con `ipconfig`. Release `v2026.09.25` publicado con ambos `.exe` reconstruidos. **201 tests, ruff limpio.**
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -842,3 +843,40 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - **Siguiente sesión**: repetir la verificación del flujo elevado en la PC
   oficial de la oficina (esta PC es solo de desarrollo/pruebas); resto de
   pendientes del 2026-09-21 sigue abierto.
+
+### Cierre de la sesión 2026-09-25 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Origen**: primer despliegue real con agente y owner en PC **distintas**
+  (hasta ahora siempre se había probado con ambos en la misma PC). Al configurar
+  el agente con `http://localhost:8080` falló con
+  `[WinError 10061] ... denegó expresamente dicha conexión`: `localhost` en la
+  PC del agente apunta al propio agente, no a la PC del proxy.
+- **Fix**: `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a
+  `8.8.8.8:80` + `getsockname()`; respaldo `getaddrinfo(hostname)` si no hay ruta
+  por defecto; descarta loopback y APIPA), `puerto_proxy_local()` (reutiliza
+  `_url_proxy_local()`) y `url_para_agentes()`. La UI del owner muestra "URL para
+  los agentes" (`http://<ip-detectada>:<puerto>`) lista para copiar, junto al
+  estado del proxy — evita tener que sacar la IP a mano con `ipconfig`.
+- **Verificado en esta PC**: `detectar_ip_lan()` devuelve `192.168.18.49`,
+  coincide con `ipconfig`; la URL armada es `http://192.168.18.49:8080`.
+- **Tests**: 193 → **201** (8 nuevos en `test_owner_app.py`, TDD rojo→verde),
+  ruff limpio.
+- **Documentación**: `docs/proxy-deploy.md` (aviso de no usar `localhost` en
+  agentes remotos + fila en troubleshooting), `README.md` (es/en),
+  `TestingLog.md`, `anotaciones.md` (nota en "Loopback" para no confundir este
+  bug con el de 2026-09-18, + entrada nueva "URL para los agentes"), `Roadmap.md`.
+- **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos,
+  reemplazando `v2026.09.22` como "Latest".
+- **Observación pendiente, sin corregir en esta sesión** (fuera de alcance,
+  reportada al usuario): `validator_app/updater/check.py:41` compara el commit
+  embebido contra `release["target_commitish"]`, que en nuestros Releases vale
+  literalmente `"main"` (no un SHA) — nunca coinciden, así que el chequeo de
+  actualización del agente puede dar siempre "hay actualización disponible"
+  aunque ya esté al día.
+- **Siguiente sesión**: confirmar en la PC del agente real que reportó el error
+  que la URL copiada desde la consola owner resuelve el `WinError 10061`; si aún
+  falla, revisar el firewall de Windows en la PC del proxy (el instalador no crea
+  esa regla, pendiente desde 2026-09-18); considerar corregir la comparación de
+  `target_commitish` en `updater/check.py`. Resto de pendientes de cierres
+  anteriores (Etapa D/E en la PC oficial, Fase 5 de documentación, decisión de
+  `actualizar_score_cliente`/`newsearch.php`) sigue abierto.
