@@ -38,7 +38,7 @@ echo [INFO] Directorio base: %BASE_DIR%
 
 REM Verificar Python
 echo.
-echo [1/12] Verificando Python...
+echo [1/13] Verificando Python...
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
     echo [ERROR] Python no encontrado en PATH.
@@ -64,7 +64,7 @@ echo [OK] Python %PY_VER%.%PY_MINOR% detectado.
 
 REM Instalar dependencias
 echo.
-echo [2/12] Instalando dependencias (requirements-proxy.txt)...
+echo [2/13] Instalando dependencias (requirements-proxy.txt)...
 REM requirements-proxy.txt vive en la RAIZ del repo (dos niveles arriba), y su
 REM "-r requirements.txt" interno se resuelve relativo a ese archivo.
 set "REPO_ROOT=%BASE_DIR%\..\.."
@@ -90,7 +90,7 @@ if !errorLevel! equ 0 (
 
 REM Descargar el navegador para el login asistido (rotate_creds sin --manual)
 echo.
-echo [3/12] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
+echo [3/13] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
 set "PW_OK="
 for /d %%d in ("%LOCALAPPDATA%\ms-playwright\chromium-*") do set "PW_OK=1"
 if defined PW_OK (
@@ -117,7 +117,7 @@ REM aunque la URL sea correcta) -> se prueba primero con curl.exe (viene con
 REM Windows 10 1803+/11, y el propio script ya lo usa mas abajo para el health
 REM check), y solo si no esta se cae a PowerShell forzando TLS 1.2 a mano.
 echo.
-echo [4/12] Descargando winsw.exe (Windows Service Wrapper)...
+echo [4/13] Descargando winsw.exe (Windows Service Wrapper)...
 set "WINSW_URL=https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET4.exe"
 set "WINSW_PATH=%BASE_DIR%\winsw.exe"
 
@@ -156,7 +156,7 @@ set "R4=hecho ahora"
 
 REM Generar / reutilizar tokens
 echo.
-echo [5/12] Tokens de seguridad...
+echo [5/13] Tokens de seguridad...
 set "CONFIG_YAML=%BASE_DIR%\config.yaml"
 set "REGEN=0"
 set "OLD_PORT="
@@ -206,7 +206,7 @@ if exist "%CONFIG_YAML%" (
 
 REM Verificar/crear config.yaml
 echo.
-echo [6/12] Configurando config.yaml...
+echo [6/13] Configurando config.yaml...
 if exist "%CONFIG_YAML%" (
     echo [INFO] Se mantiene el config.yaml existente.
     set "R6=ya estaba"
@@ -278,7 +278,7 @@ echo [OK] Permisos aplicados (si fallo, revisa que corres como Administrador).
 
 REM Instalar la extension de Chrome "Renovar sesion WinForce" (force-install por politica)
 echo.
-echo [7/12] Instalando la extension de Chrome "Renovar sesion WinForce"...
+echo [7/13] Instalando la extension de Chrome "Renovar sesion WinForce"...
 cd /d "%BASE_DIR%\..\.."
 python -m validator_app.proxy._instalar_extension
 set "EXT_RC=!errorLevel!"
@@ -310,7 +310,7 @@ if not "!EXT_RC!"=="0" (
 
 REM Generar winsw.xml con paths absolutos
 echo.
-echo [8/12] Generando winsw.xml con paths absolutos...
+echo [8/13] Generando winsw.xml con paths absolutos...
 REM El interprete REAL que corre ahora (no el primero del PATH, que puede ser el
 REM stub de Microsoft Store).
 for /f "delims=" %%i in ('python -c "import sys; print(sys.executable)"') do set "PYTHON_EXE=%%i"
@@ -344,7 +344,7 @@ set "R8=actualizado"
 
 REM Instalar servicio
 echo.
-echo [9/12] Instalando servicio Windows...
+echo [9/13] Instalando servicio Windows...
 cd /d "%BASE_DIR%"
 sc query JSWinProxy >nul 2>&1
 if !errorLevel! equ 0 (
@@ -363,7 +363,7 @@ if !errorLevel! equ 0 (
 
 REM Iniciar servicio
 echo.
-echo [10/12] Iniciando servicio...
+echo [10/13] Iniciando servicio...
 sc query JSWinProxy | findstr /C:"RUNNING" >nul
 if !errorLevel! equ 0 (
     if "!REGEN!"=="1" (
@@ -409,19 +409,45 @@ if %errorLevel% neq 0 (
 )
 del health_check.tmp 2>nul
 
+REM Regla de firewall entrante para que agentes en otras PC puedan conectar.
+REM Windows Firewall por defecto DESCARTA (no rechaza) las conexiones sin
+REM regla: eso da un timeout de conexion en el agente, no un "rechazado" -
+REM mucho mas dificil de diagnosticar a distancia (bug real, 2026-09-25: el
+REM instalador solo IMPRIMIA este comando como nota manual, nunca lo corria).
+echo.
+echo [11/13] Abriendo el puerto !PROXY_PORT! en el Firewall de Windows...
+powershell -NoProfile -Command "if (Get-NetFirewallRule -DisplayName 'JSWinProxy API' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo [OK] La regla de firewall ya existia - nada que hacer.
+    set "R11=ya estaba"
+    goto :firewall_listo
+)
+powershell -NoProfile -Command "New-NetFirewallRule -DisplayName 'JSWinProxy API' -Direction Inbound -LocalPort !PROXY_PORT! -Protocol TCP -Action Allow -Profile Domain,Private -ErrorAction Stop" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo [OK] Regla de firewall creada - agentes de otras PC ya pueden conectar.
+    set "R11=hecho ahora"
+) else (
+    set "R11=FALLO - ver aviso"
+    echo [WARN] No se pudo crear la regla ^(firewall gobernado por Directiva de
+    echo        Grupo/dominio?^). Pide al administrador de red que abra el puerto
+    echo        !PROXY_PORT! TCP entrante, o ejecuta a mano como Administrador:
+    echo        New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort !PROXY_PORT! -Protocol TCP -Action Allow -Profile Domain,Private
+)
+:firewall_listo
+
 REM Tarea programada: popup al owner cuando el proxy avise que la sesion murio.
 REM El servicio corre como LocalSystem (sesion 0, sin escritorio) y escribe un
 REM evento de Windows (origen JSWinProxy, ID 101); esta tarea lo convierte en un
 REM aviso visible en la sesion interactiva del owner.
 echo.
-echo [11/12] Registrando la tarea de aviso "sesion caducada"...
+echo [12/13] Registrando la tarea de aviso "sesion caducada"...
 REM Registrar la fuente de eventos (una vez, elevado) para que el servicio
 REM LocalSystem pueda escribir en el Registro de Windows sin "Acceso denegado".
 powershell -NoProfile -Command "if (-not [System.Diagnostics.EventLog]::SourceExists('JSWinProxy')) { New-EventLog -LogName Application -Source JSWinProxy }" 2>nul
 schtasks /query /tn "JSWinProxy-AvisoSesion" >nul 2>&1
 if !errorLevel! equ 0 (
     echo [OK] La tarea de aviso ya estaba registrada - nada que hacer.
-    set "R11=ya estaba"
+    set "R12=ya estaba"
     goto :tarea_lista
 )
 schtasks /create /tn "JSWinProxy-AvisoSesion" /f /ru INTERACTIVE ^
@@ -430,9 +456,9 @@ schtasks /create /tn "JSWinProxy-AvisoSesion" /f /ru INTERACTIVE ^
   /tr "msg * La sesion de WinForce del proxy caduco. Abre Chrome y pulsa el icono 'Renovar sesion' (badge rojo)." 2>nul
 if %errorLevel% equ 0 (
     echo [OK] Tarea de aviso registrada. El owner vera un popup cuando la sesion caduque.
-    set "R11=hecho ahora"
+    set "R12=hecho ahora"
 ) else (
-    set "R11=FALLO - ver aviso"
+    set "R12=FALLO - ver aviso"
     echo [WARN] No se pudo registrar la tarea de aviso. El badge de la extension
     echo        y el Visor de Eventos siguen funcionando; registra la tarea a mano si quieres el popup.
 )
@@ -440,11 +466,11 @@ if %errorLevel% equ 0 (
 
 REM Crear el acceso directo "Renovar sesion WinForce" en el Escritorio
 echo.
-echo [12/12] Creando el icono "Renovar sesion WinForce" en el Escritorio...
+echo [13/13] Creando el icono "Renovar sesion WinForce" en el Escritorio...
 powershell -NoProfile -Command "if (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Renovar sesion WinForce.lnk')) { exit 0 } else { exit 1 }" >nul 2>&1
 if !errorLevel! equ 0 (
     echo [OK] El icono ya estaba en el Escritorio - nada que hacer.
-    set "R12=ya estaba"
+    set "R13=ya estaba"
     goto :icono_listo
 )
 for /f "delims=" %%p in ('where pythonw.exe 2^>nul') do set "PYTHONW_EXE=%%p"
@@ -453,9 +479,9 @@ set "REPO_ROOT=%BASE_DIR%\..\.."
 powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell; $l=$w.CreateShortcut((Join-Path $w.SpecialFolders('Desktop') 'Renovar sesion WinForce.lnk')); $l.TargetPath='%PYTHONW_EXE%'; $l.Arguments='-m validator_app.proxy.rotate_creds'; $l.WorkingDirectory=(Resolve-Path '%REPO_ROOT%').Path; $l.IconLocation='shell32.dll,44'; $l.Description='Renueva la sesion de WinForce del proxy'; $l.Save()" 2>nul
 if %errorLevel% equ 0 (
     echo [OK] Icono creado. El owner solo tiene que hacer doble clic e iniciar sesion.
-    set "R12=hecho ahora"
+    set "R13=hecho ahora"
 ) else (
-    set "R12=FALLO - ver aviso"
+    set "R13=FALLO - ver aviso"
     echo [WARN] No se pudo crear el icono. Crea a mano un acceso directo a:
     echo        %PYTHONW_EXE% -m validator_app.proxy.rotate_creds  ^(en %BASE_DIR%\..\..^)
 )
@@ -469,17 +495,18 @@ echo  INSTALACION COMPLETADA
 echo =====================================================================
 echo.
 echo RESUMEN DE PASOS (hecho ahora / ya estaba de antes^):
-echo   [2/12]  Dependencias Python ........ !R2!
-echo   [3/12]  Chromium ................... !R3!
-echo   [4/12]  winsw.exe .................. !R4!
-echo   [5/12]  Tokens ..................... !R5!
-echo   [6/12]  config.yaml ................ !R6!
-echo   [7/12]  Extension de Chrome ........ !R7!
-echo   [8/12]  winsw.xml .................. !R8!
-echo   [9/12]  Servicio instalado ......... !R9!
-echo   [10/12] Servicio en ejecucion ...... !R10!
-echo   [11/12] Tarea de aviso ............. !R11!
-echo   [12/12] Icono del Escritorio ....... !R12!
+echo   [2/13]  Dependencias Python ........ !R2!
+echo   [3/13]  Chromium ................... !R3!
+echo   [4/13]  winsw.exe .................. !R4!
+echo   [5/13]  Tokens ..................... !R5!
+echo   [6/13]  config.yaml ................ !R6!
+echo   [7/13]  Extension de Chrome ........ !R7!
+echo   [8/13]  winsw.xml .................. !R8!
+echo   [9/13]  Servicio instalado ......... !R9!
+echo   [10/13] Servicio en ejecucion ...... !R10!
+echo   [11/13] Firewall (puerto abierto) .. !R11!
+echo   [12/13] Tarea de aviso ............. !R12!
+echo   [13/13] Icono del Escritorio ....... !R13!
 echo.
 echo Servicio:     JSWinProxy (JSConnect Win Proxy)
 echo Puerto:       %PROXY_PORT%
@@ -540,7 +567,10 @@ echo   3. IP:puerto:   [IP_DE_ESTA_PC]:%PROXY_PORT%
 echo   4. Token:       !PROXY_TOKEN!
 echo   5. [Probar conexion] -^> [Guardar]
 echo.
-echo FIREWALL (si agentes no conectan):
+echo FIREWALL: el paso [11/13] ya abrio el puerto %PROXY_PORT% automaticamente.
+echo Si los agentes igual no conectan (firewall gobernado por Directiva de Grupo
+echo o dominio), pide al administrador de red que lo abra, o ejecuta a mano como
+echo Administrador:
 echo   New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort %PROXY_PORT% -Protocol TCP -Action Allow -Profile Domain,Private
 echo.
 pause

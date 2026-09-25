@@ -382,6 +382,12 @@ tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalo
 > desinstalar el ensayo y repetir en la PC oficial (ver `docs/proxy-deploy.md`, "Qué llevar
 > a la PC owner").
 
+**Resuelto 2026-09-25**: "el instalador no crea regla de firewall" del hallazgo de
+arriba ya no aplica — `install_service.bat` (paso `[11/13]`) la crea sola,
+idempotente, con fallback manual si el firewall está gobernado por dominio;
+`uninstall_service.bat` la quita. Sigue pendiente probarlo en vivo desde otra PC
+(ver "Sin cerrar aún" arriba).
+
 13. Clonar/actualizar `main` en la PC owner oficial. Transferir
     `private_key.pem` por un canal privado, colocarla en
     `generator/private_key.pem` o junto a `JSConnect-Win-Owner.exe`, restringir

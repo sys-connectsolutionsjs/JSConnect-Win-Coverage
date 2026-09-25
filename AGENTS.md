@@ -333,6 +333,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 35. **Fix: UAC falso-cancelado + `sc qc` en español en la consola owner** [COMPLETADO — 2026-09-22]: `_ejecutar_elevado()` combinaba `-Verb RunAs` con `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en PowerShell que hacía fallar la elevación **antes** de mostrar el UAC real, reportado como "UAC cancelado" sin serlo. Fix: la ruta de salida se pasa como argumento posicional; el subcomando elevado escribe el JSON al archivo en vez de stdout. Además, `ruta_instalacion()` (`secretos.py`) buscaba la etiqueta `BINARY_PATH_NAME` de `sc qc` solo en inglés — en Windows en español (toda la oficina) sale como `NOMBRE_RUTA_BINARIO` y nunca matcheaba, así que fallaba con "config.yaml no encontrado" aunque el servicio y el archivo sí existían; ahora reconoce ambas etiquetas (inglés primero, español como segunda opción). Se agregó confirmación propia antes del UAC en **Mostrar** (no tenía ninguna) y se amplió el aviso/mensaje final de **Rotar** (menciona el UAC, indica dónde colocar el valor nuevo). Verificado en vivo de punta a punta (Mostrar y Rotar, ambos secretos) en una PC con el servicio real instalado. Release `v2026.09.22` publicado con ambos `.exe` corregidos. **193 tests, ruff limpio.**
 36. **Fix: "URL para los agentes" en la consola owner (WinError 10061)** [COMPLETADO — 2026-09-25]: primer despliegue real con agente y owner en PC distintas — configurar el agente con `http://localhost:8080` fallaba con `[WinError 10061]` porque `localhost` en la PC del agente apunta al propio agente, no a la del proxy. `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a `8.8.8.8:80` + `getsockname()`, respaldo `getaddrinfo` sin ruta por defecto, descarta loopback/APIPA), `puerto_proxy_local()` y `url_para_agentes()`; la UI muestra "URL para los agentes" lista para copiar junto al estado del proxy. Verificado en esta PC: detecta `192.168.18.49`, coincide con `ipconfig`. Release `v2026.09.25` publicado con ambos `.exe` reconstruidos. **201 tests, ruff limpio.**
 37. **Fix: el chequeo de actualización siempre creía que había una versión nueva** [COMPLETADO — 2026-09-25]: `updater/check.py::hay_actualizacion()` comparaba el commit embebido contra `release["target_commitish"]`, que en la API de GitHub Releases es la **rama** del tag (`"main"`), no un SHA — nunca coincidía, así que el chequeo daba siempre "hay actualización" sin importar la versión instalada. Fix: `_commit_de_tag()` (NUEVO) resuelve el SHA real vía `GET /commits/{tag_name}` y se compara contra eso; un fallo al resolverlo devuelve `None` en vez de un falso positivo. Verificado en vivo: `_commit_de_tag("v2026.09.25")` coincide con el commit real del Release publicado. Decisión de proceso: no se publica Release por cada commit, solo a pedido explícito — este fix quedó comiteado y pusheado sin Release nuevo. **206 tests, ruff limpio.**
+38. **Fix: el instalador no abría el puerto del proxy en el Firewall de Windows** [COMPLETADO — 2026-09-25]: con la IP correcta ya configurada (tarea 36), un agente en otra PC pasó de `WinError 10061` a **Timeout** — la firma de un firewall que descarta el paquete en silencio en vez de rechazarlo. `install_service.bat` ya imprimía el comando `New-NetFirewallRule` como nota manual pero nunca lo ejecutaba (gap anotado desde el 2026-09-18). Fix: nuevo paso `[11/13]` (idempotente vía `Get-NetFirewallRule`, con fallback manual si el firewall está gobernado por Directiva de Grupo/dominio) — instalador renumerado de 12 a 13 pasos; `uninstall_service.bat` quita la regla al desinstalar. Guarda nueva en `test_install_bat.py` (`test_los_pasos_numerados_son_consistentes`) contra volver a olvidar renumerar un paso. **209 tests, ruff limpio.**
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -894,9 +895,26 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   publica automáticamente al cerrar cada sesión — solo cuando el usuario lo pide
   de forma explícita. Este fix del updater se dejó comiteado y pusheado **sin
   Release nuevo**, porque no cambia nada que el agente ya instalado necesite.
-- **Siguiente sesión**: confirmar en la PC del agente real que reportó el error
-  que la URL copiada desde la consola owner resuelve el `WinError 10061`; si aún
-  falla, revisar el firewall de Windows en la PC del proxy (el instalador no crea
-  esa regla, pendiente desde 2026-09-18). Resto de pendientes de cierres
-  anteriores (Etapa D/E en la PC oficial, Fase 5 de documentación, decisión de
-  `actualizar_score_cliente`/`newsearch.php`) sigue abierto.
+- **Tercera parte, mismo día — el instalador no abría el puerto en el Firewall**:
+  tras el fix de la URL, el mismo agente pasó de `WinError 10061` a **Timeout tras
+  5.0s conect / 10.0s lectura** — la firma exacta de un firewall que descarta el
+  paquete en silencio (Windows Firewall por defecto) en vez de rechazarlo, y
+  confirma que la IP/puerto ya estaban bien. `install_service.bat` ya imprimía el
+  comando `New-NetFirewallRule` al final como nota manual (gap anotado desde el
+  ensayo del 2026-09-18), pero nunca lo ejecutaba. Fix: nuevo paso `[11/13]`
+  (`Get-NetFirewallRule` idempotente + `New-NetFirewallRule -LocalPort
+  !PROXY_PORT!`, con `[WARN]` y comando manual de fallback si el firewall está
+  gobernado por Directiva de Grupo/dominio) — instalador renumerado de 12 a 13
+  pasos; `uninstall_service.bat` quita la regla al desinstalar. Se le dio al
+  usuario el comando manual para desbloquear el agente ya mismo, en paralelo al
+  fix del instalador. 3 tests nuevos en `test_install_bat.py`, incluida una guarda
+  genérica (`test_los_pasos_numerados_son_consistentes`) contra volver a olvidar
+  renumerar un paso al agregar/quitar uno. 206 → **209 tests, ruff limpio**.
+  Documentación: `docs/proxy-deploy.md` (sección Firewall + fila de troubleshooting
+  para el caso timeout), `Roadmap.md`, `PlanesAprobados.md` (Etapa D). Sin Release
+  (no afecta a ningún `.exe`, el `.bat` no se empaqueta).
+- **Siguiente sesión**: confirmar en la PC del agente real que reportó ambos
+  errores que ya conecta de punta a punta; probar el paso `[11/13]` en una
+  instalación/reinstalación real (no se pudo ejecutar el `.bat` desde aquí).
+  Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
+  documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

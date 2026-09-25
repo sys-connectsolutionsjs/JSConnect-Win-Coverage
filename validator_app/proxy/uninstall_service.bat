@@ -52,6 +52,9 @@ echo [INFO] Quitando la tarea de aviso "sesion caducada"...
 schtasks /delete /tn "JSWinProxy-AvisoSesion" /f 2>nul
 powershell -NoProfile -Command "if ([System.Diagnostics.EventLog]::SourceExists('JSWinProxy')) { Remove-EventLog -Source JSWinProxy }" 2>nul
 
+echo [INFO] Quitando la regla de firewall...
+powershell -NoProfile -Command "Remove-NetFirewallRule -DisplayName 'JSWinProxy API' -ErrorAction SilentlyContinue" 2>nul
+
 echo [INFO] Quitando la extension de Chrome "Renovar sesion WinForce"...
 cd /d "%BASE_DIR%\..\.."
 python -m validator_app.proxy._instalar_extension --uninstall 2>nul

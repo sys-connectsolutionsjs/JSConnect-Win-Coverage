@@ -41,6 +41,18 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   Release. 8 tests nuevos, 201 → **206 tests**, ruff limpio. **Decisión de
   proceso**: un Release ya no se publica por cada commit, solo a pedido
   explícito — este fix quedó comiteado y pusheado sin Release nuevo.
+- **Tercera parte de la sesión — el instalador no abría el puerto en el
+  Firewall**: con la IP ya corregida, el mismo agente pasó de `WinError 10061` a
+  `Timeout` — firma de un firewall que descarta el paquete en silencio en vez de
+  rechazarlo (confirma que IP/puerto ya estaban bien). `install_service.bat`
+  solo imprimía el comando `New-NetFirewallRule`, nunca lo ejecutaba (gap
+  anotado desde 2026-09-18). Fix: nuevo paso `[11/13]` (instalador renumerado de
+  12 a 13 pasos), idempotente, con fallback manual si el firewall es de dominio;
+  `uninstall_service.bat` quita la regla. Guarda genérica nueva
+  (`test_los_pasos_numerados_son_consistentes`) contra volver a olvidar
+  renumerar un paso. Se le dio al usuario el comando manual para desbloquearse
+  ya mismo. 206 → **209 tests**, ruff limpio. Sin Release (el `.bat` no se
+  empaqueta).
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.

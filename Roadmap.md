@@ -41,6 +41,7 @@ corre en producción todavía.
 | 2026-09-22 | **Fix UAC + idioma en la consola owner** — Mostrar/Rotar ya no fallan con "UAC cancelado" falso ni con `sc qc` en español; confirmaciones ampliadas; Release `v2026.09.22`, 193 tests | `6a6d94e` |
 | 2026-09-25 | **"URL para los agentes" en la consola owner** — detecta la IP de LAN y la muestra lista para copiar, arreglando `WinError 10061` al configurar un agente en PC distinta a la del proxy (primer despliegue multi-PC real); Release `v2026.09.25`, 201 tests | `a575e85` |
 | 2026-09-25 | **Fix del chequeo de actualización** — `target_commitish` es la rama, no un SHA; el updater creía siempre que había una versión nueva. Resuelve el commit real del tag vía `/commits/{tag}`. Sin Release nuevo (decisión: Release solo a pedido explícito, no por cada commit). 206 tests | `55cc7a6` |
+| 2026-09-25 | **Firewall automático en el instalador** — `install_service.bat` abre el puerto del proxy en Windows Firewall (era solo una nota impresa); sin regla, un agente remoto fallaba con timeout en vez de error inmediato. Idempotente, con fallback manual si el firewall es de dominio; `uninstall_service.bat` la quita. 209 tests | *(pendiente de commit)* |
 
 ---
 
@@ -51,8 +52,10 @@ corre en producción todavía.
 Instalador re-ejecutable con pregunta de tokens ya probado dos veces; consola owner
 (con Reiniciar servicio) y agente contra el proxy probados. Falta:
 sesión WinForce estable (una sola vía de login), persistencia tras reiniciar el
-servicio, agente contra el proxy, firewall (el instalador solo imprime el
-comando), carga con `tools/probar_concurrencia.py` y desinstalar el ensayo.
+servicio, agente contra el proxy, carga con `tools/probar_concurrencia.py` y
+desinstalar el ensayo. **Firewall resuelto 2026-09-25**: el instalador ya no solo
+imprime el comando — el paso `[11/13]` lo ejecuta solo (idempotente, con fallback
+manual si el firewall está gobernado por dominio).
 Hallazgo: `localhost` daba 403 por `allowed_networks` (corregido: loopback siempre
 permitido; ver `docs/arquitectura.md`, "Control de acceso"). Hallazgo: la extensión de Chrome forzada por política solo se aplica en PC
 gestionada (dominio/Azure AD); en las demás se carga a mano (Modo de

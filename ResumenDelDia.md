@@ -34,11 +34,20 @@ Ver el detalle completo en `resumenes/2026-09-25.md`. En síntesis:
   cuando el usuario lo pide explícitamente. Este fix quedó comiteado y pusheado
   **sin Release nuevo**.
 
+## Tercera parte de la sesión
+
+- **Fix**: el mismo agente pasó de `WinError 10061` a **Timeout** tras corregir la
+  IP — firma de un firewall sin regla (descarta en silencio, no rechaza).
+  `install_service.bat` solo imprimía el comando `New-NetFirewallRule`, nunca lo
+  ejecutaba. Nuevo paso `[11/13]` (idempotente, con fallback manual si el
+  firewall es de dominio); `uninstall_service.bat` la quita. Se le dio al usuario
+  el comando manual para desbloquearse ya mismo. 206 → **209 tests**, ruff limpio.
+
 ## Pendiente al cerrar hoy
 
-- Confirmar en la PC del agente real que reportó el error que copiar la URL desde
-  la consola owner resuelve el `WinError 10061`.
-- El instalador (`install_service.bat`) sigue sin crear una regla de firewall para
-  el puerto del proxy — siguiente sospechoso si el agente aún no conecta.
+- Confirmar en la PC del agente real que reportó ambos errores que ya conecta de
+  punta a punta.
+- Probar el paso `[11/13]` en una instalación/reinstalación real (no ejecutable
+  desde este entorno).
 - Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
   documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

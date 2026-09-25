@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (206 en total, a 2026-09-25)
+## Inventario de tests (209 en total, a 2026-09-25)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
@@ -30,7 +30,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
 | tests/test_owner_app.py | 30 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell), el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) y **detección de IP de LAN para la "URL para los agentes"** (`detectar_ip_lan`: socket UDP, respaldo con `getaddrinfo`, descarte de loopback/APIPA, sin candidatas; `url_para_agentes`; `puerto_proxy_local`) |
 | tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
-| tests/test_install_bat.py | 3 | guardas estáticas de `install_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, y carga manual de la extensión sin `exit`/`pause` en el paso 7 |
+| tests/test_install_bat.py | 6 | guardas estáticas de `install_service.bat`/`uninstall_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, carga manual de la extensión sin `exit`/`pause` en el paso 7, **numeración de pasos `[N/TOTAL]` consecutiva y con un solo TOTAL (guarda genérica), regla de firewall creada de forma idempotente con el puerto real y fallback si el firewall es de dominio, y `uninstall_service.bat` quita esa regla** |
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
 | tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 
@@ -39,6 +39,50 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-25 (tercera parte) — el instalador no abría el puerto en el Firewall de Windows
+
+- **Origen**: con la IP ya corregida (primera parte de la sesión), el mismo agente
+  pasó de `WinError 10061` a `Timeout tras 5.0s conect / 10.0s lectura`. El cambio
+  de tipo de error es la pista clave: un puerto sin regla de firewall hace que
+  Windows Firewall **descarte** el paquete en silencio (comportamiento DROP por
+  defecto) en vez de **rechazarlo** — el cliente espera hasta agotar el timeout en
+  vez de recibir un rechazo inmediato. Esto confirma que la IP/puerto ya estaban
+  bien.
+- **Investigación**: `install_service.bat` ya tenía al final una nota con el
+  comando `New-NetFirewallRule` correcto, pero solo lo **imprimía** — nunca lo
+  ejecutaba. Gap ya anotado como pendiente en `AGENTS.md`/`Roadmap.md`/
+  `PlanesAprobados.md` desde el ensayo del 2026-09-18.
+- **Rojo**: 3 tests nuevos/ajustados en `tests/test_install_bat.py` — el ajuste de
+  `test_extension_manual_...` (marcadores `[7/13]`/`[8/13]` que aún no existían) y
+  2 tests completamente nuevos (`test_regla_de_firewall_...`,
+  `test_uninstall_quita_la_regla_de_firewall`) fallaron como se esperaba
+  (`IndexError`/`AssertionError`); el resto de la suite (3 tests del archivo)
+  seguía en verde.
+- **Verde**: nuevo paso `[11/13]` en `install_service.bat` (antes 12 pasos,
+  ahora 13 — todas las etiquetas `[N/12]` se renumeraron a `[N/13]` con un `sed`
+  masivo, ya que las 23 ocurrencias eran genuinos marcadores de paso, verificado
+  con `grep` antes de tocar nada para no reescribir por accidente el CIDR
+  `172.16.0.0/12` de `allowed_networks`). El paso es idempotente
+  (`Get-NetFirewallRule -DisplayName 'JSWinProxy API'`) y, si hace falta, crea la
+  regla con `New-NetFirewallRule -LocalPort !PROXY_PORT!` (el puerto real de esa
+  instalación, no uno fijo); un fallo cae a un `[WARN]` con el comando manual de
+  fallback, sin abortar la instalación (mismo patrón que el paso 7, que ya avisa
+  en vez de fallar cuando la extensión no se puede forzar por política en una PC
+  no gestionada). Los pasos viejos 11/12 (tarea de aviso / icono) se renumeraron a
+  12/13 junto con sus variables `R11`→`R12`/`R12`→`R13`. `uninstall_service.bat`
+  gana `Remove-NetFirewallRule -DisplayName 'JSWinProxy API'`.
+- **Guarda nueva de alcance general**: `test_los_pasos_numerados_son_consistentes`
+  extrae todos los `echo [N/TOTAL]` del archivo (con `re.MULTILINE` y anclado a
+  `^echo \[` para no confundir con el CIDR) y exige un único `TOTAL` con `N`
+  consecutivos `1..TOTAL` — pensada para que la próxima vez que alguien
+  agregue/quite un paso y olvide renumerar uno, el test lo agarre solo, en vez de
+  descubrirse en producción como esta vez.
+- **Se le dio al usuario, en paralelo, el comando manual** para desbloquear el
+  agente ya mismo en la PC del proxy, sin esperar a que este fix se probara.
+- 206 → **209 tests**, ruff limpio. No se pudo ejecutar el `.bat` real desde este
+  entorno (requiere Windows admin interactivo) — queda pendiente de smoke test en
+  la próxima instalación/reinstalación real.
 
 ### Sesión 2026-09-25 (segunda parte) — el chequeo de actualización siempre "encontraba" una versión nueva
 
