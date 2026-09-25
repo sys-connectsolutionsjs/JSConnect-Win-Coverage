@@ -11,16 +11,16 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (209 en total, a 2026-09-25)
+## Inventario de tests (212 en total, a 2026-09-25)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
 | tests/test_fields.py | 7 | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
-| tests/test_api.py | 22 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding |
+| tests/test_api.py | 23 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding, **`validar_score` con `lat`/`lon` en `None` (payload en blanco, sin coordenadas)** |
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
-| tests/test_proxy.py | 46 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, y la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) |
-| tests/test_client.py | 3 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`) |
+| tests/test_proxy.py | 47 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) y **`/api/score` con `lat`/`lon` en `null` (2026-09-25)** |
+| tests/test_client.py | 4 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`); **`validar_score` sin coordenadas manda `null` en el body** |
 | tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
 | tests/test_login_asistido.py | 19 | captura asistida y envío HTTP al proceso LocalSystem |
@@ -39,6 +39,61 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-25 (cuarta parte) — validar cobertura o score por separado
+
+- **Origen**: con el proxy ya conectando de punta a punta, pedido nuevo: el botón
+  VALIDAR exige coordenadas Y documento siempre; se pidió desacoplarlos para que
+  cada chequeo funcione con su propio dato.
+- **Decisiones tomadas con el usuario antes de tocar código**: un solo botón
+  "VALIDAR" que detecta qué campo(s) se llenaron (no dos botones separados); y
+  verificar en vivo, antes de cerrar el cambio, que WinForce acepta el score sin
+  coordenadas (nunca probado así) — con un DNI de prueba real, no inventado.
+- **Rojo**: `test_score_payload_sin_coordenadas_manda_vacio` en `test_api.py`
+  falló con `TypeError: float() argument must be a string or a real number, not
+  'NoneType'` en `_formato_coordenada(lon)` — exactamente el bug que el cambio
+  tenía que evitar.
+- **Verde**: `core/api.py::validar_score()` acepta `lat`/`lon` en `None` y los
+  manda en blanco en el payload (`data[latitud]=""`), mismo patrón que los ~19
+  campos de geodata opcionales ya probados (decisión "payload mínimo",
+  2026-08-27). Propagado sin lógica nueva por `proxy/server.py::ScoreRequest`
+  (`float | None`) y `proxy/client.py::ProxyClient.validar_score()` (el body ya
+  mandaba las claves `lat`/`lon` siempre; `None` serializa a `null`, que Pydantic
+  ya acepta con el campo opcional).
+- **GUI (`main_window.py`)**: `_validar()` deja de exigir ambos campos — cada uno
+  se parsea solo si tiene texto, y el único error es si los dos quedan vacíos.
+  `_validar_en_hilo()` decide con un único cliente ("proxy" o standalone) usando
+  la MISMA lógica: cobertura solo si hay coordenadas; score con esa cobertura si
+  hay ambos datos (igual que siempre) o directo con `cobertura="NO"` si es solo
+  documento. Se destapó un detalle al unificar: `ProxyClient.validar_cobertura`
+  devuelve una dataclass (`.hay_cobertura`), pero el core standalone devuelve un
+  dict plano (`["hay_cobertura"]`) — la rama standalone ya no puede llamar al
+  `.validar()` combinado de siempre (que ocultaba esa diferencia) porque ahora
+  hace falta leer la cobertura ANTES de decidir el score. Fix: helper nuevo
+  `_a_dict()` (`objeto.__dict__ if hasattr(objeto, "__dict__") else objeto`) que
+  normaliza cualquiera de las dos formas a dict antes de leerla.
+- **Smoke headless** (no hay test de GUI dedicado, por convención del proyecto):
+  script con un cliente falso que cuenta llamadas, cubriendo los 4 casos (solo
+  coordenadas, solo documento, ambos con cobertura, ambos sin cobertura) — los 4
+  se comportaron como se diseñó, sin llamadas de más.
+- **Verificación en vivo contra WinForce real** (el paso de mayor riesgo del
+  cambio): se intentó primero leer la cookie de sesión directo del keyring de
+  esta PC para no pedirle nada al usuario, pero `keyring.get_password("JSWinProxy",
+  "credentials_cookies")` no encontró nada — la cookie vive en el almacén de
+  **LocalSystem** (la cuenta con la que corre el servicio), que está aislado
+  incluso de un usuario Administrador interactivo; es la misma razón de fondo
+  por la que la Etapa 0.5 tuvo que construir el puente HTTP `/local/renovar` en
+  vez de compartir el keyring. Se le pidió entonces al usuario el `PROXY_TOKEN`
+  (usado solo en memoria para la prueba puntual, nunca escrito a disco) y que
+  reiniciara el servicio para que cargara el código nuevo. Primer intento →
+  HTTP 422 (`lat`/`lon` seguían siendo obligatorios: el servicio corría el
+  código viejo). Tras el reinicio → `POST /api/score` con `lat`/`lon` en `null`
+  para el DNI de prueba `10412031` devolvió HTTP 200 con `Score 862 / BAJO
+  riesgo` — confirma que WinForce no necesita coordenadas para el score. El
+  script descartable usado para esto no se commiteo (vivió en el scratchpad de
+  la sesión). `10412031` queda fijado como DNI de prueba del proyecto de ahora
+  en adelante (pedido explícito del usuario).
+- 209 → **212 tests**, ruff limpio.
 
 ### Sesión 2026-09-25 (tercera parte) — el instalador no abría el puerto en el Firewall de Windows
 

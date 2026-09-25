@@ -13,6 +13,13 @@ from validator_app.updater import check as update_check
 from validator_app.updater import download
 
 
+def _a_dict(objeto):
+    """Normaliza el resultado de validar_cobertura/validar_score: ProxyClient
+    devuelve dataclasses (CoberturaResult/ScoreResult), el core standalone
+    devuelve dicts planos. El resto del codigo siempre trabaja con dicts."""
+    return objeto.__dict__ if hasattr(objeto, "__dict__") else objeto
+
+
 def activacion_vigente(huella: str) -> bool:
     """True si esta PC tiene guardado un codigo de activacion valido para su huella."""
     guardado = activation_state.leer()
@@ -192,19 +199,26 @@ class App(tk.Tk):
             self.lbl_tipo.config(text="Tipo: \u2014")
 
     def _validar(self):
-        try:
-            lat, lon = fields.parse_coordenadas(self.txt_coordenadas.get())
-        except ValueError as exc:
-            messagebox.showerror("Coordenadas", str(exc))
-            return
+        texto_coords = self.txt_coordenadas.get().strip()
+        lat = lon = None
+        if texto_coords:
+            try:
+                lat, lon = fields.parse_coordenadas(texto_coords)
+            except ValueError as exc:
+                messagebox.showerror("Coordenadas", str(exc))
+                return
+
         numero = self.txt_documento.get().strip()
-        if not numero:
-            messagebox.showerror("Documento", "Ingresa un documento.")
-            return
-        try:
-            tipo = fields.detectar_tipo_documento(numero)
-        except ValueError as exc:
-            messagebox.showerror("Documento", str(exc))
+        tipo = None
+        if numero:
+            try:
+                tipo = fields.detectar_tipo_documento(numero)
+            except ValueError as exc:
+                messagebox.showerror("Documento", str(exc))
+                return
+
+        if lat is None and tipo is None:
+            messagebox.showerror("Validar", "Ingresa coordenadas y/o un documento.")
             return
 
         self.btn_validar.config(state="disabled")
@@ -216,26 +230,42 @@ class App(tk.Tk):
     def _validar_en_hilo(self, lat, lon, tipo, numero):
         try:
             if self._proxy_client:
-                # Modo proxy
-                cobertura = self._proxy_client.validar_cobertura(lat, lon)
-                score = None
-                if cobertura.hay_cobertura:
-                    score = self._proxy_client.validar_score(
-                        tipo, numero, lat, lon, cobertura.cobertura
-                    )
-                resultado = {
-                    "cobertura": cobertura.__dict__,
-                    "score": score.__dict__ if score else None,
-                }
+                cliente = self._proxy_client
             elif self._session_client is not None:
-                # Modo standalone (core directo, con la cookie configurada)
-                resultado = self._session_client.validar(lat, lon, tipo, numero)
+                cliente = self._session_client
             else:
                 raise api.SessionError(
                     "No hay sesion configurada. Menu ⚙ Configuracion → "
                     "Configurar Sesion (standalone).",
                     "ERR_SESSION",
                 )
+            # ProxyClient y ValidatorAPI (standalone) exponen el mismo shape de
+            # llamada para cobertura/score, asi que la logica de abajo sirve
+            # para ambos sin ramas extra. Difieren en el TIPO de retorno
+            # (dataclass vs dict plano): _a_dict() lo normaliza antes de leerlo.
+            cobertura = None
+            if lat is not None:
+                cobertura = _a_dict(cliente.validar_cobertura(lat, lon))
+            score = None
+            if tipo is not None:
+                if cobertura is not None:
+                    # Ambos datos: mismo criterio de siempre, solo pide score
+                    # si hay cobertura.
+                    if cobertura["hay_cobertura"]:
+                        score = _a_dict(
+                            cliente.validar_score(tipo, numero, lat, lon, cobertura["cobertura"])
+                        )
+                else:
+                    # Solo documento (sin coordenadas): score directo, sin
+                    # cobertura que reportar.
+                    score = _a_dict(
+                        cliente.validar_score(tipo, numero, None, None, cobertura="NO")
+                    )
+            resultado = {
+                "cobertura": cobertura,
+                "score": score,
+                "se_pidio_documento": tipo is not None,
+            }
         except NotImplementedError:
             self.after(
                 0,
@@ -270,14 +300,20 @@ class App(tk.Tk):
 
     def _mostrar_resultado(self, resultado):
         cobertura = resultado["cobertura"]
-        self.lbl_cobertura.config(
-            text=f"Cobertura: {'SI' if cobertura['hay_cobertura'] else 'NO'}"
-        )
+        if cobertura is None:
+            self.lbl_cobertura.config(text="Cobertura: \u2014 (no se ingresaron coordenadas)")
+        else:
+            self.lbl_cobertura.config(
+                text=f"Cobertura: {'SI' if cobertura['hay_cobertura'] else 'NO'}"
+            )
+
         score = resultado.get("score")
         if score:
             texto_score = f"Score: {score.get('valor', '?')} - "
             texto_score += "VALIDO" if score.get("valido") else "NO VALIDO"
             self.lbl_score.config(text=texto_score)
+        elif not resultado.get("se_pidio_documento"):
+            self.lbl_score.config(text="Score: \u2014 (no se ingres\u00f3 documento)")
         else:
             self.lbl_score.config(text="Score: \u2014 (sin cobertura)")
         self._fin_validar("Estado: listo")

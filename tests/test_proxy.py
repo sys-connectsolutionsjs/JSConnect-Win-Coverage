@@ -561,6 +561,24 @@ def test_api_score_tolera_deuda_total_int(client):
     assert r.json()["deuda_total"] == "0"
 
 
+def test_api_score_sin_coordenadas_pasa_none(client):
+    """Validar solo por documento (sin coordenadas, 2026-09-25): lat/lon en
+    null deben llegar como None a ProxyValidatorAPI.validar_score, no
+    rechazarse con 422 por los limites geograficos de CoberturaRequest/ScoreRequest."""
+    tc, fake = client
+    fake.validar_score.return_value = _SCORE
+    r = tc.post(
+        "/api/score",
+        json={"tipo_doc": "DNI", "num_doc": "75020496", "lat": None, "lon": None},
+        headers={"X-Proxy-Token": _TOKEN},
+    )
+    assert r.status_code == 200
+    assert r.json()["valor"] == 423
+    _args, kwargs = fake.validar_score.call_args
+    assert kwargs["lat"] is None
+    assert kwargs["lon"] is None
+
+
 def test_api_score_documento_invalido_422(client):
     tc, _fake = client
     r = tc.post(

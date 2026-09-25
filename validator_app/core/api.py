@@ -328,11 +328,14 @@ class ValidatorAPI:
         self,
         tipo_documento: str,
         numero: str,
-        lat: float,
-        lon: float,
+        lat: float | None,
+        lon: float | None,
         cobertura: str = "NO",
         geodata: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        """lat/lon en None = validar solo por documento (sin coordenadas): van
+        en blanco en el payload, igual que los demas campos de geodata
+        opcionales (decision 'payload minimo', ver AGENTS.md 2026-08-27)."""
         self._requerir_sesion()
         self.auto_relogin_if_needed()
         data = {
@@ -341,8 +344,8 @@ class ValidatorAPI:
             "tipo_doc_value": TIPOS_DOCUMENTO[tipo_documento],
             "tipo_doc_text": TEXTOS_DOCUMENTO[tipo_documento],
             "canal_id": "0",
-            "longitud": _formato_coordenada(lon),
-            "latitud": _formato_coordenada(lat),
+            "longitud": _formato_coordenada(lon) if lon is not None else "",
+            "latitud": _formato_coordenada(lat) if lat is not None else "",
             "serv_cobertura": cobertura,
         }
         campos_vacios = (

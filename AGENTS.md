@@ -334,6 +334,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 36. **Fix: "URL para los agentes" en la consola owner (WinError 10061)** [COMPLETADO — 2026-09-25]: primer despliegue real con agente y owner en PC distintas — configurar el agente con `http://localhost:8080` fallaba con `[WinError 10061]` porque `localhost` en la PC del agente apunta al propio agente, no a la del proxy. `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a `8.8.8.8:80` + `getsockname()`, respaldo `getaddrinfo` sin ruta por defecto, descarta loopback/APIPA), `puerto_proxy_local()` y `url_para_agentes()`; la UI muestra "URL para los agentes" lista para copiar junto al estado del proxy. Verificado en esta PC: detecta `192.168.18.49`, coincide con `ipconfig`. Release `v2026.09.25` publicado con ambos `.exe` reconstruidos. **201 tests, ruff limpio.**
 37. **Fix: el chequeo de actualización siempre creía que había una versión nueva** [COMPLETADO — 2026-09-25]: `updater/check.py::hay_actualizacion()` comparaba el commit embebido contra `release["target_commitish"]`, que en la API de GitHub Releases es la **rama** del tag (`"main"`), no un SHA — nunca coincidía, así que el chequeo daba siempre "hay actualización" sin importar la versión instalada. Fix: `_commit_de_tag()` (NUEVO) resuelve el SHA real vía `GET /commits/{tag_name}` y se compara contra eso; un fallo al resolverlo devuelve `None` en vez de un falso positivo. Verificado en vivo: `_commit_de_tag("v2026.09.25")` coincide con el commit real del Release publicado. Decisión de proceso: no se publica Release por cada commit, solo a pedido explícito — este fix quedó comiteado y pusheado sin Release nuevo. **206 tests, ruff limpio.**
 38. **Fix: el instalador no abría el puerto del proxy en el Firewall de Windows** [COMPLETADO — 2026-09-25]: con la IP correcta ya configurada (tarea 36), un agente en otra PC pasó de `WinError 10061` a **Timeout** — la firma de un firewall que descarta el paquete en silencio en vez de rechazarlo. `install_service.bat` ya imprimía el comando `New-NetFirewallRule` como nota manual pero nunca lo ejecutaba (gap anotado desde el 2026-09-18). Fix: nuevo paso `[11/13]` (idempotente vía `Get-NetFirewallRule`, con fallback manual si el firewall está gobernado por Directiva de Grupo/dominio) — instalador renumerado de 12 a 13 pasos; `uninstall_service.bat` quita la regla al desinstalar. Guarda nueva en `test_install_bat.py` (`test_los_pasos_numerados_son_consistentes`) contra volver a olvidar renumerar un paso. **209 tests, ruff limpio.**
+39. **Validar cobertura o score por separado (sin exigir ambos datos)** [COMPLETADO — 2026-09-25]: el botón VALIDAR exigía coordenadas Y documento siempre; un agente con solo uno de los dos no podía validar nada. Ahora son independientes: `core/api.py::validar_score()` acepta `lat`/`lon` en `None` (van en blanco en el payload, mismo patrón que los ~19 campos de geodata opcionales — decisión "payload mínimo" 2026-08-27), propagado por `proxy/server.py::ScoreRequest` y `proxy/client.py::ProxyClient.validar_score()`. La GUI (`main_window.py`) detecta qué campo(s) llenó el agente: solo coordenadas → cobertura; solo documento → score directo (`cobertura="NO"`); ambos → el flujo combinado de siempre, sin cambios. Nuevo helper `_a_dict()` normaliza el resultado (`ProxyClient` devuelve dataclasses, el core standalone dicts planos) para que la GUI trate ambos modos igual. **Verificado en vivo contra WinForce real**: `POST /api/score` con `lat`/`lon` en `null` para el DNI de prueba **10412031** devolvió `Score 862 / BAJO riesgo` (HTTP 200) — confirma que WinForce no requiere coordenadas para el score. `10412031` queda fijado como DNI de prueba del proyecto de ahora en adelante. 3 tests nuevos (`test_api.py`, `test_proxy.py`, `test_client.py`). **212 tests, ruff limpio.**
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -913,8 +914,26 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   Documentación: `docs/proxy-deploy.md` (sección Firewall + fila de troubleshooting
   para el caso timeout), `Roadmap.md`, `PlanesAprobados.md` (Etapa D). Sin Release
   (no afecta a ningún `.exe`, el `.bat` no se empaqueta).
+- **Cuarta parte, mismo día — validar cobertura o score por separado**: con el
+  proxy ya conectando de punta a punta, el pedido pasó a una función nueva: el
+  botón VALIDAR exigía coordenadas Y documento siempre. Se desacoplaron (ver
+  tarea 39): un solo botón "VALIDAR" detecta qué campo(s) llenó el agente. El
+  único punto de riesgo real (score sin coordenadas, nunca probado contra
+  WinForce) se verificó **en vivo** contra el proxy real de esta PC: se reinició
+  el servicio para cargar el cambio, el usuario dio el `PROXY_TOKEN` por chat
+  (usado solo para la prueba puntual, no guardado en ningún archivo) y
+  `POST /api/score` con `lat`/`lon` en `null` para el DNI de prueba `10412031`
+  devolvió `Score 862 / BAJO riesgo` (HTTP 200) — confirma que WinForce no
+  necesita coordenadas para el score. Antes de eso se intentó leer la cookie de
+  sesión directo del keyring de esta PC para probar sin pedir el token, pero
+  falló: la cookie vive en el almacén de **LocalSystem** (la cuenta del
+  servicio), inaccesible incluso como Administrador — la misma razón por la que
+  el proyecto ya tuvo que construir el puente HTTP `/local/renovar` en la Etapa
+  0.5 en vez de compartir el keyring. 209 → **212 tests**, ruff limpio.
 - **Siguiente sesión**: confirmar en la PC del agente real que reportó ambos
-  errores que ya conecta de punta a punta; probar el paso `[11/13]` en una
-  instalación/reinstalación real (no se pudo ejecutar el `.bat` desde aquí).
-  Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
+  errores de conexión que ya conecta de punta a punta; probar el paso `[11/13]`
+  del instalador en una instalación/reinstalación real (no se pudo ejecutar el
+  `.bat` desde aquí); probar a mano en la GUI real los 4 casos de validación
+  parcial (ya cubiertos por smoke headless, falta la app de verdad). Resto de
+  pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5 de
   documentación, decisión de `actualizar_score_cliente`/`newsearch.php`) sigue abierto.

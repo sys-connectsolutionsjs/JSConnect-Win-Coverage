@@ -115,8 +115,9 @@ class CoberturaResponse(BaseModel):
 class ScoreRequest(BaseModel):
     tipo_doc: str = Field(..., pattern="^(DNI|RUC|CE)$")
     num_doc: str = Field(..., min_length=8, max_length=11)
-    lat: float = Field(..., ge=-90, le=90)
-    lon: float = Field(..., ge=-180, le=180)
+    # None = validar solo por documento, sin coordenadas (ver AGENTS.md 2026-09-25).
+    lat: float | None = Field(None, ge=-90, le=90)
+    lon: float | None = Field(None, ge=-180, le=180)
     cobertura: str | None = "SI"
 
 
@@ -418,8 +419,8 @@ class ProxyValidatorAPI:
         self,
         tipo_doc: str,
         num_doc: str,
-        lat: float,
-        lon: float,
+        lat: float | None,
+        lon: float | None,
         cobertura: str = "SI",
     ) -> dict:
         self._abortar_si_sesion_muerta()

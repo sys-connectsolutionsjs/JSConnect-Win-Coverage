@@ -206,8 +206,8 @@ class ProxyClient:
         self,
         tipo_doc: str,
         num_doc: str,
-        lat: float,
-        lon: float,
+        lat: float | None = None,
+        lon: float | None = None,
         cobertura: str = "SI",
     ) -> ScoreResult:
         """Consulta score crediticio."""

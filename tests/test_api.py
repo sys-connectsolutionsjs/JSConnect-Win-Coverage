@@ -396,6 +396,21 @@ def test_score_payload_incluye_documento():
     assert kwargs["data"]["data[distrito]"] == ""
 
 
+def test_score_payload_sin_coordenadas_manda_vacio():
+    """Validar solo por documento (sin coordenadas): lat/lon en None deben ir
+    en blanco en el payload, igual que los ~19 campos de geodata opcionales
+    (decision 'payload minimo', 2026-08-27) -- no reventar con _formato_coordenada(None)."""
+    sesion = FakeSesion([("cliente.php", "post", FakeResponse(_respuesta_score()))])
+    cliente = api.ValidatorAPI()
+    cliente._sesion = sesion
+    resultado = cliente.validar_score("DNI", "75020496", None, None)
+    assert resultado["valor"] == 423
+    _, _url, kwargs = sesion.llamadas[0]
+    assert kwargs["data"]["data[latitud]"] == ""
+    assert kwargs["data"]["data[longitud]"] == ""
+    assert kwargs["data"]["data[serv_cobertura]"] == "NO"
+
+
 def test_score_error_del_servidor():
     resp = FakeResponse({"response": "error", "comment": "Documento no encontrado"})
     cliente = api.ValidatorAPI()

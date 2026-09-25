@@ -53,6 +53,19 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   renumerar un paso. Se le dio al usuario el comando manual para desbloquearse
   ya mismo. 206 → **209 tests**, ruff limpio. Sin Release (el `.bat` no se
   empaqueta).
+- **Cuarta parte de la sesión — validar cobertura o score por separado**: con el
+  proxy conectando de punta a punta, pedido nuevo: el botón VALIDAR exigía
+  coordenadas Y documento siempre. Fix: `validar_score()` acepta `lat`/`lon` en
+  `None` (en blanco en el payload, mismo patrón que la geodata opcional);
+  propagado por `server.py`/`client.py`; la GUI detecta qué campo(s) llenó el
+  agente (solo coords → cobertura; solo documento → score directo; ambos → sin
+  cambios). Helper `_a_dict()` normaliza dataclass (proxy) vs dict (standalone).
+  **Verificado en vivo**: no se pudo leer la cookie del keyring (vive en
+  LocalSystem, aislado); el usuario dio el `PROXY_TOKEN` y reinició el servicio;
+  `POST /api/score` con coordenadas `null` para el DNI de prueba **10412031**
+  devolvió `Score 862/BAJO riesgo` (HTTP 200) — confirma que WinForce no
+  requiere coordenadas para el score. `10412031` queda como DNI de prueba fijo
+  del proyecto. 209 → **212 tests**, ruff limpio.
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
 - **Snapshot completo**: `resumenes/2026-09-22.md`.

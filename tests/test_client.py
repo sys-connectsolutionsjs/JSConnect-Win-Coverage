@@ -4,6 +4,8 @@ Se centra en el contrato que la Etapa R fija: un 503 del proxy (sesion con
 WinForce caducada) es TERMINAL -> ProxySesionCaducadaError sin reintentos.
 """
 
+import json
+
 import httpx
 import pytest
 
@@ -45,6 +47,24 @@ def test_503_es_ProxyError_pero_no_ProxyServerError():
         c.validar_cobertura(-12.05, -77.03)
     assert issubclass(pc.ProxySesionCaducadaError, pc.ProxyError)
     assert not issubclass(pc.ProxySesionCaducadaError, pc.ProxyServerError)
+
+
+def test_validar_score_sin_coordenadas_manda_null():
+    """Validar solo por documento (2026-09-25): lat/lon en None deben viajar
+    como null en el body JSON, no reventar armando la peticion."""
+    payload = {
+        "valor": 423, "riesgo": "MUY ALTO", "conclusion": None, "deuda_total": "0",
+        "nombre": "X", "documento": "75020496", "valido": True,
+    }
+    c, vistas = _client_con_respuestas([httpx.Response(200, json=payload)])
+
+    resultado = c.validar_score("DNI", "75020496", None, None, cobertura="NO")
+
+    assert resultado.valor == 423
+    cuerpo = json.loads(vistas[0].content)
+    assert cuerpo["lat"] is None
+    assert cuerpo["lon"] is None
+    assert cuerpo["cobertura"] == "NO"
 
 
 def test_health_check_parsea_session_alive():

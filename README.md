@@ -49,8 +49,10 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 1. Ejecuta `JSConnect-Win-Coverage.exe` (o `python main.py` en desarrollo).
 2. Actívalo con el código proporcionado por el encargado.
 3. **Primera vez**: Menú **⚙️ Configuración** → **Configurar Proxy** → ingresa IP:puerto del proxy + token → Probar conexión → Guardar.
-4. Ingresa las coordenadas y/o el documento del cliente.
-5. Pulsa **Validar** → resultado de cobertura y score al instante.
+4. Ingresa las coordenadas y/o el documento del cliente — **son independientes**:
+   solo coordenadas valida cobertura, solo documento valida score, y ambos hace
+   el flujo combinado de siempre (cobertura y, si hay, score).
+5. Pulsa **Validar** → resultado de cobertura y/o score al instante.
 
 En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver `docs/arquitectura.md` ("Control de acceso al proxy").
 
@@ -199,8 +201,10 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 1. Run `JSConnect-Win-Coverage.exe` (or `python main.py` in development).
 2. Activate with the code provided by the manager.
 3. **First time**: Menu **⚙️ Configuración** → **Configurar Proxy** → enter proxy IP:port + token → Test connection → Save.
-4. Enter the coordinates and/or the customer document.
-5. Press **Validate** → coverage and score results instantly.
+4. Enter the coordinates and/or the customer document — **they're independent**:
+   coordinates alone check coverage, document alone checks score, and both run
+   the usual combined flow (coverage and, if covered, score).
+5. Press **Validate** → coverage and/or score results instantly.
 
 At any time, **⚙️ Configuración → Activación / Huella de la PC** shows the activation status and the PC fingerprint (to request a code from the manager). If "IP no permitida" appears, the agent IP is not in the proxy allow-list: see `docs/arquitectura.md` ("Control de acceso al proxy").
 
