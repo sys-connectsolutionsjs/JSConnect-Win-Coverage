@@ -1,0 +1,63 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - despliegue de producción
+footer Verificado contra 6119b6e — 2026-09-27
+
+node "Puesto de agente 1..20\nWindows 10/11" as agent {
+  artifact "JSConnect-Win-Coverage.exe" as agent_exe
+  component "Windows Credential Manager\n(proxy URL + token)" as agent_keyring
+  agent_exe --> agent_keyring
+}
+
+node "PC fija de oficina\nWindows 10/11" as office {
+  node "Servicio Windows: JSWinProxy" as service {
+    component "WinSW" as winsw
+    component "Python + Uvicorn" as uvicorn
+    component "FastAPI / ProxyValidatorAPI" as api
+    winsw --> uvicorn
+    uvicorn --> api
+  }
+
+  component "Windows Credential Manager\nLocalSystem: PHPSESSID" as proxy_keyring
+  component "Google Chrome + extensión\nRenovar sesión" as chrome
+  component "JSConnect-Win-Owner.exe\n(corre en esta misma PC)" as owner_exe
+  component "Regla de Firewall\npuerto proxy (install_service.bat)" as firewall
+  api --> proxy_keyring
+  chrome --> api : 127.0.0.1:8080\n/local/renovar
+  owner_exe --> api : GET /health
+  firewall .. api : abre el puerto\nal instalar el servicio
+}
+
+node "Equipo del owner (acceso remoto)\nRDP hacia la PC proxy" as owner {
+  component "Navegador / login asistido" as browser
+  note bottom of owner
+    JSConnect-Win-Owner.exe corre EN la PC proxy
+    (admin/* y secretos son loopback-only): el RDP
+    es solo el medio para llegar a esa sesión.
+  end note
+}
+
+cloud "Internet" as internet
+cloud "WinForce\nappwinforce.win.pe" as winforce
+cloud "Equifax\nAPI crediticia" as equifax
+cloud "GitHub Releases" as github
+
+agent_exe --> api : LAN o Tailscale VPN\nHTTP :8080 + X-Proxy-Token
+browser --> owner_exe : sesión remota (RDP)
+api --> winforce : HTTPS + PHPSESSID
+winforce --> equifax : HTTPS interno
+agent_exe --> github : HTTPS, solo al buscar actualización
+owner_exe --> github : HTTPS, solo al buscar actualización
+
+note bottom of proxy_keyring
+  La cookie no se distribuye a agentes
+  ni se guarda en GitHub.
+end note
+
+note right of github
+  Cada Release publica DOS .exe
+  (agente + owner); el updater elige
+  el asset por nombre EXACTO, nunca
+  por sufijo .exe.
+end note
+@enduml

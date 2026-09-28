@@ -1,0 +1,66 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - actividad de validación
+footer Verificado contra 6119b6e — 2026-09-27
+
+start
+:Abrir la aplicación de escritorio;
+
+if (¿La activación está habilitada?) then (sí)
+  :Obtener huella del equipo;
+  if (¿Existe un código válido para esta huella?) then (sí)
+  else (no)
+    :Solicitar e ingresar código de activación;
+    if (¿Código válido?) then (sí)
+      :Guardar activación local;
+    else (no)
+      :Mostrar error de activación;
+      stop
+    endif
+  endif
+endif
+
+:Cargar configuración guardada;
+if (¿Hay proxy configurado?) then (sí)
+  :Crear ProxyClient desde Windows Keyring\n(servicio "JSWinClient");
+else (no)
+  :Cargar cookie standalone desde Windows Keyring\n(servicio "JSWinCoverage");
+endif
+
+:Agente ingresa coordenadas y/o documento;
+if (¿Ambos campos vacíos?) then (sí)
+  :Mostrar el error de formato correspondiente;
+  stop
+endif
+
+if (¿Hay coordenadas?) then (sí)
+  if (¿Modo proxy?) then (sí)
+    :POST /api/cobertura\nX-Proxy-Token + {lat, lon};
+  else (standalone)
+    :GET coordenada.php\ncon cookie PHPSESSID;
+  endif
+  :hay_cobertura = resultado;
+else (no)
+  :hay_cobertura = "NO"\n(no se consulta cobertura);
+endif
+
+if (¿Hay documento?) then (sí)
+  :Detectar tipo de documento (DNI/RUC/CE);
+  if (¿Modo proxy?) then (sí)
+    :POST /api/score\n{tipo_doc, num_doc, lat, lon, cobertura};
+  else (standalone)
+    :POST cliente.php (score_cliente)\ncon cookie PHPSESSID;
+  endif
+  :Interpretar score, riesgo, deuda y conclusión;
+else (no)
+endif
+
+if (¿La sesión WinForce expiró durante la llamada?) then (sí)
+  note right: SesionCaducadaError (proxy) o\nSessionError (standalone) — HTTP 503
+  :Mostrar aviso de sesión caducada;
+else (no)
+  :Mostrar cobertura y/o score según lo consultado;
+endif
+
+stop
+@enduml

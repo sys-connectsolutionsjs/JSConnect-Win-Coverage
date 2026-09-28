@@ -58,7 +58,8 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── proxy-deploy.md
 │   ├── proxy-config.md
 │   ├── rotacion-credenciales.md
-│   └── escalabilidad-remota.md
+│   ├── escalabilidad-remota.md
+│   └── diagramas/            # NUEVO 2026-09-27: 8 diagramas PlantUML (.puml)
 ├── resumenes/                # snapshots diarios inmutables (2026-08-19, -25, -26, -27, ...)
 │   └── <fecha>.md
 ├── tests/
@@ -75,7 +76,8 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── test_generator.py     # firma y ubicación segura del PEM
 │   ├── test_owner_app.py     # lógica de la consola owner (estado, reinicio elevado)
 │   ├── test_gui_activacion.py  # activacion_vigente() del agente
-│   └── test_install_bat.py   # guardas estáticas de install_service.bat
+│   ├── test_install_bat.py   # guardas estáticas de install_service.bat
+│   └── test_diagramas.py     # guardas estáticas de docs/diagramas/*.puml
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)

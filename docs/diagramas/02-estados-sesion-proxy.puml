@@ -1,0 +1,51 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - estados de la sesión WinForce en el proxy
+footer Verificado contra 6119b6e — 2026-09-27
+
+[*] --> SinSesion : Arranque sin cookie válida
+
+state SinSesion {
+  [*] --> EsperandoRenovacion
+  EsperandoRenovacion : /api/* responde 503 (SesionCaducadaError)\nOwner ya avisado
+}
+
+SinSesion --> ValidandoCookie : extensión Chrome (vía principal)\no /admin/rotar (fallback CLI)
+ValidandoCookie --> SesionViva : PHPSESSID válida\nset_session_cookie() -> Windows Keyring\n(JSWinProxy/credentials_cookies)
+ValidandoCookie --> SinSesion : cookie inválida o WinForce no disponible
+
+state SesionViva {
+  [*] --> Disponible
+  Disponible --> AtendiendoSolicitud : POST /api/cobertura o /api/score
+  AtendiendoSolicitud --> RelanzandoSesion : ~120s idle detectado
+  RelanzandoSesion --> Disponible : auto_relogin_if_needed()\nrevalida la última cookie del keyring
+  AtendiendoSolicitud --> Disponible : respuesta correcta
+  Disponible --> Keepalive : sin tráfico real\ndurante keepalive_interval_seconds (900s)
+  Keepalive --> Disponible : _keepalive_tick() ping de cobertura correcto
+}
+
+SesionViva --> SesionCaducada : cookie rechazada,\ntope absoluto (~9.5h) o fallo confirmado
+Keepalive --> SesionCaducada : _keepalive_registrar_fallo()\nconfirma expiración
+
+state SesionCaducada {
+  [*] --> AvisarOwner
+  AvisarOwner : _disparar_aviso() -> _aviso_event_log()\n+ _aviso_webhook() (opcional)
+}
+
+SesionCaducada --> ValidandoCookie : owner renueva sesión
+SesionViva --> [*] : servicio detenido
+SinSesion --> [*] : servicio detenido
+SesionCaducada --> [*] : servicio detenido
+
+note right of Keepalive
+  Latido perezoso: solo se ejecuta
+  cuando no hubo tráfico de agentes.
+  Primer tick: KEEPALIVE_PRIMER_TICK_SEGUNDOS.
+end note
+
+note right of RelanzandoSesion
+  Resultado de _is_session_alive() se
+  cachea; se invalida con
+  _invalidate_session_alive_cache().
+end note
+@enduml

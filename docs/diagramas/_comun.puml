@@ -1,0 +1,10 @@
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontSize 13
+skinparam ArrowColor #444444
+skinparam componentStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam state {
+  BackgroundColor #F5F5F5
+  BorderColor #888888
+}

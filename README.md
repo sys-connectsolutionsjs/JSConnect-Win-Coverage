@@ -153,6 +153,7 @@ Mapa interactivo de cobertura · Ofertas/catálogo de venta · Instalador con au
 - `proxy-config.md` — Configuración agentes (GUI + script masivo)
 - `rotacion-credenciales.md` — Proceso rotación WinForce (RDP v1 → VPN v2)
 - `escalabilidad-remota.md` — Guía para futuros programadores (VPN + auto-discovery)
+- `diagramas/` — 8 diagramas PlantUML (actividad, estados, casos de uso, clases, componentes, despliegue, secuencia y actividad del owner)
 
 ---
 
@@ -306,3 +307,4 @@ Interactive coverage map · Sales offers/catalog · Installer with auto-update �
 - `proxy-config.md` — Agent configuration (GUI + mass deploy script)
 - `rotacion-credenciales.md` — WinForce credential rotation process (RDP v1 → VPN v2)
 - `escalabilidad-remota.md` — Guide for future programmers (VPN + auto-discovery)
+- `diagramas/` — 8 PlantUML diagrams (activity, state, use cases, classes, components, deployment, sequence and owner activity)

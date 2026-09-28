@@ -30,6 +30,9 @@ flowchart LR
     end
 ```
 
+Vistas detalladas (clases, componentes, estados, secuencias) en
+[`docs/diagramas/`](diagramas/README.md).
+
 ---
 
 ## Componentes

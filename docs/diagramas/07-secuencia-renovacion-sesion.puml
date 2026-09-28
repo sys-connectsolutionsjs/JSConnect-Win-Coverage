@@ -1,0 +1,43 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - secuencia de renovación de sesión
+footer Verificado contra 6119b6e — 2026-09-27
+
+actor Owner
+participant "Chrome +\nExtensión" as Ext
+participant "FastAPI\n(/local/renovar)" as Local
+participant "ProxyValidatorAPI" as Proxy
+database "Windows Keyring\nJSWinProxy" as Keyring
+participant "OwnerApp\n(rotate_creds)" as OwnerApp
+participant "login_asistido.py\n(Playwright)" as LoginAsistido
+participant "WinForce" as WinForce
+
+== Vía principal: extensión Chrome ==
+Owner -> Ext : hace login manual en\nappwinforce.win.pe
+Ext -> Ext : chrome.cookies.get(PHPSESSID)
+Ext -> Local : POST /local/renovar {PHPSESSID}
+Local -> Proxy : set_session_cookie()
+Proxy -> Keyring : guardar cookie\n(credentials_cookies)
+Proxy --> Local : ok
+Local --> Ext : 200
+
+== Vía alterna: consola owner ==
+Owner -> OwnerApp : click "Renovar sesión"
+OwnerApp -> OwnerApp : rotate_creds.main([])
+OwnerApp -> LoginAsistido : capturar_php_sessid_asistido()
+LoginAsistido -> WinForce : login asistido en navegador\n(perfil persistente)
+WinForce --> LoginAsistido : PHPSESSID
+LoginAsistido --> OwnerApp : cookie capturada
+OwnerApp -> Local : POST /local/renovar {PHPSESSID}
+alt proceso no responde en 127.0.0.1
+  OwnerApp -> Local : POST /admin/rotar\n+ X-Admin-Key (fallback)
+end
+Local -> Proxy : set_session_cookie()
+Proxy -> Keyring : guardar cookie
+
+note over Local, Proxy
+  /local/renovar exige request desde
+  127.0.0.1/::1 (_es_local), sin admin key.
+  /admin/rotar exige loopback + X-Admin-Key.
+end note
+@enduml

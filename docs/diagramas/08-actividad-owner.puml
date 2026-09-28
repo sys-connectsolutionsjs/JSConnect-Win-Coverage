@@ -1,0 +1,41 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - actividad de la consola owner
+footer Verificado contra 6119b6e — 2026-09-27
+
+start
+:Abrir JSConnect-Win-Owner.exe;
+:consultar_servicio()\n(sc qc / sc query JSWinProxy);
+:consultar_proxy()\nGET /health;
+:detectar_ip_lan() + url_para_agentes();
+
+partition "Activar una PC" {
+  :Agente reporta su huella;
+  :normalizar_huella();
+  :generar_codigo()\nfirmar_codigo(huella) con private_key.pem;
+  :copiar_codigo();
+  :Agente ingresa el código en su app;
+}
+
+partition "Proxy y sesión WinForce" {
+  if (¿Servicio caído o sesión caducada?) then (sí)
+    :reiniciar_servicio()\n(UAC, sc start/stop elevado);
+  endif
+  if (¿Cookie WinForce vencida?) then (sí)
+    :renovar_sesion()\n-> rotate_creds.main([])\n-> login_asistido (Playwright);
+  endif
+  :mostrar_instrucciones_extension()\n(usa .extension_build/);
+}
+
+partition "Credenciales del proxy" {
+  :mostrar_secreto() / copiar_secreto();
+  note right: UAC -> subproceso elevado\n(_FLAG_LEER / _FLAG_ROTAR) -> secretos.py
+  if (¿Rotar proxy_token o admin_key?) then (sí)
+    :rotar_secreto()\n_aplicar_acl() en el archivo de secretos;
+    :Redistribuir el nuevo token\na los 20 agentes;
+  endif
+  :auto-ocultar tras timeout\n(_reprogramar_ocultar / _ocultar_secreto);
+}
+
+stop
+@enduml

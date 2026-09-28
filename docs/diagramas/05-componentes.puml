@@ -1,0 +1,82 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - diagrama de componentes
+footer Verificado contra 6119b6e — 2026-09-27
+
+package "Equipo de cada agente" {
+  [JSConnect-Win-Coverage.exe] as exe
+  [GUI ttkbootstrap] as gui
+  [ProxyClient] as proxy_client
+  [ValidatorAPI] as standalone
+  [Activación RSA] as activation
+  [Actualizador] as updater
+  [Windows Keyring\nJSWinClient / JSWinCoverage] as agent_keyring
+
+  exe --> gui
+  gui --> proxy_client : modo proxy
+  gui --> standalone : modo standalone
+  gui --> activation
+  gui --> updater
+  proxy_client --> agent_keyring
+  standalone --> agent_keyring
+}
+
+package "PC proxy de la oficina" {
+  [WinSW\nservicio JSWinProxy] as winsw
+  [Uvicorn + FastAPI] as fastapi
+  [ProxyValidatorAPI] as proxy_api
+  [ValidatorAPI] as core
+  [Keepalive asyncio task] as keepalive
+  [Windows Keyring\nJSWinProxy] as proxy_keyring
+  [Extensión Chrome\nRenovar sesión] as extension
+  [login_asistido.py / rotate_creds.py] as rotation
+
+  winsw --> fastapi
+  fastapi --> proxy_api
+  proxy_api --> core
+  keepalive --> proxy_api : asyncio.to_thread(_keepalive_tick)
+  proxy_api --> proxy_keyring : persiste PHPSESSID\n(credentials_cookies)
+  extension --> fastapi : POST /local/renovar\nsolo 127.0.0.1
+  rotation --> fastapi : POST /local/renovar\n(fallback: /admin/rotar + X-Admin-Key)
+}
+
+package "Estación owner" {
+  [JSConnect-Win-Owner.exe] as owner_exe
+  [OwnerApp (ttkbootstrap)] as owner_gui
+  [generar.py\n(firma RSA)] as generator
+  [secretos.py] as secretos
+  [private_key.pem\nfuera de Git, ACL NTFS] as pem
+
+  owner_exe --> owner_gui
+  owner_gui --> generator
+  owner_gui --> rotation : renovar_sesion()
+  owner_gui --> secretos : UAC, subproceso elevado
+  generator --> pem
+}
+
+cloud "WinForce\nappwinforce.win.pe" as winforce
+cloud "Equifax" as equifax
+cloud "GitHub Releases" as github
+
+proxy_client --> fastapi : HTTP LAN/VPN\nX-Proxy-Token
+standalone --> winforce : HTTPS + PHPSESSID
+core --> winforce : HTTPS + PHPSESSID
+winforce --> equifax : consulta interna de score
+updater --> github : consulta y descarga
+owner_gui --> fastapi : GET /health\n(único endpoint HTTP que llama)
+
+note right of fastapi
+  /api/*: X-Proxy-Token + IP en allowed_networks
+  (loopback siempre permitido)
+  /admin/*: verify_admin_key exige PRIMERO loopback
+  estricto (127.0.0.1/::1) y LUEGO X-Admin-Key
+  /local/*: solo 127.0.0.1/::1 (_es_local)
+  /health: público, sin guarda
+end note
+
+note bottom of secretos
+  La consola owner NO habla /admin/* por HTTP:
+  lee/rota proxy_token y admin_key vía subproceso
+  elevado (secretos.py), no por red.
+end note
+@enduml

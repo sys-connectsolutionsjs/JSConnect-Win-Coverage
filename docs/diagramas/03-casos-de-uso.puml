@@ -1,0 +1,65 @@
+@startuml
+!include _comun.puml
+left to right direction
+title JSConnect Win Coverage - casos de uso
+footer Verificado contra 6119b6e — 2026-09-27
+
+actor "Agente de call center" as agente
+actor "Owner / administrador" as owner
+actor "WinForce" as winforce
+actor "GitHub Releases" as github
+
+rectangle "JSConnect Win Coverage" {
+  usecase "Activar aplicación\ncon código por huella" as UC_activar
+  usecase "Configurar proxy\n(IP y token)" as UC_config_proxy
+  usecase "Configurar sesión\nstandalone" as UC_config_sesion
+  usecase "Validar cliente" as UC_validar
+  usecase "Consultar cobertura" as UC_cobertura
+  usecase "Consultar score" as UC_score
+  usecase "Mostrar resultados\ny errores" as UC_resultado
+  usecase "Comprobar y aplicar\nactualización" as UC_update
+  usecase "Renovar sesión WinForce" as UC_renovar
+  usecase "Ver estado del proxy" as UC_estado
+  usecase "Mantener sesión viva\ncuando no hay tráfico" as UC_keepalive
+  usecase "Generar código\nde activación" as UC_generar_codigo
+  usecase "Mostrar / rotar\ncredenciales del proxy" as UC_credenciales
+  usecase "Reiniciar el servicio\nJSWinProxy" as UC_reiniciar
+  usecase "Obtener URL del proxy\npara los agentes" as UC_url_agentes
+  usecase "Instalar la extensión\nde Chrome" as UC_instalar_extension
+}
+
+agente --> UC_activar
+agente --> UC_config_proxy
+agente --> UC_config_sesion
+agente --> UC_validar
+agente --> UC_update
+
+UC_validar .> UC_cobertura : <<include>>\n[hay coordenadas]
+UC_validar .> UC_score : <<include>>\n[hay documento]
+UC_validar .> UC_resultado : <<include>>
+UC_cobertura --> winforce
+UC_score --> winforce
+UC_update --> github
+
+owner --> UC_generar_codigo
+owner --> UC_activar : firma la huella\ncon private_key.pem
+owner --> UC_renovar
+owner --> UC_estado
+owner --> UC_credenciales
+owner --> UC_reiniciar
+owner --> UC_url_agentes
+owner --> UC_instalar_extension
+UC_renovar --> winforce
+UC_keepalive --> winforce
+
+note bottom of UC_renovar
+  Vía principal: extensión Chrome en la PC proxy.
+  Alternativas: consola owner (rotate_creds -> login
+  asistido) o /admin/rotar manual.
+end note
+
+note bottom of UC_credenciales
+  UAC obligatorio: subproceso elevado de
+  JSConnect-Win-Owner.exe (validator_app/proxy/secretos.py).
+end note
+@enduml

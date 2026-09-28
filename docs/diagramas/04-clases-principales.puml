@@ -1,0 +1,228 @@
+@startuml
+!include _comun.puml
+title JSConnect Win Coverage - clases y módulos principales
+footer Verificado contra 6119b6e — 2026-09-27
+
+package "Aplicación agente" {
+  class App <<ttkbootstrap.Window>> {
+    - _proxy_client: ProxyClient
+    - _session_client: ValidatorAPI
+    + _agregar_item_nav()
+    + _mostrar_pagina()
+    + validar()
+  }
+
+  class ProxyClient {
+    + health_check(): HealthResult
+    + validar_cobertura(lat, lon): CoberturaResult
+    + validar_score(...): ScoreResult
+    + from_keyring(service="JSWinClient"): ProxyClient
+    + from_discovery(...): ProxyClient
+    + save_to_keyring(service="JSWinClient")
+  }
+
+  class CoberturaResult <<dataclass>> {
+    hay_cobertura: bool
+    cobertura: str
+    tipo: str
+    id_celda: str
+    comment: str
+  }
+  class ScoreResult <<dataclass>> {
+    valor: int
+    riesgo: str
+    conclusion: str
+    deuda_total: str
+    nombre: str
+    documento: str
+    valido: bool
+  }
+  class HealthResult <<dataclass>> {
+    status: str
+    version: str
+    session_age: str
+    logged_in: bool
+    session_alive: bool
+  }
+
+  class ProxyError <<exception>>
+  class ProxyConnectionError
+  class ProxyAuthError
+  class ProxyServerError
+  class ProxyTimeoutError
+  class ProxySesionCaducadaError
+  ProxyError <|-- ProxyConnectionError
+  ProxyError <|-- ProxyAuthError
+  ProxyError <|-- ProxyServerError
+  ProxyError <|-- ProxyTimeoutError
+  ProxyError <|-- ProxySesionCaducadaError
+
+  class "session_config.py" as SessionConfig <<module>> {
+    + guardar_cookie()
+    + cargar_cookie()
+    + borrar_cookie()
+    + validar_y_guardar()
+    + cliente_standalone(): ValidatorAPI
+  }
+  class "fingerprint.py" as Fingerprint <<module>> {
+    + obtener_huella()
+  }
+  class "signer.py" as Signer <<module>> {
+    + activacion_disponible()
+    + verificar_codigo(huella, codigo)
+    + validar_codigo(huella, codigo): bool
+  }
+  class "state.py" as ActivationState <<module>> {
+    + guardar()
+    + leer()
+  }
+  class "check.py" as UpdaterCheck <<module>> {
+    + version_actual()
+    + hay_actualizacion()
+  }
+  class "download.py" as UpdaterDownload <<module>> {
+    + aplicar_actualizacion(info): bool
+    + extraer_checksum()
+    + sha256_de()
+  }
+}
+
+package "Proxy local" {
+  class ProxyConfig {
+    proxy_host: str
+    proxy_port: int
+    proxy_token: str
+    admin_key: str
+    win_keyring_service: str
+    keepalive_interval_seconds: int
+    + proxy_url(): str
+  }
+
+  class ProxyValidatorAPI {
+    - _client: ValidatorAPI
+    - _last_activity
+    - _session_dead_since
+    + auto_relogin_if_needed()
+    + validar_cobertura()
+    + validar_score()
+    + set_session_cookie()
+    + get_status()
+    + _keepalive_tick()
+    + _is_session_alive()
+    + _marcar_sesion_muerta()
+    + _disparar_aviso()
+  }
+  class SesionCaducadaError <<exception>>
+
+  class "FastAPI app" as FastAPI {
+    + POST /api/cobertura
+    + POST /api/score
+    + GET /health
+    + POST /local/renovar
+    + GET /local/estado
+    + GET /admin/config
+    + POST /admin/login
+    + POST /admin/rotar
+    + GET /admin/status
+  }
+}
+
+package "Núcleo" {
+  class ValidatorAPI {
+    - _sesion: requests.Session
+    - _last_activity
+    + login()
+    + auto_relogin_if_needed()
+    + validar_cobertura()
+    + validar_score(lat=None, lon=None, ...)
+    + validar()
+    + set_session_cookies()
+    + get_session_cookies()
+  }
+  class "session.py" as CoreSession <<module>> {
+    + validar_cookie_sesion(php_sessid)
+    + obtener_cliente(): ValidatorAPI
+  }
+  class APIError {
+    code: str
+  }
+  class LoginError
+  class ScoreError
+  class CoberturaError
+  class SessionError
+  class NetworkError
+  class ConfigError
+}
+
+package "Consola owner" {
+  class OwnerApp <<ttkbootstrap.Window>> {
+    + consultar_servicio()
+    + consultar_proxy()
+    + detectar_ip_lan()
+    + url_para_agentes()
+    + generar_codigo()
+    + reiniciar_servicio()
+    + renovar_sesion()
+    + mostrar_secreto() / rotar_secreto()
+  }
+  class "generar.py" as Generador <<module>> {
+    + generar_llaves()
+    + firmar_codigo(huella)
+  }
+  class "secretos.py" as Secretos <<module>> {
+    + leer_secretos()
+    + rotar()
+    + _aplicar_acl()
+  }
+  class "rotate_creds.py" as RotateCreds <<module>> {
+    + main()
+  }
+  class "login_asistido.py" as LoginAsistido <<module>> {
+    + capturar_php_sessid_asistido()
+  }
+}
+
+class "Windows Keyring" as Keyring <<external>>
+class "WinForce API" as WinForce <<external>>
+class "GitHub Releases" as GitHub <<external>>
+
+App --> ProxyClient : modo proxy
+App --> ValidatorAPI : modo standalone
+App ..> SessionConfig
+App ..> Signer
+App ..> Fingerprint
+App ..> ActivationState
+App ..> UpdaterCheck
+App ..> UpdaterDownload
+
+ProxyClient --> CoberturaResult : crea
+ProxyClient --> ScoreResult : crea
+ProxyClient --> HealthResult : crea
+ProxyClient ..> ProxyError : lanza
+ProxyClient --> FastAPI : HTTP + X-Proxy-Token
+ProxyClient --> Keyring : JSWinClient (url y token)
+SessionConfig --> Keyring : JSWinCoverage (cookie standalone)
+
+FastAPI --> ProxyValidatorAPI
+ProxyValidatorAPI *-- ProxyConfig
+ProxyValidatorAPI --> ValidatorAPI
+ProxyValidatorAPI ..> SesionCaducadaError : lanza
+ProxyValidatorAPI --> Keyring : JSWinProxy/credentials_cookies
+ValidatorAPI --> CoreSession
+ValidatorAPI --> WinForce : HTTPS
+UpdaterDownload --> GitHub : HTTPS
+
+APIError <|-- LoginError
+APIError <|-- ScoreError
+APIError <|-- CoberturaError
+APIError <|-- SessionError
+APIError <|-- NetworkError
+APIError <|-- ConfigError
+
+OwnerApp --> Generador : genera código firmado
+OwnerApp --> Secretos : UAC (subproceso elevado)
+OwnerApp --> RotateCreds : renovar_sesion()
+RotateCreds --> LoginAsistido
+RotateCreds --> FastAPI : /local/renovar (o /admin/rotar fallback)
+OwnerApp --> FastAPI : GET /health (único endpoint HTTP)
+@enduml
