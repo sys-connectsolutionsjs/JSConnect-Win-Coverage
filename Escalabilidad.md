@@ -16,6 +16,7 @@
 | Config manual por agente | Provisionamiento administrado por GUI/script |
 
 **No hay que reescribir nada**. La arquitectura ya está preparada. Solo activar VPN y configurar DNS.
+> mi seguridad ante esta afirmacion es dudosa... revisa por siacaso
 
 La activación de agentes mantiene otra frontera: cada PC envía su huella al owner
 y recibe un código firmado. `private_key.pem` permanece únicamente en la estación
