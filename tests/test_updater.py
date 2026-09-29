@@ -248,3 +248,59 @@ def test_aplicar_actualizacion_ok_lanza_el_updater(monkeypatch, tmp_path):
     }
     assert download.aplicar_actualizacion(info) is True
     assert procesos, "deberia lanzar el updater.bat via subprocess.Popen"
+
+
+def _aplicar_y_leer_bat(monkeypatch, tmp_path, pid=4242):
+    """Corre aplicar_actualizacion (con Popen mockeado, sin cmd.exe real) y
+    devuelve el contenido del updater.bat que quedo escrito en disco."""
+    exe_actual = tmp_path / "JSConnect-Win-Coverage.exe"
+    exe_actual.write_bytes(b"viejo")
+    monkeypatch.setattr(download.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(download.sys, "executable", str(exe_actual))
+    monkeypatch.setattr(download.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(download.os, "getpid", lambda: pid)
+
+    contenido = b"contenido-nuevo"
+    checksum_real = download.hashlib.sha256(contenido).hexdigest().upper()
+    monkeypatch.setattr(download.requests, "get", lambda *a, **k: _Respuesta(content=contenido))
+    monkeypatch.setattr(download.subprocess, "Popen", lambda *a, **k: None)
+
+    info = {
+        "url_descarga": "https://example.com/JSConnect-Win-Coverage.exe",
+        "notes": f"## JSConnect-Win-Coverage.exe\nSHA-256: `{checksum_real}`\n",
+    }
+    assert download.aplicar_actualizacion(info) is True
+    return (tmp_path / "jsconnect_update" / "updater.bat").read_text(encoding="utf-8")
+
+
+def test_aplicar_actualizacion_bat_espera_el_pid_del_proceso_actual(monkeypatch, tmp_path):
+    """Bug real 2026-09-29: un `timeout` fijo de 2s no bastaba para que el
+    .exe viejo (que nadie cerraba) soltara el archivo. Ahora el .bat espera
+    activamente a que ESE proceso (por PID) desaparezca."""
+    bat = _aplicar_y_leer_bat(monkeypatch, tmp_path, pid=4242)
+    assert "4242" in bat
+    assert "tasklist" in bat.lower()
+    assert "timeout /t 2 /nobreak" not in bat  # la espera fija que causaba el bug
+
+
+def test_aplicar_actualizacion_bat_reintenta_el_move_con_chequeo_de_errorlevel(
+    monkeypatch, tmp_path
+):
+    """El `move` ya no se ejecuta a ciegas: si falla (errorlevel), reintenta
+    en vez de seguir como si nada -- la version vieja del .bat nunca
+    comprobaba esto, por eso el `start` de despues relanzaba el .exe viejo."""
+    bat = _aplicar_y_leer_bat(monkeypatch, tmp_path)
+    assert bat.lower().count("move /y") == 1
+    assert "errorlevel" in bat.lower()
+    assert "goto mover" in bat.lower() or ":mover" in bat.lower()
+
+
+def test_aplicar_actualizacion_bat_start_esta_condicionado_al_move(monkeypatch, tmp_path):
+    """`start` solo debe ejecutarse tras confirmar que el `move` funciono, no
+    justo despues del `move` sin comprobar nada (asi el .bat nunca vuelve a
+    abrir la version VIEJA si el reemplazo fallo)."""
+    bat = _aplicar_y_leer_bat(monkeypatch, tmp_path)
+    bat_lower = bat.lower()
+    ultimo_errorlevel = bat_lower.rindex("errorlevel")
+    posicion_start = bat_lower.index('start ""')
+    assert posicion_start > ultimo_errorlevel

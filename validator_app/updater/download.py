@@ -5,6 +5,7 @@ su SHA-256 y se lanza un updater.bat que espera, reemplaza y relanza la app.
 """
 
 import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -12,6 +13,12 @@ import tempfile
 from pathlib import Path
 
 import requests
+
+# Segundos que el .bat espera a que el PID actual desaparezca antes de darse
+# por vencido (el .exe viejo puede tardar un poco en soltar el archivo tras
+# cerrarse). Igual de tope para los reintentos de `move`.
+ESPERA_MAXIMA_SEGUNDOS = 30
+REINTENTOS_MOVE = 10
 
 
 def descargar(url: str, destino: Path) -> None:
@@ -46,6 +53,50 @@ def extraer_checksum(notas: str, nombre_archivo: str | None = None):
     return match.group(1) if match else None
 
 
+def _script_updater(nuevo: Path, exe_actual: Path, pid: int) -> str:
+    """Bat que espera a que el proceso viejo (`pid`) termine de verdad antes
+    de reemplazar el .exe.
+
+    Reemplaza el `timeout /t 2` fijo que usaba la version anterior: con la
+    app todavia corriendo (nada la cerraba), el .exe seguia bloqueado tras
+    esos 2s, `move` fallaba EN SILENCIO (sin chequear `errorlevel`) y el
+    `start` de despues igual se ejecutaba -- relanzando la version VIEJA y
+    dejando dos procesos vivos (bug real, 2026-09-29). Ahora: espera activa
+    por PID, reintenta el `move`, y solo relanza si el `move` funciono."""
+    return (
+        "@echo off\r\n"
+        "setlocal enabledelayedexpansion\r\n"
+        f'set "PID={pid}"\r\n'
+        f'set "NUEVO={nuevo}"\r\n'
+        f'set "DESTINO={exe_actual}"\r\n'
+        "set /a ESPERA=0\r\n"
+        ":esperar_cierre\r\n"
+        'tasklist /FI "PID eq %PID%" 2>nul | find "%PID%" >nul\r\n'
+        "if not errorlevel 1 (\r\n"
+        f"    if !ESPERA! GEQ {ESPERA_MAXIMA_SEGUNDOS} goto fallo\r\n"
+        "    set /a ESPERA+=1\r\n"
+        "    timeout /t 1 /nobreak >nul\r\n"
+        "    goto esperar_cierre\r\n"
+        ")\r\n"
+        "set /a INTENTOS=0\r\n"
+        ":mover\r\n"
+        'move /y "%NUEVO%" "%DESTINO%" >nul 2>&1\r\n'
+        "if errorlevel 1 (\r\n"
+        f"    if !INTENTOS! GEQ {REINTENTOS_MOVE} goto fallo\r\n"
+        "    set /a INTENTOS+=1\r\n"
+        "    timeout /t 1 /nobreak >nul\r\n"
+        "    goto mover\r\n"
+        ")\r\n"
+        'start "" "%DESTINO%"\r\n'
+        'del "%~f0"\r\n'
+        "exit /b 0\r\n"
+        ":fallo\r\n"
+        "rem no se pudo reemplazar el ejecutable (bloqueado demasiado tiempo)\r\n"
+        'del "%~f0"\r\n'
+        "exit /b 1\r\n"
+    )
+
+
 def aplicar_actualizacion(info: dict) -> bool:
     if not getattr(sys, "frozen", False):
         raise RuntimeError("Las actualizaciones solo se aplican al .exe compilado.")
@@ -66,13 +117,6 @@ def aplicar_actualizacion(info: dict) -> bool:
 
     exe_actual = Path(sys.executable)
     bat = temp_dir / "updater.bat"
-    bat.write_text(
-        "@echo off\r\n"
-        f"timeout /t 2 /nobreak >nul\r\n"
-        f'move /y "{nuevo}" "{exe_actual}"\r\n'
-        f'start "" "{exe_actual}"\r\n'
-        f'del "%~f0"\r\n',
-        encoding="utf-8",
-    )
+    bat.write_text(_script_updater(nuevo, exe_actual, os.getpid()), encoding="utf-8")
     subprocess.Popen(["cmd", "/c", str(bat)], close_fds=True)
     return True

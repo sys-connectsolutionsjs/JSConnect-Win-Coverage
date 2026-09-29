@@ -662,22 +662,65 @@ class App(ttk.Window):
         if info is None:
             self.lbl_estado.config(text="Estado: sin actualizaciones disponibles")
             return
-        notas = (info.get("notes", "") or "")[:400]
-        texto = f"Nueva version {info['tag']}\n\n{notas}\n\n¿Descargar e instalar?"
+        # Las notas del Release traen los checksums SHA-256 de cada .exe (para
+        # que download.py los verifique) -- mostrarselas al agente solo
+        # confunde (dos cadenas hex de 64 caracteres que no significan nada
+        # para el, ver AGENTS.md 2026-09-29). Solo se le dice la version.
+        texto = f"Nueva version {info['tag']} disponible.\n\n¿Descargar e instalar ahora?"
         resp = messagebox.askyesno("Actualizacion disponible", texto)
         if resp:
-            self.lbl_estado.config(text="Estado: descargando actualizacion...")
+            self._abrir_progreso_actualizacion()
             threading.Thread(target=self._aplicar_update_hilo, args=(info,), daemon=True).start()
+
+    def _abrir_progreso_actualizacion(self) -> None:
+        """Dialogo modal con una barra indeterminada mientras se descarga e
+        instala la actualizacion (mismo patron que los demas dialogos:
+        Toplevel + transient + grab_set). No se puede cerrar a mano -- se
+        cierra sola cuando termina la instalacion (exito o error)."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Actualizando")
+        dialog.geometry("340x110")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.protocol("WM_DELETE_WINDOW", lambda: None)
+        dialog.grab_set()
+
+        frame = ttk.Frame(dialog, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Descargando e instalando la actualización...").pack(pady=(0, 10))
+        barra = ttk.Progressbar(frame, mode="indeterminate", bootstyle="info-striped")
+        barra.pack(fill="x")
+        barra.start(12)
+
+        self._dialogo_actualizacion = dialog
+
+    def _cerrar_progreso_actualizacion(self) -> None:
+        dialog = getattr(self, "_dialogo_actualizacion", None)
+        if dialog is not None:
+            dialog.grab_release()
+            dialog.destroy()
+            self._dialogo_actualizacion = None
 
     def _aplicar_update_hilo(self, info):
         try:
             download.aplicar_actualizacion(info)
         except Exception as exc:
             msg = str(exc)
+            self.after(0, self._cerrar_progreso_actualizacion)
             self.after(0, lambda m=msg: messagebox.showerror("Actualizacion", m))
             self.after(0, lambda: self.lbl_estado.config(text="Estado: error al actualizar"))
             return
-        self.after(0, lambda: self.lbl_estado.config(text="Estado: reinicia la app para completar"))
+        self.after(0, self._actualizacion_lista)
+
+    def _actualizacion_lista(self) -> None:
+        """La actualizacion ya se descargo/verifico y el updater.bat quedo
+        lanzado esperando a que este proceso cierre para reemplazar el .exe
+        y reabrirlo solo (ver validator_app/updater/download.py). Por eso la
+        app se cierra sola tras un momento -- no hace falta que el agente
+        haga nada."""
+        self._cerrar_progreso_actualizacion()
+        self.lbl_estado.config(text="Estado: actualización lista, reiniciando...")
+        self.after(1200, self.destroy)
 
 
 def main():
