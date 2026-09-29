@@ -1008,3 +1008,34 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   (ya avisó que lo retocará otro día). Resto de pendientes de cierres
   anteriores (Etapa D/E en la PC oficial, Fase 5 de documentación, decisión de
   `actualizar_score_cliente`/`newsearch.php`) sigue abierto.
+
+### Cierre de la sesión 2026-09-27 [CONTEXTO PARA LA SIGUIENTE — hecha en otra PC]
+
+- **Hallazgo**: `docs/DiagramasUML/` (6 diagramas PlantUML) nunca se había
+  commiteado — la regla del `.gitignore` apuntaba a `diagramas-locales/`, una
+  carpeta inexistente, así que los `.puml` reales quedaban fuera de git en
+  silencio. Además reflejaban una versión vieja del sistema (sin GUI
+  ttkbootstrap, sin `ProxyError`, sin la validación separada de
+  cobertura/score, sin las guardas reales de `/admin/*` y `/local/*`).
+- **Fix**: movidos y corregidos a `docs/diagramas/` — **8 diagramas** + tema
+  compartido `_comun.puml` + `docs/diagramas/README.md`. Se agregó la consola
+  owner (faltaba, pese a ser el segundo `.exe` del Release) y 2 diagramas
+  nuevos: secuencia de renovación de sesión (extensión Chrome vs. consola
+  owner) y actividad del owner. `tests/test_diagramas.py` NUEVO valida sintaxis
+  básica y que las clases citadas sigan existiendo en el código (no valida
+  contenido semántico — cada diagrama lleva un `footer` con el SHA corto contra
+  el que se verificó por última vez).
+- **Commit aparte** (`6119b6e`, anterior a los diagramas): el usuario agregó a
+  mano una nota de duda en `Escalabilidad.md`, bajo la afirmación "No hay que
+  reescribir nada. La arquitectura ya está preparada. Solo activar VPN y
+  configurar DNS.": *"mi seguridad ante esta afirmacion es dudosa... revisa por
+  siacaso"*. **Sigue sin resolver.**
+- **Documentación sincronizada**: `AGENTS.md` (árbol del proyecto),
+  `docs/arquitectura.md` (enlaza a `docs/diagramas/README.md`), `README.md`,
+  `TestingLog.md`, `.gitignore`.
+- **Commits**: `6119b6e`, `a465d56`. Sin cierre propio de `ResumenDelDia.md` en
+  esa PC — reconstruido el 2026-09-29 en `resumenes/2026-09-27.md` a partir de
+  los commits.
+- **Pendiente real para la próxima sesión**: verificar contra el código la
+  afirmación de `Escalabilidad.md` que el usuario puso en duda. Resto de
+  pendientes de cierres anteriores sigue abierto.

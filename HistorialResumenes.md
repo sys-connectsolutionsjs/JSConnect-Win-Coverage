@@ -13,6 +13,22 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-27 — Sesión (otra PC) — diagramas PlantUML versionados y corregidos
+- **Snapshot completo (reconstruido desde git el 2026-09-29)**: `resumenes/2026-09-27.md`.
+- **Hallazgo**: `docs/DiagramasUML/` (6 diagramas) nunca se había commiteado — el
+  `.gitignore` apuntaba a `diagramas-locales/`, carpeta inexistente — y reflejaba
+  una versión vieja del sistema.
+- **Fix**: movidos y corregidos a `docs/diagramas/` (8 diagramas + tema
+  compartido `_comun.puml` + `README.md`); se sumó la consola owner (faltaba) y
+  2 diagramas nuevos (renovación de sesión, actividad del owner).
+  `tests/test_diagramas.py` NUEVO valida sintaxis y que las clases citadas sigan
+  existiendo en el código.
+- **Commit aparte**: nota de duda del usuario en `Escalabilidad.md` sobre la
+  afirmación "no hay que reescribir nada" para escalar — **sigue sin resolver**.
+- **Documentación**: `AGENTS.md`, `docs/arquitectura.md`, `README.md`,
+  `TestingLog.md`, `.gitignore`.
+- Commits: `6119b6e`, `a465d56`.
+
 ### 2026-09-25 — Sesión — "URL para los agentes" en la consola owner (fix WinError 10061) + release v2026.09.25
 - **Snapshot completo**: `resumenes/2026-09-25.md`.
 - **Origen**: primer despliegue real con agente y owner en PC distintas. Al
