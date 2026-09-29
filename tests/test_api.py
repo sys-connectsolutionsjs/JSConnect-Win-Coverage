@@ -128,6 +128,27 @@ def test_tipos_documento():
     assert api.TIPOS_DOCUMENTO["RUC"] == "3"
 
 
+def test_tipo_doc_sunat_distinto_de_tipos_documento_para_ruc():
+    """data[tipo_doc] usa el Catalogo 06 de SUNAT, no la tabla interna de la
+    app -- confirmado con una captura real de WinForce (2026-09-29): un RUC
+    con tipo_doc=3 (la tabla interna) fallaba con 'campos faltantes'; con
+    tipo_doc=6 (SUNAT) el score se proceso con exito (Puntaje 575/ALTO)."""
+    assert api.TIPO_DOC_SUNAT["DNI"] == "1"
+    assert api.TIPO_DOC_SUNAT["RUC"] == "6"
+    assert api.TIPO_DOC_SUNAT["RUC"] != api.TIPOS_DOCUMENTO["RUC"]
+
+
+def test_score_payload_ruc_manda_tipo_doc_sunat_y_tipo_doc_value_interno():
+    sesion = FakeSesion([("cliente.php", "post", FakeResponse(_respuesta_score()))])
+    cliente = api.ValidatorAPI()
+    cliente._sesion = sesion
+    cliente.validar_score("RUC", "10096548031", -12.05, -77.03, cobertura="SI")
+    _, _url, kwargs = sesion.llamadas[0]
+    assert kwargs["data"]["data[tipo_doc]"] == "6"
+    assert kwargs["data"]["data[tipo_doc_value]"] == "3"
+    assert kwargs["data"]["data[tipo_doc_text]"] == "RUC"
+
+
 def test_formato_coordenada():
     assert api._formato_coordenada(-11.938907461158038) == "-11.938907461158038"
 
@@ -407,7 +428,7 @@ def test_score_payload_sin_coordenadas_manda_vacio():
     assert resultado["valor"] == 423
     _, _url, kwargs = sesion.llamadas[0]
     assert kwargs["data"]["data[latitud]"] == ""
-    assert kwargs["data"]["data[longitud]"] == ""
+    assert kwargs["data"]["data[logintud]"] == ""
     assert kwargs["data"]["data[serv_cobertura]"] == "NO"
 
 

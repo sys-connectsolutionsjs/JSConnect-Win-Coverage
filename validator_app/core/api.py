@@ -19,6 +19,21 @@ from validator_app.core import session
 TIPOS_DOCUMENTO = {"DNI": "1", "RUC": "3", "CE": "2"}
 TEXTOS_DOCUMENTO = {"DNI": "DNI", "RUC": "RUC", "CE": "Carnet de extranjeria"}
 
+# El campo `data[tipo_doc]` del score usa una tabla DISTINTA a TIPOS_DOCUMENTO
+# (que alimenta tipo_doc_value/tipo_doc_text, la tabla interna de la app -
+# document.php?accion=lista_documento). Confirmado con una captura real de
+# WinForce (2026-09-29, RUC 10096548031, score exitoso: Puntaje 575/ALTO):
+# el navegador mando data[tipo_doc]=6 para RUC, no 3. Ese "6" coincide con el
+# Catalogo 06 de SUNAT ("Tipo de Documento de Identidad": 1=DNI,
+# 4=Carnet de Extranjeria, 6=RUC, 7=Pasaporte). DNI ya funcionaba porque en
+# ambas tablas DNI=1 -- la coincidencia ocultaba el problema hasta que se
+# probo RUC. El valor de CE (4) es la hipotesis mas fuerte por seguir el
+# mismo catalogo SUNAT, pero NO esta confirmado con una captura real de CE
+# (la unica prueba con CE devolvio "success" sin puntaje, compatible con que
+# ese documento de prueba no tenga historial en Equifax, no necesariamente
+# con que el tipo_doc este mal).
+TIPO_DOC_SUNAT = {"DNI": "1", "CE": "4", "RUC": "6"}
+
 
 class APIError(Exception):
     def __init__(self, message: str, code: str = "ERR_UNKNOWN"):
@@ -339,12 +354,15 @@ class ValidatorAPI:
         self._requerir_sesion()
         self.auto_relogin_if_needed()
         data = {
-            "tipo_doc": TIPOS_DOCUMENTO[tipo_documento],
+            "tipo_doc": TIPO_DOC_SUNAT[tipo_documento],
             "documento_identidad": numero,
             "tipo_doc_value": TIPOS_DOCUMENTO[tipo_documento],
             "tipo_doc_text": TEXTOS_DOCUMENTO[tipo_documento],
             "canal_id": "0",
-            "longitud": _formato_coordenada(lon) if lon is not None else "",
+            # "logintud" (sic): asi llega el campo en WinForce -- typo real de
+            # ellos, confirmado con una captura real (ver TIPO_DOC_SUNAT). Con
+            # "longitud" (bien escrito) el campo se pierde del otro lado.
+            "logintud": _formato_coordenada(lon) if lon is not None else "",
             "latitud": _formato_coordenada(lat) if lat is not None else "",
             "serv_cobertura": cobertura,
         }

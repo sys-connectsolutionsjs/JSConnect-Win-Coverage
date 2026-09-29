@@ -508,8 +508,23 @@ Separado de `requirements-dev.txt` para que .exe final sea ligero.
 Consulta a `POST /controllers/cliente.php` con `accion=score_cliente` + muchos campos `data[...]`.
 - Respuesta: `{"response":"success","data":"<JSON-string con reporte SOAP Equifax>"}`
 - Parseo: `json.loads(data)` → busca recursivamente `ns3ResumenScoreRP3.Puntaje` (ej: 423), `NivelRiesgo` (ej: MUY ALTO), `ResumenDeuda.DeudaTotal`
-- Payload incluye: tipo_doc (1=DNI, 2=CE, 3=RUC), documento, coordenadas, cobertura, 25 campos geodata vacíos
+- Payload incluye: `tipo_doc` (Catálogo 06 SUNAT: 1=DNI, 4=CE, 6=RUC — **distinto** de `tipo_doc_value`/`tipo_doc_text`, que sí usan la tabla interna 1=DNI/2=CE/3=RUC), documento, coordenadas, cobertura, ~19 campos geodata vacíos.
 - `deuda_total` puede llegar como **int `0`** (no string) cuando no hay deuda → `_parsear_score` lo normaliza a str y `ScoreResponse` usa `coerce_numbers_to_str` (fix `3f63e8f`, hallado en la validación real de la Etapa B).
+- **Bug real, RUC (2026-09-29)**: un RUC sin el `tipo_doc` de SUNAT (se mandaba
+  el mismo valor que `tipo_doc_value`, "3") fallaba con `HTTP 502: "Por favor,
+  corregir los campos faltantes"` — WinForce no dice qué campo falta.
+  Encontrado comparando, campo por campo, una captura real de `tools/captura.py`
+  (RUC `10096548031`, score exitoso 575/ALTO) contra el payload del código.
+  Dos diferencias: `tipo_doc` debía ser `6` (no `3`), y el campo de longitud
+  se llama `logintud` en WinForce (typo real de ellos, no `longitud`). Con
+  ambos corregidos y el resto del payload en blanco ("payload mínimo" sigue
+  valiendo para RUC), la prueba en vivo devolvió el mismo score exacto que la
+  captura del navegador (575/ALTO) — confirma que **no hace falta** llenar
+  geodata real para RUC, solo esos dos campos. El valor de CE en la tabla
+  SUNAT (`4`) es una hipótesis razonada (mismo catálogo), no confirmada: una
+  prueba con CE `007187041` devolvió `success` sin puntaje tanto con
+  `tipo_doc=2` como con `tipo_doc=4` — compatible con que ese documento de
+  prueba simplemente no tenga historial en Equifax, no decide la hipótesis.
 
 ### Sesión caducada (HTTP 503, Etapa R)
 Cuando el proxy ya sabe que su sesión con WinForce murió (`_session_dead_since` está puesto), `validar_cobertura`/`validar_score` lanzan `SesionCaducadaError` **antes de tocar WinForce** → el handler responde **HTTP 503** + `Retry-After: 120` + `{"detail": ..., "codigo": "ERR_SESION_CADUCADA", "owner_avisado": true}`.

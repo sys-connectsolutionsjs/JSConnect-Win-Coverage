@@ -41,6 +41,45 @@ validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-09-29 (tercera parte) — bug real: el score de RUC fallaba con "campos faltantes"
+- **Origen**: probando la app real, un RUC (`10096548031`) fallaba con
+  `HTTP 502: "Error de score: Por favor, corregir los campos faltantes"` —
+  WinForce no dice cuál campo falta. DNI ya funcionaba (verificado
+  2026-09-25); RUC nunca se había probado contra WinForce real.
+- **Hipótesis descartada con datos**: se probó RUC con y sin coordenadas
+  contra el proxy real (mismo error en ambos casos) — descarta que las
+  coordenadas sean la causa. Se había puesto un guard en la GUI basado en
+  esa hipótesis y se **revirtió** de inmediato al quedar refutada (no tenía
+  sentido dejar un mensaje que afirmaba una causa falsa).
+- **Causa real, encontrada con una captura**: el usuario corrió
+  `tools/captura.py`, hizo un score de RUC real desde la interfaz de
+  WinForce (exitoso: Puntaje 575/ALTO), y se comparó ese payload campo por
+  campo contra `validar_score()`. Dos diferencias:
+  1. `data[tipo_doc]` usa el **Catálogo 06 de SUNAT** (1=DNI, 4=CE, 6=RUC),
+     no la tabla interna de la app (1=DNI/2=CE/3=RUC) que sí alimenta
+     correctamente `tipo_doc_value`/`tipo_doc_text`. DNI funcionaba porque
+     en ambas tablas DNI=1 — coincidencia que ocultó el bug hasta probar RUC.
+  2. El campo de longitud se llama `logintud` en WinForce (typo real de
+     ellos) — con `longitud` (bien escrito) WinForce simplemente no lo ve.
+- **Fix**: `TIPO_DOC_SUNAT` (NUEVO en `core/api.py`) para `data[tipo_doc]`;
+  `TIPOS_DOCUMENTO` se sigue usando solo para `tipo_doc_value`/`tipo_doc_text`;
+  la clave del payload pasa de `"longitud"` a `"logintud"`.
+- **2 tests nuevos** en `test_api.py` (la tabla SUNAT difiere de la interna
+  para RUC; el payload de un RUC manda `tipo_doc=6` y `tipo_doc_value=3` a
+  la vez) + 1 test existente actualizado (`data[longitud]` → `data[logintud]`).
+- **Verificado en vivo, dos veces** (con el servicio reiniciado para cargar
+  el fix y la sesión renovada — la sesión de pruebas de este día murió y se
+  renovó varias veces en el camino): `POST /api/score` para el RUC
+  `10096548031` con coordenadas devolvió `Score 575 / ALTO` — **el mismo
+  puntaje exacto** que la captura del navegador. Confirma que el "payload
+  mínimo" (geodata en blanco) sigue valiendo para RUC una vez corregidos
+  esos dos campos — no hizo falta replicar el reverse-geocoding de Equifax.
+- **CE queda sin confirmar**: se probó CE `007187041` con `tipo_doc=4`
+  (hipótesis, mismo catálogo SUNAT) y también con el `2` de antes — ambos
+  devolvieron `success` sin puntaje. No decide la hipótesis (compatible con
+  que ese documento de prueba no tenga historial real en Equifax).
+- **240 tests, ruff limpio.**
+
 ### Sesión 2026-09-29 — reconfirmar antes de declarar la sesión muerta + bitácora de eventos
 - **Origen**: el usuario reportó que "a veces la sesión se cierra" sin saber la
   causa (¿otro login?, ¿el proxy se cae?, ¿sin conexión?, ¿la extensión?,

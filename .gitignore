@@ -41,6 +41,11 @@ Desktop.ini
 # Logs de herramientas de diagnostico locales (tools/medir_*.py)
 *.log
 
+# Logs del servicio del proxy (winsw.*.log) + bitacora de eventos de sesion
+# (logs/sesion_eventos.jsonl, 2026-09-29): *.log ya los cubre, pero el .jsonl
+# no matcheaba y dejaba logs/ como carpeta sin trackear.
+logs/
+
 # Documentación privada interna
 Contexto_Proyecto_JSConnect.docx
 *.docx

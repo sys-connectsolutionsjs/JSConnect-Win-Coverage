@@ -68,6 +68,74 @@ en `HistorialResumenes.md` + cierre en `AGENTS.md`, al abrir esta sesión.
   (estado `Reconfirmando`), `TestingLog.md`.
 - **235 tests, ruff limpio.**
 
+## Tercera parte de la sesión — Enter valida + textos de riesgo/puntaje más claros
+
+- Pedido nuevo: que Enter dispare la misma validación que el botón VALIDAR, y
+  que los textos de resultado digan explícitamente "riesgo" y qué significa
+  "válido" (el booleano solo indica que WinForce devolvió un puntaje, no que
+  el cliente esté aprobado).
+- `validator_app/gui/main_window.py`: `<Return>`/`<KP_Enter>` bindeados a la
+  ventana (no por Entry, para no interferir con los diálogos `Toplevel`
+  aparte); guard contra doble disparo si el botón ya está deshabilitado.
+  Texto del score pasa de `"Score: 423 — MUY ALTO — VALIDO"` a
+  `"Score: 423 — riesgo: MUY ALTO — puntaje obtenido"`.
+- Verificado con una `App()` real (mainloop de verdad): Enter dispara la
+  validación una sola vez; el guard bloquea Enter repetido mientras corre.
+- **235 → 238 tests** (no se tocó código de sesión), ruff limpio.
+
+## Cuarta parte — fix del auto-actualizador (segunda ventana rota)
+
+- **Bug real reportado**: tras aplicar una actualización, la app no se
+  cerraba (nada la cerraba), el `updater.bat` esperaba un timeout fijo de 2s
+  y hacía `move /y` sin comprobar si funcionó — el `.exe` seguía bloqueado,
+  el move fallaba en silencio, y el `start` de después relanzaba la
+  **versión vieja**. De ahí la segunda ventana, el diálogo de "Configurar
+  Proxy" roto (dos procesos vivos con su propio `ProxyClient` en memoria), y
+  por qué "Buscar actualizaciones" seguía ofreciendo la misma versión.
+- **Fix**: `validator_app/updater/download.py` — el `.bat` generado ahora
+  espera activamente a que el PID del proceso actual desaparezca, reintenta
+  el `move` con chequeo de `errorlevel`, y solo relanza si funcionó. La GUI
+  (`main_window.py`) cierra la app sola (`self.destroy()` tras un aviso
+  breve) en cuanto la descarga+verificación terminan, con un diálogo modal de
+  progreso (barra indeterminada) mientras corre. El diálogo de "actualización
+  disponible" deja de mostrar los checksums SHA-256 crudos de las notas del
+  Release (confundían al usuario, los tomó por commits).
+- Verificado con una `App()` real: diálogo de progreso aparece/desaparece,
+  la app se autodestruye sola tras éxito simulado, se queda abierta si falla.
+  3 tests nuevos sobre el contenido del `.bat`. **238 tests, ruff limpio.**
+- **Build y Release**: reconstruido `JSConnect-Win-Coverage.exe` (el owner no
+  cambió, se reutilizó); publicado Release **`v2026.09.29.1`**.
+
+## Quinta parte — bug real: el score de RUC fallaba con "campos faltantes"
+
+- **Origen**: probando la app real con RUC `10096548031`, WinForce rechazaba
+  el score con `HTTP 502: "Por favor, corregir los campos faltantes"`.
+- **Hipótesis descartada con datos**: se armó un guard en la GUI asumiendo
+  que RUC necesitaba coordenadas — se probó en vivo contra el proxy real
+  (RUC con y sin coordenadas, mismo error en ambos) y quedó refutada. El
+  guard se revirtió de inmediato.
+- **Causa real encontrada con una captura real**: el usuario corrió
+  `tools/captura.py`, hizo un score de RUC exitoso desde la propia interfaz
+  de WinForce (575/ALTO), y comparando ese payload campo por campo contra el
+  código aparecieron 2 diferencias: `data[tipo_doc]` usa el **Catálogo 06 de
+  SUNAT** (1=DNI, 4=CE, 6=RUC) — no la tabla interna de la app que alimenta
+  `tipo_doc_value`/`tipo_doc_text` — y el campo de longitud se llama
+  `logintud` en WinForce (typo real de ellos, no `longitud`).
+- **Fix**: `TIPO_DOC_SUNAT` nuevo en `core/api.py`, usado solo para
+  `data[tipo_doc]`; la clave del payload pasa a `"logintud"`. 2 tests nuevos
+  + 1 actualizado.
+- **Verificado en vivo, dos veces** (con reinicio del servicio para cargar
+  el fix y renovaciones de sesión en el camino — la sesión de pruebas murió
+  varias veces): `POST /api/score` para el RUC con coordenadas devolvió
+  **Score 575/ALTO — el mismo puntaje exacto que la captura del navegador**.
+  Confirma que el "payload mínimo" (geodata en blanco) sigue valiendo para
+  RUC una vez corregidos esos dos campos.
+- **CE queda sin confirmar**: se probó con `tipo_doc=4` (hipótesis) y con el
+  `2` de antes — ambos devuelven `success` sin puntaje. Compatible con que
+  el documento de prueba (`007187041`) no tenga historial real en Equifax;
+  no decide la hipótesis.
+- **240 tests, ruff limpio.**
+
 ## Pendiente al cerrar hoy
 
 - **Verificación en vivo pendiente** (no reproducible desde este entorno):
@@ -78,6 +146,8 @@ en `HistorialResumenes.md` + cierre en `AGENTS.md`, al abrir esta sesión.
   en WinForce, login desde otra PC) — ver `docs/rotacion-credenciales.md`.
 - Verificar contra el código la afirmación de `Escalabilidad.md` puesta en duda
   el 2026-09-27 (sigue abierto).
+- Confirmar la hipótesis de CE (`tipo_doc=4`) con un documento de prueba que
+  sí tenga historial real en Equifax.
 - Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5
   de documentación, decisión de `actualizar_score_cliente`/`newsearch.php`)
   sigue abierto.
