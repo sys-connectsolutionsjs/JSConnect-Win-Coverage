@@ -120,6 +120,10 @@ class App(ttk.Window):
             main, text="VALIDAR", command=self._validar, bootstyle="primary"
         )
         self.btn_validar.grid(row=4, column=0, columnspan=2, pady=10, sticky="we")
+        # Enter equivale a hacer clic en VALIDAR (bind en la ventana, no por
+        # Entry: los dialogos de configuracion son Toplevel aparte y no lo heredan).
+        self.bind("<Return>", self._on_enter_valida)
+        self.bind("<KP_Enter>", self._on_enter_valida)  # Enter del teclado numerico
 
         frame_res = ttk.LabelFrame(main, text="Resultado", padding=10, bootstyle="info")
         frame_res.grid(row=5, column=0, columnspan=2, sticky="we")
@@ -277,6 +281,11 @@ class App(ttk.Window):
         except ValueError:
             self.lbl_tipo.config(text="Tipo: \u2014")
 
+    def _on_enter_valida(self, _event=None):
+        if self.btn_validar.instate(["disabled"]):
+            return  # ya hay una validacion en curso
+        self._validar()
+
     def _validar(self):
         texto_coords = self.txt_coordenadas.get().strip()
         lat = lon = None
@@ -391,8 +400,10 @@ class App(ttk.Window):
         score = resultado.get("score")
         if score:
             riesgo = score.get("riesgo") or "?"
-            texto_score = f"Score: {score.get('valor', '?')} \u2014 {riesgo} \u2014 "
-            texto_score += "VALIDO" if score.get("valido") else "NO VALIDO"
+            texto_score = f"Score: {score.get('valor', '?')} \u2014 riesgo: {riesgo} \u2014 "
+            # "valido" solo indica que WinForce devolvio un puntaje numerico,
+            # no que el cliente este aprobado para la venta (core/api.py).
+            texto_score += "puntaje obtenido" if score.get("valido") else "puntaje no disponible"
             self.lbl_score.config(
                 text=texto_score,
                 bootstyle=_bootstyle_riesgo(score.get("riesgo")),
