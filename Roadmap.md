@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-09-27.
+Última actualización: 2026-09-29.
 
 ---
 
@@ -12,9 +12,11 @@ cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 El núcleo, proxy, keepalive, extensión, GUI, detección de sesión muerta,
 persistencia bajo LocalSystem y activación RSA están construidos y probados. La
 consola owner también generó un código que activó correctamente un agente. El
-siguiente paso es cerrar el ensayo completo en la PC de desarrollo (en curso desde
-2026-09-18) y luego instalar y validar el servicio en la PC owner oficial; nada
-corre en producción todavía.
+score de RUC y el auto-actualizador, ambos con bugs reales encontrados en el
+primer uso real del agente, quedaron corregidos y verificados en vivo
+(2026-09-29). El siguiente paso es cerrar el ensayo completo en la PC de
+desarrollo (en curso desde 2026-09-18) y luego instalar y validar el servicio en
+la PC owner oficial; nada corre en producción todavía.
 
 ---
 
@@ -45,6 +47,11 @@ corre en producción todavía.
 | 2026-09-25 | **Validar cobertura o score por separado** — el botón VALIDAR ya no exige coordenadas Y documento a la vez; verificado en vivo contra WinForce real (score sin coordenadas, DNI de prueba 10412031). Release `v2026.09.25.1`, 212 tests | `513a2f7` |
 | 2026-09-25 | **Rediseño visual (3 etapas)** — iconos distintos agente/owner/extensión (bug de bundling de Pillow corregido en el camino), tema ttkbootstrap (agente claro `cosmo` / owner oscuro `superhero`) con indicadores de cobertura/score coloreados por riesgo y fix de contraste WCAG en el owner, barra lateral de navegación extensible en el agente (rediseñada a ítem plano tras feedback). 219 tests | `d45d221`…`fefc16a` |
 | 2026-09-27 | **Diagramas PlantUML versionados y corregidos** — `docs/DiagramasUML/` nunca se había commiteado (regla de `.gitignore` rota); movidos a `docs/diagramas/` (8 diagramas, incluida la consola owner que faltaba), corregidos contra el código real, `tests/test_diagramas.py` como guarda. 224 tests | `6119b6e`, `a465d56` |
+| 2026-09-29 | **Reconfirmar antes de declarar la sesión muerta + bitácora de eventos** — falso positivo real (`/health` marcó "MUERTA" una sesión viva tras un solo timeout); `_confirmar_muerte()` reintenta antes de decidir; `logs/sesion_eventos.jsonl` registra cada renovación/muerte con causa y edad de la cookie. 235 tests | `3c3d4c1`, `dc7f4ea` |
+| 2026-09-29 | **Enter valida + textos de riesgo/puntaje más claros** — `<Return>`/`<KP_Enter>` disparan la validación; "MUY ALTO" pasa a "riesgo: MUY ALTO" y "VALIDO" a "puntaje obtenido" (no implica aprobación). 238 tests | `c30f783` |
+| 2026-09-29 | **Fix del auto-actualizador** — la app no se cerraba al actualizar, el `.bat` movía el `.exe` sin comprobar el resultado y relanzaba la versión vieja (segunda ventana, diálogo de proxy roto). Ahora espera el cierre real del proceso, reintenta el `move`, y la GUI se cierra sola con una barra de progreso. Release `v2026.09.29.1`, 238 tests | `71337be` |
+| 2026-09-29 | **Fix: el score de RUC fallaba con "campos faltantes"** — `data[tipo_doc]` usa el Catálogo 06 de SUNAT (6 para RUC, no 3) y el campo de longitud se llama `logintud` en WinForce (typo real de ellos). Encontrado comparando una captura real de `tools/captura.py` contra el payload; verificado en vivo dos veces (mismo puntaje 575/ALTO que la captura del navegador). Release `v2026.09.29.2`, 240 tests | `9395033` |
+| 2026-09-29 | **Icono nuevo de la extensión de Chrome** — reemplaza el cuadrado verde con flecha por un recuadro naranja con bordes redondeados y la "W" de Win | `136d225` |
 
 ---
 
@@ -96,6 +103,19 @@ se actualizaron los documentos afectados por activación y handoff; los snapshot
 anteriores permanecen inmutables.
 
 ---
+
+## Investigaciones abiertas (2026-09-29)
+
+- **"Dos logins en paralelo" invalidan la sesión** — hipótesis abierta desde
+  el 2026-09-18, sigue sin confirmar. Tabla de experimentos lista en
+  `docs/rotacion-credenciales.md` ("¿Por qué se cerró la sesión?").
+- **`tipo_doc=4` para CE** en el Catálogo 06 de SUNAT — corregido en el
+  código junto con el fix de RUC, pero sin confirmar con una captura real:
+  el único CE probado no tenía historial en Equifax. Repetir con un CE que
+  sí tenga reporte.
+- **Duda del usuario en `Escalabilidad.md`** (2026-09-27, comentario a mano
+  bajo "No hay que reescribir nada para escalar") — sin revisar contra el
+  código todavía.
 
 ## Backlog v1.1
 

@@ -443,6 +443,16 @@ Es **la última** — después de 0.5 / C.12 / D / E.
   en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
+- **Confirmar "dos logins en paralelo" invalidan la sesión** (hipótesis
+  abierta desde 2026-09-18, sin confirmar) — tabla de experimentos en
+  `docs/rotacion-credenciales.md` ("¿Por qué se cerró la sesión?").
+- **Confirmar `tipo_doc=4` para CE** (Catálogo 06 SUNAT) — corregido en el
+  código junto con el fix de score de RUC (2026-09-29, `9395033`), pero sin
+  confirmar con una captura real: el único CE probado (`007187041`) no
+  tenía historial en Equifax, así que no decidió la hipótesis.
+- **Revisar la duda del usuario en `Escalabilidad.md`** (comentario a mano,
+  2026-09-27, bajo "No hay que reescribir nada para escalar") contra el
+  código real.
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
 - ~~Conectar GUI a core end-to-end~~ → **absorbido por el plan "Sesión WinForce robusta"
   (Fase 3)**.
