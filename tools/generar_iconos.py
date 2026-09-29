@@ -11,10 +11,9 @@ ver requirements.txt). Los archivos que produce este script SI se commitean
 Uso: python tools/generar_iconos.py
 """
 
-import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 RAIZ = Path(__file__).resolve().parent.parent
 ICONS_DIR = RAIZ / "assets" / "icons"
@@ -28,8 +27,12 @@ TAMANOS_ICO = [16, 32, 48, 256]
 AZUL_AGENTE = (39, 128, 227)  # ttkbootstrap "cosmo" primary
 NAVY_OWNER = (27, 42, 74)
 AMBAR_OWNER = (243, 156, 18)  # ttkbootstrap "superhero" warning/accent
-VERDE_EXTENSION = (10, 125, 44)  # color exacto del icon.png anterior
+NARANJA_EXTENSION = (230, 126, 34)  # naranja solido, distinto del ambar del owner
 BLANCO = (255, 255, 255)
+
+# Arial Bold viene con Windows 10 (unica plataforma soportada, ver AGENTS.md) --
+# la fuente mas simple y segura para dibujar una letra limpia y legible.
+FUENTE_BOLD = Path("C:/Windows/Fonts/arialbd.ttf")
 
 
 def _fondo_redondeado(color, radio_frac=0.22):
@@ -89,31 +92,18 @@ def generar_icono_owner() -> Image.Image:
     return img
 
 
-def generar_icono_extension(lienzo: int) -> Image.Image:
-    """Cuadrado verde (mismo color que el icono anterior) con una flecha
-    circular blanca (identidad "renovar sesion"). Sin esquinas redondeadas:
-    Chrome ya recorta el icono en su propia UI."""
-    img = Image.new("RGB", (lienzo, lienzo), VERDE_EXTENSION)
-    draw = ImageDraw.Draw(img)
-    cx, cy = lienzo // 2, lienzo // 2
-    r = int(lienzo * 0.30)
-    grosor = max(2, int(lienzo * 0.09))
-    # Arco de ~270 grados (deja un hueco para la "flecha" de refresco).
-    bbox = [cx - r, cy - r, cx + r, cy + r]
-    draw.arc(bbox, start=-40, end=230, fill=BLANCO, width=grosor)
-    # Cabeza de flecha en el extremo del arco (start=-40).
-    ang = math.radians(-40)
-    punta_x = cx + r * math.cos(ang)
-    punta_y = cy + r * math.sin(ang)
-    tam = int(lienzo * 0.11)
-    draw.polygon(
-        [
-            (punta_x, punta_y - tam),
-            (punta_x + tam, punta_y + tam * 0.3),
-            (punta_x - tam * 0.2, punta_y + tam),
-        ],
-        fill=BLANCO,
-    )
+def generar_icono_extension() -> Image.Image:
+    """Cuadrado naranja con esquinas redondeadas y una "W" blanca (de "Win",
+    la empresa) como simbolo -- reemplaza el cuadrado verde con flecha
+    anterior (pedido explicito del owner, 2026-09-29)."""
+    img, draw = _fondo_redondeado(NARANJA_EXTENSION)
+    fuente = ImageFont.truetype(str(FUENTE_BOLD), int(LIENZO * 0.62))
+    texto = "W"
+    bbox = draw.textbbox((0, 0), texto, font=fuente)
+    ancho, alto = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    x = (LIENZO - ancho) / 2 - bbox[0]
+    y = (LIENZO - alto) / 2 - bbox[1]
+    draw.text((x, y), texto, font=fuente, fill=BLANCO)
     return img
 
 
@@ -137,9 +127,10 @@ def main() -> int:
     guardar_png(owner, ICONS_DIR / "owner.png")
     guardar_ico(owner, ICONS_DIR / "owner.ico")
 
-    guardar_png(generar_icono_extension(128), EXTENSION_DIR / "icon.png")
-    guardar_png(generar_icono_extension(48), EXTENSION_DIR / "icon48.png")
-    guardar_png(generar_icono_extension(16), EXTENSION_DIR / "icon16.png")
+    extension = generar_icono_extension()
+    guardar_png(extension, EXTENSION_DIR / "icon.png", 128)
+    guardar_png(extension, EXTENSION_DIR / "icon48.png", 48)
+    guardar_png(extension, EXTENSION_DIR / "icon16.png", 16)
 
     print("Generados:")
     for p in [
