@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import ipaddress
 import json
 import logging
@@ -34,6 +35,7 @@ import threading
 import time
 import urllib.request
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -59,6 +61,19 @@ EVENTO_SESION_RENOVADA = 102
 # intervalo completo): acorta la ventana ciega si el arranque no pudo confirmar
 # el estado de la sesion (WinForce/red caidos en ese momento).
 KEEPALIVE_PRIMER_TICK_SEGUNDOS = 60
+
+# Antes de declarar la sesion muerta por una sola respuesta fallida de WinForce
+# (que puede ser un timeout o un error puntual, no la cookie invalida), se
+# espera este tiempo y se reintenta una vez. Los tests lo ponen en 0
+# (ver tests/conftest.py) para no volverse lentos.
+SESSION_CONFIRM_DELAY_SECONDS = 3.0
+
+# Bitacora persistente de eventos de sesion (renovada/muerta/etc), para poder
+# diagnosticar despues de que una cookie caduco: sin esto, todo el estado vive
+# en memoria y se pierde al reiniciar el proceso. Anclada a la raiz del repo
+# (no al cwd, que el servicio de Windows fija pero un test no) para que quede
+# junto a logs/winsw.*.log.
+EVENTOS_LOG_PATH = Path(__file__).resolve().parents[2] / "logs" / "sesion_eventos.jsonl"
 
 
 class SesionCaducadaError(core_api.APIError):
@@ -96,6 +111,65 @@ _KEEPALIVE_COORDS: list[tuple[float, float]] = [
     (-12.068486573439170, -77.039798169965209),
     (-12.061203707094689, -77.037233988170613),
 ]
+
+
+def _cookie_id(php_sessid: str) -> str:
+    """Identificador corto y no reversible de una cookie, para la bitacora:
+    permite ver si la cookie cambio entre dos eventos sin guardar el secreto."""
+    return hashlib.sha256(php_sessid.encode("utf-8")).hexdigest()[:8]
+
+
+def _leer_eventos_sesion(limite: int = 10) -> list[dict]:
+    """Ultimos `limite` eventos de la bitacora, mas reciente al final. Best
+    effort: un archivo ausente o corrupto no debe tumbar /admin/status."""
+    if not EVENTOS_LOG_PATH.exists():
+        return []
+    eventos: list[dict] = []
+    with contextlib.suppress(Exception), EVENTOS_LOG_PATH.open("r", encoding="utf-8") as f:
+        for linea in f:
+            linea = linea.strip()
+            if not linea:
+                continue
+            with contextlib.suppress(ValueError):
+                eventos.append(json.loads(linea))
+    return eventos[-limite:]
+
+
+def _edad_cookie_s(cookie_id: str) -> float | None:
+    """Segundos desde el ultimo evento `renovada` de esta cookie, releyendo la
+    bitacora en disco -- asi la edad sobrevive a un reinicio del proceso.
+    None si esta cookie nunca aparecio como renovada (bitacora nueva/vacia)."""
+    ultimo_ts: str | None = None
+    for evento in _leer_eventos_sesion(limite=10**6):
+        if evento.get("evento") == "renovada" and evento.get("cookie_id") == cookie_id:
+            ultimo_ts = evento.get("ts")
+    if not ultimo_ts:
+        return None
+    with contextlib.suppress(ValueError):
+        epoch = time.mktime(time.strptime(ultimo_ts, "%Y-%m-%dT%H:%M:%S"))
+        return time.time() - epoch
+    return None
+
+
+def _registrar_evento_sesion(
+    evento: str, origen: str, php_sessid: str | None, detalle: str = ""
+) -> None:
+    """Anota un evento en `logs/sesion_eventos.jsonl`. Best-effort: nunca debe
+    tumbar al caller (ni la peticion HTTP ni el tick del keepalive)."""
+    cookie_id = _cookie_id(php_sessid) if php_sessid else None
+    edad = _edad_cookie_s(cookie_id) if cookie_id and evento != "renovada" else None
+    registro = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "evento": evento,
+        "origen": origen,
+        "cookie_id": cookie_id,
+        "edad_cookie_s": round(edad) if edad is not None else None,
+        "detalle": detalle[:200],
+    }
+    with contextlib.suppress(Exception):
+        EVENTOS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with EVENTOS_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(registro, ensure_ascii=False) + "\n")
 
 
 # Modelos Pydantic para requests/responses
@@ -169,6 +243,7 @@ class AdminStatusResponse(BaseModel):
     proxy_version: str
     session_alive: bool
     keepalive: KeepaliveStatus
+    sesion_eventos: list[dict] = []
 
 
 # Wrapper ValidatorAPI para el proxy (singleton con persistencia)
@@ -271,15 +346,34 @@ class ProxyValidatorAPI:
         try:
             core_api.validar_cookie_sesion(php_sessid)
         except core_api.LoginError as e:
-            log.warning(
-                "Relogin fallido: la PHPSESSID guardada en keyring (%s) ya no esta activa "
-                "en WinForce: %s. %s",
-                keyring_ref,
-                e,
-                remedio,
-            )
-            self._marcar_sesion_muerta("relogin: la cookie del keyring tampoco vale")
-            return
+            estado, detalle = self._confirmar_muerte(php_sessid)
+            if estado == "VIVA":
+                log.info(
+                    "Relogin: la PHPSESSID del keyring (%s) parecia caducada pero se "
+                    "confirmo viva en el segundo intento.",
+                    keyring_ref,
+                )
+                _registrar_evento_sesion("falso_positivo_evitado", "relogin", php_sessid)
+            elif estado == "INDETERMINADO":
+                log.warning(
+                    "Relogin: no se pudo confirmar si la PHPSESSID del keyring (%s) "
+                    "sigue viva (%s); se reintentara en el proximo ciclo.",
+                    keyring_ref,
+                    detalle,
+                )
+                return
+            else:
+                log.warning(
+                    "Relogin fallido: la PHPSESSID guardada en keyring (%s) ya no esta activa "
+                    "en WinForce: %s. %s",
+                    keyring_ref,
+                    e,
+                    remedio,
+                )
+                self._marcar_sesion_muerta(
+                    "relogin: la cookie del keyring tampoco vale", detalle, php_sessid
+                )
+                return
         except Exception as e:
             log.exception(
                 "Relogin fallido: error inesperado validando la PHPSESSID contra WinForce: %s. "
@@ -373,13 +467,34 @@ class ProxyValidatorAPI:
         try:
             core_api.validar_cookie_sesion(php_sessid)
         except core_api.LoginError:
-            log.warning(
-                "Arranque: la cookie del keyring (%s) ya no esta activa en WinForce. %s",
-                keyring_ref,
-                remedio,
-            )
-            self._marcar_sesion_muerta("cookie del keyring caducada al arrancar")
-            return
+            estado, detalle = self._confirmar_muerte(php_sessid)
+            if estado == "VIVA":
+                log.info(
+                    "Arranque: la cookie del keyring (%s) parecia caducada pero se "
+                    "confirmo viva en el segundo intento.",
+                    keyring_ref,
+                )
+                _registrar_evento_sesion(
+                    "falso_positivo_evitado", "keyring_arranque", php_sessid
+                )
+            elif estado == "INDETERMINADO":
+                log.warning(
+                    "Arranque: no se pudo confirmar si la cookie del keyring (%s) "
+                    "sigue viva (%s); se reintentara en el primer tick del keepalive.",
+                    keyring_ref,
+                    detalle,
+                )
+                return
+            else:
+                log.warning(
+                    "Arranque: la cookie del keyring (%s) ya no esta activa en WinForce. %s",
+                    keyring_ref,
+                    remedio,
+                )
+                self._marcar_sesion_muerta(
+                    "cookie del keyring caducada al arrancar", detalle, php_sessid
+                )
+                return
         except Exception as e:
             log.warning(
                 "Arranque: no se pudo verificar la sesion contra WinForce (%s); "
@@ -440,10 +555,11 @@ class ProxyValidatorAPI:
         self._marcar_actividad()
         return resultado
 
-    def set_session_cookie(self, php_sessid: str) -> None:
+    def set_session_cookie(self, php_sessid: str, origen: str = "desconocido") -> None:
         """Inyecta y valida una cookie PHPSESSID obtenida de un login manual
-        en navegador (usado por /admin/login y /admin/rotar). Lanza
-        LoginError si la cookie no esta activa."""
+        en navegador (usado por /admin/login, /admin/rotar y /local/renovar).
+        Lanza LoginError si la cookie no esta activa. `origen` identifica el
+        canal en la bitacora de eventos (extension, admin_rotar, admin_login)."""
         core_api.validar_cookie_sesion(php_sessid)
         client = self._get_client()
         client.set_session_cookies({"PHPSESSID": php_sessid})
@@ -453,6 +569,7 @@ class ProxyValidatorAPI:
         # El owner renovo la cookie: la sesion vuelve a estar sana.
         self._marcar_sesion_viva()
         self._invalidate_session_alive_cache()
+        _registrar_evento_sesion("renovada", origen, php_sessid)
 
     def _invalidate_session_alive_cache(self) -> None:
         """Fuerza que el proximo get_status() vuelva a preguntarle a WinForce."""
@@ -460,7 +577,30 @@ class ProxyValidatorAPI:
 
     # ------------------- estado de la sesion + aviso al owner ------------------
 
-    def _marcar_sesion_muerta(self, motivo: str) -> None:
+    def _confirmar_muerte(self, php_sessid: str) -> tuple[str, str]:
+        """Reconfirma una `LoginError` antes de declarar la sesion muerta: una
+        sola respuesta fallida de WinForce puede ser un timeout o un error
+        puntual, no la cookie invalida (ver AGENTS.md, falso positivo
+        2026-09-29: `/health` marco MUERTA una sesion que seguia viva tras un
+        solo ReadTimeout). Espera SESSION_CONFIRM_DELAY_SECONDS y reintenta.
+
+        Devuelve (estado, detalle):
+        - ("MUERTA", detalle) si el segundo intento tambien da LoginError.
+        - ("VIVA", "") si el segundo intento pasa.
+        - ("INDETERMINADO", detalle) si el segundo intento es otro error
+          (red/WinForce caido): no se puede confirmar en ningun sentido."""
+        time.sleep(SESSION_CONFIRM_DELAY_SECONDS)
+        try:
+            core_api.validar_cookie_sesion(php_sessid)
+        except core_api.LoginError as e:
+            return "MUERTA", str(e)[:200]
+        except Exception as e:
+            return "INDETERMINADO", str(e)[:200]
+        return "VIVA", ""
+
+    def _marcar_sesion_muerta(
+        self, motivo: str, detalle: str = "", php_sessid: str | None = None
+    ) -> None:
         """Único sitio que pone `_session_dead_since`. Idempotente: si ya estaba
         marcada, no re-loguea ni re-notifica (evita spam mientras el owner
         renueva)."""
@@ -468,13 +608,15 @@ class ProxyValidatorAPI:
             return
         self._session_dead_since = time.time()
         log.error(
-            "sesion WinForce MUERTA (%s). El re-login programatico es inviable "
+            "sesion WinForce MUERTA (%s)%s. El re-login programatico es inviable "
             "por el 2FA de Microsoft. AVISO AL OWNER: renueva la cookie -> badge "
             "rojo de la extension de Chrome (1 clic), o icono 'Renovar sesion "
             "WinForce' del Escritorio, o POST /admin/rotar.",
             motivo,
+            f" [detalle: {detalle}]" if detalle else "",
         )
         self._disparar_aviso("sesion_caducada", motivo)
+        _registrar_evento_sesion("muerta", motivo, php_sessid, detalle)
 
     def _marcar_sesion_viva(self) -> None:
         """Único sitio que limpia `_session_dead_since`. Idempotente."""
@@ -552,11 +694,31 @@ class ProxyValidatorAPI:
         ):
             return self._session_alive
 
+        detalle = ""
         try:
             core_api.validar_cookie_sesion(php_sessid)
             alive = True
-        except core_api.LoginError:
-            alive = False
+        except core_api.LoginError as e:
+            # No declarar muerte con una sola respuesta fallida: puede ser
+            # WinForce lento, no la cookie invalida (falso positivo real visto
+            # el 2026-09-29: un ReadTimeout puntual marco MUERTA una sesion
+            # que seguia viva). Reconfirmar antes de decidir.
+            estado, detalle = self._confirmar_muerte(php_sessid)
+            if estado == "INDETERMINADO":
+                log.warning(
+                    "No se pudo confirmar si la sesion sigue viva tras el segundo "
+                    "intento (%s); session_alive se reporta como False sin cachear.",
+                    detalle,
+                )
+                return False
+            alive = estado == "VIVA"
+            if alive:
+                log.info(
+                    "La sesion parecia caducada (%s) pero se confirmo viva en el "
+                    "segundo intento -- se evito un falso positivo.",
+                    e,
+                )
+                _registrar_evento_sesion("falso_positivo_evitado", "health", php_sessid)
         except Exception as e:
             # Un fallo de red no prueba que la sesion este muerta: se reporta
             # como no-viva para este chequeo, pero no se cachea.
@@ -576,7 +738,9 @@ class ProxyValidatorAPI:
         if alive:
             self._marcar_sesion_viva()
         else:
-            self._marcar_sesion_muerta("verificación de estado (/health · /admin/status)")
+            self._marcar_sesion_muerta(
+                "verificación de estado (/health · /admin/status)", detalle, php_sessid
+            )
         return alive
 
     # ---------------------- keepalive ("latido perezoso") ----------------------
@@ -621,8 +785,28 @@ class ProxyValidatorAPI:
         try:
             core_api.validar_cookie_sesion(php_sessid)
         except core_api.LoginError:
+            estado, detalle = self._confirmar_muerte(php_sessid)
+            if estado == "VIVA":
+                log.warning(
+                    "keepalive: el ping fallo pero la sesion sigue viva tras "
+                    "reconfirmar -> fallo del endpoint, no de la sesion (%s).",
+                    exc,
+                )
+                _registrar_evento_sesion("falso_positivo_evitado", "keepalive", php_sessid)
+                return {"accion": "ping", "resultado": "TRANSITORIO", "error": str(exc)}
+            if estado == "INDETERMINADO":
+                log.warning(
+                    "keepalive: el ping fallo y no se pudo confirmar si la sesion "
+                    "sigue viva tras reintentar (%s); se reintenta en el proximo "
+                    "ciclo. Detalle del ping: %s",
+                    detalle,
+                    exc,
+                )
+                return {"accion": "ping", "resultado": "INDETERMINADO", "error": str(exc)}
             if self._session_dead_since is None:
-                self._marcar_sesion_muerta(f"keepalive: ping fallido ({exc})")
+                self._marcar_sesion_muerta(
+                    f"keepalive: ping fallido ({exc})", detalle, php_sessid
+                )
             else:
                 log.warning(
                     "keepalive: la sesion WinForce sigue muerta (%s fallos "
@@ -870,14 +1054,14 @@ async def admin_config():
 @app.post("/admin/login", dependencies=[Depends(verify_admin_key)])
 async def admin_login(request: AdminCookieRequest):
     proxy_api = get_proxy_api()
-    proxy_api.set_session_cookie(request.php_sessid)
+    proxy_api.set_session_cookie(request.php_sessid, origen="admin_login")
     return {"ok": True, "message": "Cookie WinForce validada y guardada"}
 
 
 @app.post("/admin/rotar", dependencies=[Depends(verify_admin_key)])
 async def admin_rotar(request: AdminCookieRequest):
     proxy_api = get_proxy_api()
-    proxy_api.set_session_cookie(request.php_sessid)
+    proxy_api.set_session_cookie(request.php_sessid, origen="admin_rotar")
     return {"ok": True, "message": "Cookie rotada y guardada en keyring"}
 
 
@@ -896,6 +1080,7 @@ async def admin_status():
         proxy_version=status["proxy_version"],
         session_alive=status["session_alive"],
         keepalive=KeepaliveStatus(**status["keepalive"]),
+        sesion_eventos=_leer_eventos_sesion(),
     )
 
 
@@ -908,7 +1093,7 @@ async def admin_status():
 @app.post("/local/renovar", dependencies=[Depends(_es_local)])
 async def local_renovar(request: AdminCookieRequest):
     proxy_api = get_proxy_api()
-    proxy_api.set_session_cookie(request.php_sessid)
+    proxy_api.set_session_cookie(request.php_sessid, origen="extension")
     return {"ok": True, "message": "Sesion renovada desde la extension"}
 
 

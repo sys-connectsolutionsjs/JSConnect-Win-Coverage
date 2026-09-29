@@ -57,6 +57,45 @@ Cuando el proxy confirma que la sesión WinForce murió (`_marcar_sesion_muerta(
 
 ---
 
+## B
+
+### Bitácora de eventos de sesión (`logs/sesion_eventos.jsonl`, 2026-09-29)
+Registro persistente (sobrevive reinicios del proceso) de cada cambio de estado
+de la sesión WinForce del proxy, para diagnosticar "¿por qué se cerró la
+sesión?" sin adivinar. Escrito por `_registrar_evento_sesion()` en
+`validator_app/proxy/server.py`, `logs/sesion_eventos.jsonl` (una línea JSON
+por evento, junto a `logs/winsw.*.log`).
+- Campos: `ts`, `evento` (`renovada` / `muerta` / `falso_positivo_evitado`),
+  `origen` (extensión, `admin_rotar`, `admin_login`, `/health`, `keepalive`,
+  arranque), `cookie_id` (`sha256(PHPSESSID)[:8]` — identifica si cambió la
+  cookie sin guardar el secreto), `edad_cookie_s` (segundos desde el último
+  `renovada` con el mismo `cookie_id`, recalculado releyendo la bitácora — no
+  un contador en memoria), `detalle` (el mensaje de `LoginError`, recortado).
+- Best-effort: un fallo de disco al escribir nunca propaga (`contextlib.suppress`).
+- Se lee con `Get-Content logs\sesion_eventos.jsonl -Tail 20` o vía
+  `/admin/status` (campo `sesion_eventos`, últimos 10). Guía de lectura por
+  patrón en `docs/rotacion-credenciales.md` → "¿Por qué se cerró la sesión?".
+- Ver también "Reconfirmación antes de declarar sesión muerta" (abajo) y
+  "Dos límites de sesión" (sección M).
+
+### Reconfirmación antes de declarar sesión muerta (`_confirmar_muerte`, 2026-09-29)
+Una sola respuesta fallida de `validar_cookie_sesion()` (timeout, error
+puntual de WinForce) ya no basta para marcar `_session_dead_since`. Falso
+positivo real que motivó el fix: 2026-09-29, `/health` recibió un
+`ReadTimeout` de 30s y marcó "MUERTA" una sesión que, tras reiniciar el
+servicio, resultó seguir viva (la cookie del keyring se validó sin problema).
+- `_confirmar_muerte(php_sessid)` espera `SESSION_CONFIRM_DELAY_SECONDS` (3s
+  en producción, 0 en tests vía fixture autouse) y reintenta una vez. Solo si
+  el segundo intento **también** da `LoginError` se declara "MUERTA"; si pasa,
+  "VIVA" (se anota `falso_positivo_evitado` en la bitácora); si da otro error
+  (red/WinForce caído), "INDETERMINADO" — no se marca ni se cachea, igual que
+  ya hacía el proxy ante un fallo de red en el primer intento.
+- Aplicado en los 4 sitios que antes marcaban muerte con un solo chequeo:
+  `_is_session_alive` (`/health`, `/admin/status`), `_keepalive_registrar_fallo`,
+  `_load_session_cookies` (arranque) y `_relogin_silent`.
+
+---
+
 ## C
 
 ### Cobertura (Validación de)

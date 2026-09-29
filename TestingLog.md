@@ -11,15 +11,15 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (212 en total, a 2026-09-25)
+## Inventario de tests (235 en total, a 2026-09-29)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
-| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) |
+| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) + **`bitacora_sesion_aislada` (aísla `logs/sesion_eventos.jsonl` en `tmp_path`) + `sin_espera_de_confirmacion` (pone `SESSION_CONFIRM_DELAY_SECONDS` en 0, 2026-09-29)** |
 | tests/test_fields.py | 7 | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
 | tests/test_api.py | 23 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding, **`validar_score` con `lat`/`lon` en `None` (payload en blanco, sin coordenadas)** |
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
-| tests/test_proxy.py | 47 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`) y **`/api/score` con `lat`/`lon` en `null` (2026-09-25)** |
+| tests/test_proxy.py | 58 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`), `/api/score` con `lat`/`lon` en `null` (2026-09-25) y **la reconfirmación `_confirmar_muerte()` antes de marcar sesión muerta + la bitácora `logs/sesion_eventos.jsonl` (2026-09-29)** |
 | tests/test_client.py | 4 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`); **`validar_score` sin coordenadas manda `null` en el body** |
 | tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
@@ -40,6 +40,48 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-29 — reconfirmar antes de declarar la sesión muerta + bitácora de eventos
+- **Origen**: el usuario reportó que "a veces la sesión se cierra" sin saber la
+  causa (¿otro login?, ¿el proxy se cae?, ¿sin conexión?, ¿la extensión?,
+  ¿cerrar el navegador?). Al revisar `logs/winsw.err.log` de esa misma mañana
+  apareció un falso positivo real: 10:52:10 sesión renovada → 10:57:40
+  `ReadTimeout` de 30s de WinForce en `/health` → 10:58:00 se marcó "MUERTA"
+  con esa única respuesta fallida → 10:58:37, tras reiniciar el servicio, la
+  misma cookie del keyring se validó sin problema.
+- **Rojo → verde**: 11 tests nuevos en `tests/test_proxy.py` (unitarios de
+  `_confirmar_muerte()` con los 3 desenlaces VIVA/MUERTA/INDETERMINADO,
+  regresión exacta del falso positivo en `_is_session_alive`, y la bitácora:
+  `set_session_cookie` escribe `renovada`, `_marcar_sesion_muerta` escribe
+  `muerta` con la edad de la cookie calculada releyendo el archivo —no un
+  contador en memoria—, un evento sin cookie no calcula edad, un fallo de
+  disco al escribir no propaga, y `/admin/status` expone `sesion_eventos`).
+- **Implementación**: `_confirmar_muerte()` (NUEVO en
+  `validator_app/proxy/server.py`) espera `SESSION_CONFIRM_DELAY_SECONDS` (3s)
+  y reintenta `validar_cookie_sesion()` una vez antes de declarar muerte;
+  aplicado en los 4 sitios que antes marcaban con un solo chequeo:
+  `_is_session_alive`, `_keepalive_registrar_fallo`, `_load_session_cookies` y
+  `_relogin_silent`. `_registrar_evento_sesion()` (NUEVO) escribe
+  `logs/sesion_eventos.jsonl` (best-effort, `contextlib.suppress`);
+  `set_session_cookie()` gana `origen=` (pasado desde `/local/renovar`,
+  `/admin/login`, `/admin/rotar`).
+- **Aislamiento**: dos fixtures autouse nuevas en `tests/conftest.py` —
+  `bitacora_sesion_aislada` (redirige `EVENTOS_LOG_PATH` a `tmp_path`, mismo
+  patrón que `keyring_en_memoria`) y `sin_espera_de_confirmacion` (pone
+  `SESSION_CONFIRM_DELAY_SECONDS` en 0 para no volver la suite lenta).
+- **Compatibilidad**: los 47 tests ya existentes de `test_proxy.py` siguieron
+  pasando sin tocarlos — los que mockeaban `core_api.validar_cookie_sesion`
+  con un único `side_effect` (una excepción, no una lista) ya cubrían la
+  reconfirmación de forma transparente, porque `mock` la vuelve a lanzar en
+  cada llamada.
+- **Documentación**: `docs/rotacion-credenciales.md` (sección nueva "¿Por qué
+  se cerró la sesión?" con tabla de patrones + qué SÍ/NO mata la sesión),
+  `anotaciones.md` (sección `## B` nueva), `docs/diagramas/02-estados-sesion-proxy.puml`
+  (estado `Reconfirmando` + nota de la bitácora).
+- **Verificación**: 235 tests, ruff limpio. La verificación en vivo (reiniciar
+  el servicio real, renovar con la extensión, confirmar la línea en el
+  archivo) queda para cuando el usuario lo corra en la PC del proxy — no es
+  reproducible desde este entorno de desarrollo.
 
 ### Sesión 2026-09-25 (cuarta parte) — validar cobertura o score por separado
 

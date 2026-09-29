@@ -6,8 +6,10 @@ con FastAPI TestClient — adelanta parte de la Fase 4).
 """
 
 import asyncio
+import json
 import time
 import types
+from pathlib import Path
 from unittest import mock
 
 import keyring
@@ -343,6 +345,152 @@ def test_load_session_cookies_no_marca_muerta_si_es_fallo_de_red(avisos_capturad
 
 
 # --------------------------------------------------------------------------
+# Reconfirmacion antes de declarar muerte (falso positivo real 2026-09-29:
+# `/health` marco MUERTA una sesion viva tras un solo ReadTimeout de WinForce)
+# --------------------------------------------------------------------------
+
+def test_confirmar_muerte_viva_si_el_segundo_intento_pasa():
+    pa = _mk_proxy_api()
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        estado, detalle = pa._confirmar_muerte("sess-1")
+    assert estado == "VIVA"
+    assert detalle == ""
+
+
+def test_confirmar_muerte_muerta_si_el_segundo_intento_tambien_falla():
+    err = core_api.LoginError("sesion no activa", "ERR_LOGIN_SESSION")
+    pa = _mk_proxy_api()
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=err):
+        estado, detalle = pa._confirmar_muerte("sess-1")
+    assert estado == "MUERTA"
+    assert "sesion no activa" in detalle
+
+
+def test_confirmar_muerte_indeterminado_si_el_segundo_intento_es_error_de_red():
+    pa = _mk_proxy_api()
+    with mock.patch.object(
+        core_api, "validar_cookie_sesion", side_effect=OSError("red caida")
+    ):
+        estado, detalle = pa._confirmar_muerte("sess-1")
+    assert estado == "INDETERMINADO"
+    assert "red caida" in detalle
+
+
+def test_is_session_alive_no_marca_muerta_con_un_solo_fallo_puntual():
+    """Regresion del falso positivo real: un timeout aislado de WinForce en
+    `_verificar_sesion_activa` no debe bastar para declarar la sesion muerta
+    si, reconfirmando, la cookie sigue activa."""
+    pa = _mk_proxy_api()
+    err = core_api.LoginError("HTTP 200 text/html", "ERR_LOGIN_SESSION")
+    with mock.patch.object(
+        core_api, "validar_cookie_sesion", side_effect=[err, None]
+    ):
+        alive = pa._is_session_alive("sess-1")
+
+    assert alive is True
+    assert pa._session_dead_since is None
+
+
+def test_is_session_alive_marca_muerta_si_el_segundo_intento_confirma(avisos_capturados):
+    pa = _mk_proxy_api()
+    err = core_api.LoginError("sesion no activa", "ERR_LOGIN_SESSION")
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=err):
+        alive = pa._is_session_alive("sess-1")
+
+    assert alive is False
+    assert pa._session_dead_since is not None
+    assert avisos_capturados == [
+        ("sesion_caducada", "verificación de estado (/health · /admin/status)")
+    ]
+
+
+def test_is_session_alive_indeterminado_no_marca_ni_cachea():
+    pa = _mk_proxy_api()
+    err = core_api.LoginError("sesion no activa", "ERR_LOGIN_SESSION")
+    with mock.patch.object(
+        core_api, "validar_cookie_sesion", side_effect=[err, OSError("red caida")]
+    ):
+        alive = pa._is_session_alive("sess-1")
+
+    assert alive is False
+    assert pa._session_dead_since is None
+    assert pa._session_alive_checked_at == 0.0  # no se cacheo
+
+
+# --------------------------------------------------------------------------
+# Bitacora persistente de eventos de sesion (logs/sesion_eventos.jsonl)
+# --------------------------------------------------------------------------
+
+def test_set_session_cookie_registra_evento_renovada():
+    pa = _mk_proxy_api()
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa.set_session_cookie("cookie-nueva", origen="extension")
+
+    eventos = server._leer_eventos_sesion()
+    assert len(eventos) == 1
+    assert eventos[0]["evento"] == "renovada"
+    assert eventos[0]["origen"] == "extension"
+    assert eventos[0]["cookie_id"] == server._cookie_id("cookie-nueva")
+    # cookie_id no permite recuperar la cookie original
+    assert "cookie-nueva" not in json.dumps(eventos[0])
+
+
+def test_marcar_sesion_muerta_registra_evento_con_edad_de_la_cookie():
+    """La edad de la cookie al morir se calcula releyendo la bitacora (no un
+    estado en memoria): asi sobrevive a un reinicio del proceso proxy."""
+    pa = _mk_proxy_api()
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa.set_session_cookie("cookie-x", origen="admin_rotar")
+
+    # "reinicio": instancia nueva, misma bitacora en disco (EVENTOS_LOG_PATH
+    # esta aislado por test, no por instancia de ProxyValidatorAPI).
+    pa2 = _mk_proxy_api()
+    pa2._marcar_sesion_muerta("motivo de prueba", "detalle de prueba", "cookie-x")
+
+    eventos = server._leer_eventos_sesion()
+    assert [e["evento"] for e in eventos] == ["renovada", "muerta"]
+    muerta = eventos[1]
+    assert muerta["origen"] == "motivo de prueba"
+    assert muerta["detalle"] == "detalle de prueba"
+    assert muerta["cookie_id"] == server._cookie_id("cookie-x")
+    assert muerta["edad_cookie_s"] is not None
+    assert muerta["edad_cookie_s"] >= 0
+
+
+def test_marcar_sesion_muerta_sin_cookie_no_calcula_edad():
+    pa = _mk_proxy_api()
+    pa._marcar_sesion_muerta("motivo sin cookie")
+
+    eventos = server._leer_eventos_sesion()
+    assert eventos[0]["cookie_id"] is None
+    assert eventos[0]["edad_cookie_s"] is None
+
+
+def test_bitacora_es_best_effort_no_tumba_si_no_se_puede_escribir(monkeypatch):
+    """Un fallo de disco al escribir la bitacora no debe propagar: es
+    diagnostico, no una funcion critica."""
+    monkeypatch.setattr(
+        server, "EVENTOS_LOG_PATH", Path("Z:/ruta-que-no-existe/eventos.jsonl")
+    )
+    pa = _mk_proxy_api()
+    pa._marcar_sesion_muerta("motivo")  # no debe lanzar
+
+
+def test_admin_status_incluye_eventos_de_sesion(admin_client):
+    tc, fake = admin_client
+    fake.get_status.return_value = _STATUS
+    server._registrar_evento_sesion("renovada", "extension", "cookie-real")
+
+    r = tc.get("/admin/status", headers={"X-Admin-Key": _ADMIN})
+
+    assert r.status_code == 200
+    eventos = r.json()["sesion_eventos"]
+    assert len(eventos) == 1
+    assert eventos[0]["evento"] == "renovada"
+    assert eventos[0]["cookie_id"] == server._cookie_id("cookie-real")
+
+
+# --------------------------------------------------------------------------
 # Loop async
 # --------------------------------------------------------------------------
 
@@ -406,7 +554,7 @@ def test_local_renovar_desde_localhost(client_local):
     r = client.post("/local/renovar", json={"php_sessid": "cookie-nav"})
     assert r.status_code == 200
     assert r.json()["ok"] is True
-    fake.set_session_cookie.assert_called_once_with("cookie-nav")
+    fake.set_session_cookie.assert_called_once_with("cookie-nav", origen="extension")
 
 
 def test_local_renovar_rechaza_ip_externa(monkeypatch):
@@ -609,14 +757,14 @@ def test_admin_login_inyecta_cookie(admin_client):
     tc, fake = admin_client
     r = tc.post("/admin/login", json={"php_sessid": "abc"}, headers={"X-Admin-Key": _ADMIN})
     assert r.status_code == 200
-    fake.set_session_cookie.assert_called_once_with("abc")
+    fake.set_session_cookie.assert_called_once_with("abc", origen="admin_login")
 
 
 def test_admin_rotar_inyecta_cookie(admin_client):
     tc, fake = admin_client
     r = tc.post("/admin/rotar", json={"php_sessid": "xyz"}, headers={"X-Admin-Key": _ADMIN})
     assert r.status_code == 200
-    fake.set_session_cookie.assert_called_once_with("xyz")
+    fake.set_session_cookie.assert_called_once_with("xyz", origen="admin_rotar")
 
 
 def test_admin_status_ok(admin_client):

@@ -1,7 +1,7 @@
 @startuml
 !include _comun.puml
 title JSConnect Win Coverage - estados de la sesión WinForce en el proxy
-footer Verificado contra 6119b6e — 2026-09-27
+footer Verificado contra a465d56 — 2026-09-29
 
 [*] --> SinSesion : Arranque sin cookie válida
 
@@ -24,12 +24,21 @@ state SesionViva {
   Keepalive --> Disponible : _keepalive_tick() ping de cobertura correcto
 }
 
-SesionViva --> SesionCaducada : cookie rechazada,\ntope absoluto (~9.5h) o fallo confirmado
-Keepalive --> SesionCaducada : _keepalive_registrar_fallo()\nconfirma expiración
+SesionViva --> Reconfirmando : cookie rechazada\n(una sola respuesta no basta)
+Keepalive --> Reconfirmando : ping fallido con LoginError
+
+state Reconfirmando {
+  [*] --> SegundoIntento
+  SegundoIntento : _confirmar_muerte()\nespera SESSION_CONFIRM_DELAY_SECONDS\ny reintenta validar_cookie_sesion()
+}
+
+Reconfirmando --> SesionViva : segundo intento OK\n(falso positivo evitado,\nse anota en la bitácora)
+Reconfirmando --> SesionViva : segundo intento con error\nde red (INDETERMINADO,\nno se marca ni se cachea)
+Reconfirmando --> SesionCaducada : segundo intento\ntambién falla,\no tope absoluto (~9.5h)
 
 state SesionCaducada {
   [*] --> AvisarOwner
-  AvisarOwner : _disparar_aviso() -> _aviso_event_log()\n+ _aviso_webhook() (opcional)
+  AvisarOwner : _disparar_aviso() -> _aviso_event_log()\n+ _aviso_webhook() (opcional)\n_registrar_evento_sesion("muerta", ...)\n-> logs/sesion_eventos.jsonl
 }
 
 SesionCaducada --> ValidandoCookie : owner renueva sesión
@@ -47,5 +56,11 @@ note right of RelanzandoSesion
   Resultado de _is_session_alive() se
   cachea; se invalida con
   _invalidate_session_alive_cache().
+end note
+
+note right of ValidandoCookie
+  set_session_cookie(origen=...) anota
+  "renovada" en logs/sesion_eventos.jsonl
+  (cookie_id = sha256[:8], sin el secreto).
 end note
 @enduml

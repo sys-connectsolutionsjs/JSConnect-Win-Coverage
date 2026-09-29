@@ -165,6 +165,56 @@ curl http://localhost:8080/health
 
 ---
 
+## ¿Por qué se cerró la sesión?
+
+Desde 2026-09-29 el proxy guarda un evento por cada cambio de estado de la
+sesión en `logs/sesion_eventos.jsonl` (junto a `logs/winsw.*.log`, una línea
+JSON por evento). Antes de este archivo, la única forma de saber por qué
+murió una sesión era leer los `winsw.err.log` a mano — y ni siquiera ahí
+quedaba la edad de la cookie ni un detalle claro de la causa.
+
+```powershell
+# Ultimos eventos, con causa y edad de la cookie al morir
+Get-Content logs\sesion_eventos.jsonl -Tail 20
+# o desde el admin (loopback, con admin_key):
+curl.exe -H "X-Admin-Key: <admin_key>" http://localhost:8080/admin/status
+```
+
+Cada línea trae `{ts, evento, origen, cookie_id, edad_cookie_s, detalle}`.
+`cookie_id` es un hash corto (no permite recuperar la `PHPSESSID`); sirve para
+ver si dos eventos hablan de la misma cookie o de una distinta. Cómo leerla:
+
+| Lo que ves en la bitácora | Causa probable |
+|---|---|
+| `evento: "muerta"`, `edad_cookie_s` ≈ 34200 (≈9.5h) | Tope absoluto de sesión — normal, toca renovar una vez por turno. |
+| `evento: "muerta"` a los pocos minutos de un `"renovada"` con **otro** `cookie_id` | Alguien inició sesión con la misma cuenta desde otro lado (Chrome cotidiano vs. ventana del icono, u otra PC) invalidó la sesión — hipótesis abierta desde 2026-09-18, aún no confirmada de forma controlada. |
+| `evento: "muerta"`, `origen` menciona `/health` o `/admin/status`, `detalle` con `Timeout`/`ConnectionError` | WinForce estuvo lento o caído, no la cookie — el proxy ya reconfirma antes de declarar muerte (ver más abajo), pero si el segundo intento *también* falló, puede seguir siendo un corte de red largo, no la cookie. |
+| `evento: "falso_positivo_evitado"` | El proxy vio una respuesta fallida puntual, reconfirmó, y la sesión seguía viva — no pasó nada, es solo el registro de que el mecanismo funcionó. |
+| `evento: "muerta"`, `origen: "keepalive: ping fallido..."` | El latido de los 15 min detectó la muerte en un hueco sin tráfico real (almuerzo, madrugada). |
+
+**Reconfirmación antes de declarar muerte** (2026-09-29): una sola respuesta
+fallida de WinForce (timeout, error puntual) ya no basta para marcar la sesión
+muerta. El proxy espera unos segundos y reintenta una vez
+(`_confirmar_muerte()` en `server.py`) antes de avisar al owner — evita el
+falso positivo real visto ese día: un `ReadTimeout` de 30s en `/health` marcó
+"MUERTA" una sesión que, al reiniciar el servicio, resultó seguir viva.
+
+### Qué NO mata la sesión
+
+- **Cerrar la pestaña de WinForce.** La `PHPSESSID` vive en el servidor; nada
+  en la extensión ni en el proxy manda un logout al cerrar una pestaña.
+- **Cerrar todo Chrome.** Mismo motivo — el proxy sigue usando la cookie que
+  ya tiene guardada, sin depender de que el navegador siga abierto.
+
+### Qué probablemente sí la mata (sin confirmar con una prueba controlada)
+
+- Pulsar "Cerrar sesión" dentro de WinForce en el Chrome del owner (comparte
+  la misma `PHPSESSID` que usa el proxy).
+- Iniciar sesión con la misma cuenta desde otra PC o otro navegador al mismo
+  tiempo (la hipótesis de "dos logins en paralelo" del 2026-09-18).
+
+---
+
 ## Troubleshooting
 
 | Problema | Causa | Solución |
@@ -174,6 +224,7 @@ curl http://localhost:8080/health
 | El navegador asistido se queda en un estado raro | Perfil corrupto | `python -m validator_app.proxy.rotate_creds --fresh` (borra `.browser_profile/`) |
 | Agentes siguen fallando tras renovar | La cookie fue rechazada o la sesión volvió a caducar | Revisar el mensaje de la consola/extensión y `/admin/status` con admin key |
 | La cookie no sobrevive al reinicio | No llegó al proceso LocalSystem | Renovar con el proxy activo y verificar `/local/renovar`; revisar logs |
+| No se sabe por qué murió la sesión | Falta revisar la bitácora | Ver "¿Por qué se cerró la sesión?" arriba — `logs/sesion_eventos.jsonl` o `/admin/status` |
 
 ---
 

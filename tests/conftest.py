@@ -65,3 +65,23 @@ def sin_config_yaml_real(monkeypatch, tmp_path):
     monkeypatch.setitem(
         proxy_config.ProxyConfig.model_config, "yaml_file", tmp_path / "sin-config.yaml"
     )
+
+
+@pytest.fixture(autouse=True)
+def bitacora_sesion_aislada(monkeypatch, tmp_path):
+    """La bitacora de eventos de sesion (`EVENTOS_LOG_PATH`) vive junto a
+    `logs/` en la raiz del repo. Sin aislar, la suite escribiria ahi -- mismo
+    tipo de fuga que motivo `keyring_en_memoria`. Cada test usa su propio
+    archivo en `tmp_path`."""
+    from validator_app.proxy import server
+
+    monkeypatch.setattr(server, "EVENTOS_LOG_PATH", tmp_path / "sesion_eventos.jsonl")
+
+
+@pytest.fixture(autouse=True)
+def sin_espera_de_confirmacion(monkeypatch):
+    """`_confirmar_muerte` espera `SESSION_CONFIRM_DELAY_SECONDS` antes de
+    reintentar; en los tests esa espera se pone a 0 para no volverlos lentos."""
+    from validator_app.proxy import server
+
+    monkeypatch.setattr(server, "SESSION_CONFIRM_DELAY_SECONDS", 0.0)
