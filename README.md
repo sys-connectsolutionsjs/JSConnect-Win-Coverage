@@ -52,7 +52,8 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 4. Ingresa las coordenadas y/o el documento del cliente — **son independientes**:
    solo coordenadas valida cobertura, solo documento valida score, y ambos hace
    el flujo combinado de siempre (cobertura y, si hay, score).
-5. Pulsa **Validar** → resultado de cobertura y/o score al instante.
+5. Pulsa **Validar** (o Enter) → resultado de cobertura y/o score al instante. El botón del borrador limpia cada campo.
+6. El score se clasifica con la **tabla comercial**: 0-200 MUY ALTO (rojo, "NO SE LE PUEDE VENDER") · 201-400 ALTO (naranja) · 401-600 REGULAR (dorado) · 601-800 BAJO (verde) · 801-999 MUY BAJO (azul). Se muestra el rango (ej. `SCORE: 401 - 500`) con un botón **Copiar** que lo lleva al portapapeles.
 
 En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver `docs/arquitectura.md` ("Control de acceso al proxy").
 
@@ -205,7 +206,8 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 4. Enter the coordinates and/or the customer document — **they're independent**:
    coordinates alone check coverage, document alone checks score, and both run
    the usual combined flow (coverage and, if covered, score).
-5. Press **Validate** → coverage and/or score results instantly.
+5. Press **Validate** (or Enter) → coverage and/or score results instantly. The eraser button clears each field.
+6. The score is classified with the **company table**: 0-200 VERY HIGH risk (red, "CANNOT BE SOLD") · 201-400 HIGH (orange) · 401-600 REGULAR (gold) · 601-800 LOW (green) · 801-999 VERY LOW (dark blue). The range (e.g. `SCORE: 401 - 500`) is shown with a **Copy** button for the clipboard.
 
 At any time, **⚙️ Configuración → Activación / Huella de la PC** shows the activation status and the PC fingerprint (to request a code from the manager). If "IP no permitida" appears, the agent IP is not in the proxy allow-list: see `docs/arquitectura.md` ("Control de acceso al proxy").
 

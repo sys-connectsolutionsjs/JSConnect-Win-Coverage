@@ -107,6 +107,34 @@ def generar_icono_extension() -> Image.Image:
     return img
 
 
+def generar_icono_borrador() -> Image.Image:
+    """Borrador clasico inclinado (mitad rosa, mitad blanca) para los botones
+    de limpiar campo de la ventana del agente. Fondo transparente."""
+    import math
+
+    img = Image.new("RGBA", (LIENZO, LIENZO), (0, 0, 0, 0))
+    cuerpo = Image.new("RGBA", (LIENZO, LIENZO), (0, 0, 0, 0))
+    d = ImageDraw.Draw(cuerpo)
+    ancho, alto, x0 = int(LIENZO * 0.70), int(LIENZO * 0.34), int(LIENZO * 0.15)
+    y0 = (LIENZO - alto) // 2
+    borde = (70, 70, 80, 255)
+    grosor = int(LIENZO * 0.03)
+    radio = int(LIENZO * 0.06)
+    corte = x0 + int(ancho * 0.45)
+    d.rounded_rectangle([x0, y0, x0 + ancho, y0 + alto], radius=radio, fill=(250, 250, 250, 255))
+    d.rounded_rectangle(
+        [x0, y0, corte, y0 + alto], radius=radio, fill=(232, 88, 110, 255)
+    )
+    d.rectangle([corte - radio, y0, corte, y0 + alto], fill=(232, 88, 110, 255))
+    d.line([corte, y0, corte, y0 + alto], fill=borde, width=grosor)
+    d.rounded_rectangle(
+        [x0, y0, x0 + ancho, y0 + alto], radius=radio, outline=borde, width=grosor
+    )
+    cuerpo = cuerpo.rotate(math.degrees(math.atan(1)) * 0.9, resample=Image.BICUBIC)
+    img.alpha_composite(cuerpo)
+    return img
+
+
 def guardar_ico(img: Image.Image, destino: Path) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)
     img.save(destino, format="ICO", sizes=[(t, t) for t in TAMANOS_ICO])
@@ -127,6 +155,8 @@ def main() -> int:
     guardar_png(owner, ICONS_DIR / "owner.png")
     guardar_ico(owner, ICONS_DIR / "owner.ico")
 
+    guardar_png(generar_icono_borrador(), ICONS_DIR / "borrador.png", 40)
+
     extension = generar_icono_extension()
     guardar_png(extension, EXTENSION_DIR / "icon.png", 128)
     guardar_png(extension, EXTENSION_DIR / "icon48.png", 48)
@@ -135,7 +165,7 @@ def main() -> int:
     print("Generados:")
     for p in [
         ICONS_DIR / "agent.ico", ICONS_DIR / "agent.png",
-        ICONS_DIR / "owner.ico", ICONS_DIR / "owner.png",
+        ICONS_DIR / "owner.ico", ICONS_DIR / "owner.png", ICONS_DIR / "borrador.png",
         EXTENSION_DIR / "icon.png", EXTENSION_DIR / "icon48.png",
         EXTENSION_DIR / "icon16.png",
     ]:

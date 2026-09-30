@@ -1,5 +1,7 @@
 """Comprobacion de activacion usada por la ventana principal (sin instanciar Tk)."""
 
+import pytest
+
 from validator_app.gui import main_window
 
 HUELLA = "3A05-5810-F921-AE0C"
@@ -32,26 +34,75 @@ def test_activacion_no_vigente_con_codigo_invalido(monkeypatch):
     assert main_window.activacion_vigente(HUELLA) is False
 
 
-def test_bootstyle_riesgo_alto_es_rojo():
-    assert main_window._bootstyle_riesgo("MUY ALTO") == "danger"
-    assert main_window._bootstyle_riesgo("ALTO") == "danger"
+@pytest.mark.parametrize(
+    "valor, rango, riesgo, categoria",
+    [
+        (0, "SCORE: 0 - 200", "MUY ALTO", "MUY MALO"),
+        (200, "SCORE: 0 - 200", "MUY ALTO", "MUY MALO"),
+        (201, "SCORE: 201 - 300", "ALTO", "MALO"),
+        (300, "SCORE: 201 - 300", "ALTO", "MALO"),
+        (301, "SCORE: 301 - 400", "ALTO", "MALO"),
+        (400, "SCORE: 301 - 400", "ALTO", "MALO"),
+        (401, "SCORE: 401 - 500", "REGULAR", "BUENO"),
+        (423, "SCORE: 401 - 500", "REGULAR", "BUENO"),
+        (600, "SCORE: 501 - 600", "REGULAR", "BUENO"),
+        (601, "SCORE: 601 - 700", "BAJO", "MUY BUENO"),
+        (800, "SCORE: 701 - 800", "BAJO", "MUY BUENO"),
+        (801, "SCORE: 801 - 900", "MUY BAJO", "EXCELENTE"),
+        (862, "SCORE: 801 - 900", "MUY BAJO", "EXCELENTE"),
+        (900, "SCORE: 801 - 900", "MUY BAJO", "EXCELENTE"),
+        (901, "SCORE: 901 - 999", "MUY BAJO", "EXCELENTE"),
+        (999, "SCORE: 901 - 999", "MUY BAJO", "EXCELENTE"),
+    ],
+)
+def test_clasificar_score_bordes(valor, rango, riesgo, categoria):
+    r = main_window.clasificar_score(valor)
+    assert (r["rango"], r["riesgo"], r["categoria"]) == (rango, riesgo, categoria)
 
 
-def test_bootstyle_riesgo_medio_es_ambar():
-    assert main_window._bootstyle_riesgo("MEDIO") == "warning"
+def test_clasificar_score_vendible_solo_por_encima_de_200():
+    assert main_window.clasificar_score(200)["vendible"] is False
+    assert main_window.clasificar_score(201)["vendible"] is True
 
 
-def test_bootstyle_riesgo_bajo_es_verde():
-    assert main_window._bootstyle_riesgo("BAJO") == "success"
-    assert main_window._bootstyle_riesgo("MUY BAJO") == "success"
+def test_clasificar_score_colores_por_nivel():
+    c = lambda v: main_window.clasificar_score(v)["color"]  # noqa: E731
+    assert c(100) == "#C8102E"
+    assert c(250) == c(350) == "#D9480F"
+    assert c(450) == c(550) == "#B8860B"
+    assert c(650) == c(750) == "#2B8A3E"
+    assert c(850) == c(950) == "#1A237E"
 
 
-def test_bootstyle_riesgo_desconocido_o_vacio_es_neutro():
-    assert main_window._bootstyle_riesgo("ALGO_RARO") == "secondary"
-    assert main_window._bootstyle_riesgo(None) == "secondary"
-    assert main_window._bootstyle_riesgo("") == "secondary"
+@pytest.mark.parametrize("valor", [None, -1, 1000, "abc", 4.5, True])
+def test_clasificar_score_invalido_devuelve_none(valor):
+    assert main_window.clasificar_score(valor) is None
 
 
-def test_bootstyle_riesgo_no_distingue_mayusculas_ni_espacios():
-    assert main_window._bootstyle_riesgo("  bajo  ") == "success"
-    assert main_window._bootstyle_riesgo("muy alto") == "danger"
+def test_clasificar_score_acepta_entero_como_texto():
+    assert main_window.clasificar_score("423")["rango"] == "SCORE: 401 - 500"
+
+
+def test_ruta_recurso_en_el_repo():
+    assert main_window._ruta_recurso("assets/LogoJSConnectSolutionsLogo.png").exists()
+    assert main_window._ruta_recurso("assets/icons/borrador.png").exists()
+
+
+def test_recortar_margen_blanco_deja_solo_el_dibujo():
+    from PIL import Image
+
+    img = Image.new("RGB", (100, 100), (255, 255, 255))
+    img.paste((200, 0, 0), (20, 40, 80, 60))
+    assert main_window._recortar_margen(img).size == (60, 20)
+
+
+def test_recortar_margen_imagen_toda_blanca_no_falla():
+    from PIL import Image
+
+    img = Image.new("RGB", (50, 50), (255, 255, 255))
+    assert main_window._recortar_margen(img).size == (50, 50)
+
+
+def test_ruta_recurso_empaquetado_usa_meipass(monkeypatch, tmp_path):
+    monkeypatch.setattr(main_window.sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert main_window._ruta_recurso("assets/x.png") == tmp_path / "assets" / "x.png"

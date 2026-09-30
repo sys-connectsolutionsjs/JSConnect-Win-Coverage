@@ -386,6 +386,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
     (observación, no una tarea con pasos) y escribir el runbook de la Etapa E
     con el detalle operativo real de esta instalación (pendiente de que el
     usuario lo comparta). Detalle en `PlanesAprobados.md`/`Roadmap.md`.
+42. **Ventana del agente: logo, limpiar campos y tabla comercial de scores** [COMPLETADO — 2026-09-30]: logo de la empresa (`assets/LogoJSConnectSolutionsLogo.png`, margen recortado con `_recortar_margen`) a la derecha de los campos; botón de borrador (`assets/icons/borrador.png`, `tools/generar_iconos.py`) en coordenadas y documento; `clasificar_score()` reemplaza a `_bootstyle_riesgo`: rango de 100 puntos + riesgo + categoría + color según la tabla de la empresa (0-200 MUY ALTO/rojo + "NO SE LE PUEDE VENDER" · 201-400 ALTO/naranja · 401-600 REGULAR/dorado · 601-800 BAJO/verde · 801-999 MUY BAJO/azul oscuro); el `NivelRiesgo` de WinForce ya no se muestra (no coincidía: 423 → WinForce "MUY ALTO", tabla REGULAR). Fila `Rango: SCORE: x - y` con botón Copiar y leyenda de las 5 categorías. `build.ps1` embebe logo y borrador con `--add-data`. **264 tests, ruff limpio.** Release `v2026.09.30`.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -1120,3 +1121,17 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   producción (sesión del proxy, RUC/CE); escribir el runbook de la Etapa E
   en cuanto el usuario comparta el detalle operativo real; Fase 5 (barrido
   de documentación) sigue siendo la última tarea del plan grande.
+
+### Cierre de la sesión 2026-09-30 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Rotación** de `ResumenDelDia.md` (2026-09-29 → `resumenes/2026-09-29.md` +
+  entrada en `HistorialResumenes.md`).
+- **Ventana del agente** (tarea 42): logo, botones de borrador, tabla comercial
+  de scores con rango copiable y leyenda; ventana de 700 a 440 px de alto. Dos
+  rondas de revisión del `.exe` con el usuario (logo equivocado, posición, icono).
+- **Decisión**: el riesgo mostrado sale solo de la tabla de la empresa, no del
+  `NivelRiesgo` de WinForce.
+- **Tests**: 240 → **264**, ruff limpio. Release `v2026.09.30` (agente reconstruido;
+  el `.exe` del owner se reutilizó, no cambió).
+- **Pendiente**: el mismo de los cierres anteriores (monitoreo de producción,
+  runbook de la Etapa E, Fase 5, duda de `Escalabilidad.md`, `actualizar_score_cliente`).

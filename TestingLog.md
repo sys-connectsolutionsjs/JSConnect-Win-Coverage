@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (235 en total, a 2026-09-29)
+## Inventario de tests (264 en total, a 2026-09-30)
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) + **`bitacora_sesion_aislada` (aísla `logs/sesion_eventos.jsonl` en `tmp_path`) + `sin_espera_de_confirmacion` (pone `SESSION_CONFIRM_DELAY_SECONDS` en 0, 2026-09-29)** |
@@ -29,7 +29,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_activation.py | 4 | llave pública real, firma por huella y diagnóstico de código incompleto |
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
 | tests/test_owner_app.py | 30 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell), el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) y **detección de IP de LAN para la "URL para los agentes"** (`detectar_ip_lan`: socket UDP, respaldo con `getaddrinfo`, descarte de loopback/APIPA, sin candidatas; `url_para_agentes`; `puerto_proxy_local`) |
-| tests/test_gui_activacion.py | 4 | `activacion_vigente()` del agente: código válido, sin estado, huella de otra PC, código inválido |
+| tests/test_gui_activacion.py | 37 | `activacion_vigente()` del agente + `clasificar_score()` (bordes de cada tramo, vendible, colores, valores inválidos) + `_ruta_recurso()` (repo/PyInstaller, logo y borrador existen) + `_recortar_margen()` |
 | tests/test_install_bat.py | 6 | guardas estáticas de `install_service.bat`/`uninstall_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, carga manual de la extensión sin `exit`/`pause` en el paso 7, **numeración de pasos `[N/TOTAL]` consecutiva y con un solo TOTAL (guarda genérica), regla de firewall creada de forma idempotente con el puerto real y fallback si el firewall es de dominio, y `uninstall_service.bat` quita esa regla** |
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
 | tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
@@ -40,6 +40,20 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-09-30 — logo, botones de limpiar y tabla comercial de scores
+- **Test rojo primero**: `clasificar_score()` (rango de 100 puntos, riesgo,
+  categoría y color) con 16 bordes parametrizados (0, 200, 201, 300, 301, 400,
+  401, 423, 600, 601, 800, 801, 862, 900, 901, 999), `vendible` solo >200, y
+  entradas inválidas (`None`, -1, 1000, "abc", 4.5, `True`) → `None`. Reemplazó
+  los 5 tests de `_bootstyle_riesgo` (el riesgo de WinForce ya no se usa).
+- **Lo no testeable con pytest** (Tk) se verificó con una `App()` real y
+  `mainloop()`: 150/250/423/650/862/sin puntaje (texto, color, rango, portapapeles,
+  leyenda) y los botones de limpiar. Un fallo del propio script de prueba (insertar
+  el DNI dos veces) parecía un bug de la app; se repitió con el campo limpio.
+- **Ruff B007** (variables de bucle sin usar) → `next(f for f in _TABLA_SCORE ...)`.
+- **Ajuste tras revisar el .exe**: logo correcto + posición junto a los campos +
+  icono de borrador; `_recortar_margen()` con su test. 235 → **264 tests**.
 
 ### Sesión 2026-09-29 (tercera parte) — bug real: el score de RUC fallaba con "campos faltantes"
 - **Origen**: probando la app real, un RUC (`10096548031`) fallaba con

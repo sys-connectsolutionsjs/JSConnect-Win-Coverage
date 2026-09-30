@@ -31,6 +31,8 @@ Set-Content -Path "$root\validator_app\version.py" -Value $content -Encoding UTF
 # Nota (2026-09-25): Pillow SI viaja en el .exe desde que la GUI usa
 # ttkbootstrap (lo trae como dependencia real, no dev-only) -- no excluir.
 & $python -m PyInstaller --clean --noconfirm --onefile --windowed `
+    --add-data "$root\assets\LogoJSConnectSolutionsLogo.png;assets" `
+    --add-data "$root\assets\icons\borrador.png;assets\icons" `
     --icon "$root\assets\icons\agent.ico" `
     --name "JSConnect-Win-Coverage" main.py
 if ($LASTEXITCODE -ne 0) {

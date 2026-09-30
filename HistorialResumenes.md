@@ -13,6 +13,31 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-29 — Sesión — falso positivo de sesión muerta, fix del updater, score de RUC, Etapa D en producción
+- **Snapshot completo**: `resumenes/2026-09-29.md`.
+- **Sesión del proxy**: el log mostró un falso positivo real (un timeout puntual
+  de WinForce en `/health` marcaba la sesión "MUERTA"; la misma cookie seguía
+  viva tras reiniciar). `_confirmar_muerte()` reconfirma antes de declarar
+  muerte y `logs/sesion_eventos.jsonl` registra cada evento (origen, edad de la
+  cookie, motivo). Cerrar pestaña/Chrome NO mata la sesión. 11 tests nuevos.
+- **GUI**: Enter dispara VALIDAR; textos de score más claros ("riesgo: X —
+  puntaje obtenido").
+- **Updater**: la app no se cerraba y el `.bat` movía sin comprobar → relanzaba
+  la versión vieja (segunda ventana). Ahora espera el PID, reintenta el `move`
+  y la GUI se cierra sola. Release `v2026.09.29.1`.
+- **Score de RUC**: `HTTP 502 "campos faltantes"`; causa real hallada comparando
+  con una captura: `tipo_doc` usa el Catálogo 06 de SUNAT (6=RUC) y el campo se
+  llama `logintud` en WinForce. Verificado en vivo (575/ALTO). Release
+  `v2026.09.29.2`.
+- **Extensión de Chrome**: ícono nuevo (recuadro naranja con la "W").
+- **Etapa D completada en producción** (reporte del usuario): instalado en todas
+  las máquinas de la oficina sin incidencias, con cuenta WinForce de producción
+  separada; RUC y CE confirmados.
+- **Diferido**: duda de `Escalabilidad.md`, `actualizar_score_cliente`/
+  `newsearch.php`, backlog v1.1. **240 tests, ruff limpio.**
+- Commits: `3c3d4c1`, `dc7f4ea`, `c30f783`, `71337be`, `9395033`, `136d225`,
+  `df6c645`, `c4ac753`.
+
 ### 2026-09-27 — Sesión (otra PC) — diagramas PlantUML versionados y corregidos
 - **Snapshot completo (reconstruido desde git el 2026-09-29)**: `resumenes/2026-09-27.md`.
 - **Hallazgo**: `docs/DiagramasUML/` (6 diagramas) nunca se había commiteado — el

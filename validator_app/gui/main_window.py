@@ -1,7 +1,9 @@
 """Ventana principal de la aplicacion."""
 
+import sys
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox
 
 import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
@@ -22,20 +24,62 @@ def _a_dict(objeto):
     return objeto.__dict__ if hasattr(objeto, "__dict__") else objeto
 
 
-_BOOTSTYLE_POR_RIESGO = {
-    "MUY ALTO": "danger",
-    "ALTO": "danger",
-    "MEDIO": "warning",
-    "BAJO": "success",
-    "MUY BAJO": "success",
-}
+# Tabla comercial de la empresa: (tope del tramo, riesgo, categoria, color).
+# Colores propios: el tema "cosmo" no trae amarillo ni azul oscuro.
+_TABLA_SCORE = (
+    (200, "MUY ALTO", "MUY MALO", "#C8102E"),
+    (400, "ALTO", "MALO", "#D9480F"),
+    (600, "REGULAR", "BUENO", "#B8860B"),
+    (800, "BAJO", "MUY BUENO", "#2B8A3E"),
+    (999, "MUY BAJO", "EXCELENTE", "#1A237E"),
+)
+_COLOR_INACTIVO = "#9AA0A6"
 
 
-def _bootstyle_riesgo(riesgo: str | None) -> str:
-    """Color del score segun el nivel de riesgo que devuelve WinForce: rojo si
-    es muy riesgoso vender, ambar en el medio, verde si es un cliente seguro.
-    Desconocido/vacio -> gris neutro (no se inventa un color)."""
-    return _BOOTSTYLE_POR_RIESGO.get((riesgo or "").strip().upper(), "secondary")
+def clasificar_score(valor) -> dict | None:
+    """Rango de 100 puntos, riesgo, categoria y color segun la tabla de la
+    empresa (no el NivelRiesgo de WinForce). None si no es un puntaje 0-999."""
+    if isinstance(valor, bool):
+        return None
+    try:
+        if isinstance(valor, float) and not valor.is_integer():
+            return None
+        puntaje = int(valor)
+    except (TypeError, ValueError):
+        return None
+    if not 0 <= puntaje <= 999:
+        return None
+    _tope, riesgo, categoria, color = next(f for f in _TABLA_SCORE if puntaje <= f[0])
+    if puntaje <= 200:
+        inicio, fin = 0, 200
+    elif puntaje >= 901:
+        inicio, fin = 901, 999
+    else:
+        inicio = (puntaje - 1) // 100 * 100 + 1
+        fin = inicio + 99
+    return {
+        "rango": f"SCORE: {inicio} - {fin}",
+        "riesgo": riesgo,
+        "categoria": categoria,
+        "color": color,
+        "vendible": puntaje > 200,
+    }
+
+
+def _recortar_margen(img):
+    """Recorta el margen blanco de alrededor del dibujo (si la imagen es toda
+    blanca la devuelve igual)."""
+    from PIL import Image, ImageChops
+
+    caja = ImageChops.difference(img, Image.new(img.mode, img.size, (255, 255, 255))).getbbox()
+    return img.crop(caja) if caja else img
+
+
+def _ruta_recurso(relativa: str) -> Path:
+    """Ruta a un recurso del repo, o de la carpeta temporal de PyInstaller."""
+    base = getattr(sys, "_MEIPASS", None)
+    raiz = Path(base) if base else Path(__file__).resolve().parents[2]
+    return raiz / relativa
 
 
 def activacion_vigente(huella: str) -> bool:
@@ -52,7 +96,7 @@ class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="cosmo")
         self.title("JSConnect Win Coverage")
-        self.geometry("660x580")  # +120px para la barra lateral de navegacion
+        self.geometry("660x440")  # +120px para la barra lateral de navegacion
         self.resizable(False, False)
         self._proxy_client: ProxyClient | None = None
         self._session_client: api.ValidatorAPI | None = None
@@ -105,15 +149,25 @@ class App(ttk.Window):
         main.grid(row=0, column=0, sticky="nsew")
         self._paginas = {"cobertura_score": main}
 
+        main.columnconfigure(0, weight=1)
+        self._img_borrador = self._cargar_borrador()
+        self._agregar_logo(main)
+
         ttk.Label(main, text="Coordenadas (latitud, longitud):").grid(row=0, column=0, sticky="w")
-        self.txt_coordenadas = ttk.Entry(main, width=52)
-        self.txt_coordenadas.grid(row=1, column=0, columnspan=2, sticky="we", pady=(2, 8))
+        fila_coord = ttk.Frame(main)
+        fila_coord.grid(row=1, column=0, sticky="we", pady=(2, 8))
+        self.txt_coordenadas = ttk.Entry(fila_coord, width=40)
+        self.txt_coordenadas.pack(side="left", fill="x", expand=True)
+        self._boton_limpiar(fila_coord, self._limpiar_coordenadas).pack(side="left", padx=(6, 0))
 
         ttk.Label(main, text="Documento (DNI/RUC/CE):").grid(row=2, column=0, sticky="w")
-        self.txt_documento = ttk.Entry(main, width=32)
-        self.txt_documento.grid(row=3, column=0, sticky="we", pady=(2, 2))
-        self.lbl_tipo = ttk.Label(main, text="Tipo: \u2014")
-        self.lbl_tipo.grid(row=3, column=1, sticky="w", padx=(8, 0))
+        fila_doc = ttk.Frame(main)
+        fila_doc.grid(row=3, column=0, sticky="we", pady=(2, 2))
+        self.txt_documento = ttk.Entry(fila_doc, width=24)
+        self.txt_documento.pack(side="left", fill="x", expand=True)
+        self._boton_limpiar(fila_doc, self._limpiar_documento).pack(side="left", padx=(6, 0))
+        self.lbl_tipo = ttk.Label(fila_doc, text="Tipo: \u2014")
+        self.lbl_tipo.pack(side="left", padx=(8, 0))
         self.txt_documento.bind("<KeyRelease>", self._on_documento_cambio)
 
         self.btn_validar = ttk.Button(
@@ -137,10 +191,87 @@ class App(ttk.Window):
         self._font_score_normal = self.lbl_score.cget("font")
         self._font_score_destacado = (self._font_score_normal, 11, "bold")
 
+        fila_rango = ttk.Frame(frame_res)
+        fila_rango.pack(fill="x", pady=(4, 0))
+        self.lbl_rango = ttk.Label(fila_rango, text="Rango: \u2014")
+        self.lbl_rango.pack(side="left")
+        self.btn_copiar_rango = ttk.Button(
+            fila_rango, text="\U0001f4cb Copiar", command=self._copiar_rango,
+            bootstyle="secondary-outline", state="disabled",
+        )
+        self.btn_copiar_rango.pack(side="right")
+        self._rango_actual: str | None = None
+
+        # Leyenda de la tabla: la categoria del cliente se resalta en su color.
+        fila_leyenda = ttk.Frame(frame_res)
+        fila_leyenda.pack(fill="x", pady=(8, 0))
+        self._leyenda: dict[str, ttk.Label] = {}
+        tramos = {"MUY MALO": "0-200", "MALO": "201-400", "BUENO": "401-600",
+                  "MUY BUENO": "601-800", "EXCELENTE": "801-999"}
+        for _tope, _riesgo, categoria, _color in _TABLA_SCORE:
+            lbl = ttk.Label(
+                fila_leyenda, text=f"{categoria}\n{tramos[categoria]}", justify="center",
+                foreground=_COLOR_INACTIVO,
+            )
+            lbl.pack(side="left", expand=True)
+            self._leyenda[categoria] = lbl
+
         self.lbl_estado = ttk.Label(main, text="Estado: iniciando...", anchor="w")
         self.lbl_estado.grid(row=6, column=0, columnspan=2, sticky="we", pady=(10, 0))
 
         self._mostrar_pagina("cobertura_score")
+
+    def _agregar_logo(self, main: ttk.Frame) -> None:
+        """Logo de la empresa a la derecha de los campos (filas 0-3); si falta
+        o falla, sin logo."""
+        try:
+            from PIL import Image, ImageTk
+
+            img = _recortar_margen(
+                Image.open(_ruta_recurso("assets/LogoJSConnectSolutionsLogo.png")).convert("RGB")
+            )
+            alto = 96
+            img = img.resize((round(img.width * alto / img.height), alto), Image.LANCZOS)
+            self._logo_img = ImageTk.PhotoImage(img)  # referencia: evita el GC
+        except Exception:
+            return
+        ttk.Label(main, image=self._logo_img).grid(
+            row=0, column=1, rowspan=4, sticky="e", padx=(12, 0)
+        )
+
+    def _cargar_borrador(self):
+        """Icono de borrador para los botones de limpiar; None si falla."""
+        try:
+            from PIL import Image, ImageTk
+
+            img = Image.open(_ruta_recurso("assets/icons/borrador.png")).resize(
+                (22, 22), Image.LANCZOS
+            )
+            return ImageTk.PhotoImage(img)
+        except Exception:
+            return None
+
+    def _boton_limpiar(self, padre, comando) -> ttk.Button:
+        opciones = {"image": self._img_borrador} if self._img_borrador else {"text": "✕"}
+        return ttk.Button(padre, command=comando, bootstyle="secondary-outline", **opciones)
+
+    def _limpiar_coordenadas(self) -> None:
+        self.txt_coordenadas.delete(0, tk.END)
+        self.txt_coordenadas.focus_set()
+
+    def _limpiar_documento(self) -> None:
+        self.txt_documento.delete(0, tk.END)
+        self.lbl_tipo.config(text="Tipo: \u2014")
+        self.txt_documento.focus_set()
+
+    def _copiar_rango(self) -> None:
+        if not self._rango_actual:
+            return
+        self.clipboard_clear()
+        self.clipboard_append(self._rango_actual)
+        self.update()
+        self.btn_copiar_rango.config(text="\u2713 Copiado")
+        self.after(1500, lambda: self.btn_copiar_rango.config(text="\U0001f4cb Copiar"))
 
     def _agregar_item_nav(self, clave: str, texto: str, sidebar: ttk.Frame) -> None:
         """Item de navegacion plano (sin caja de boton): una barra de acento
@@ -398,24 +529,52 @@ class App(ttk.Window):
             self.lbl_cobertura.config(text="\u2717 Cobertura: NO", bootstyle="danger")
 
         score = resultado.get("score")
-        if score:
-            riesgo = score.get("riesgo") or "?"
-            texto_score = f"Score: {score.get('valor', '?')} \u2014 riesgo: {riesgo} \u2014 "
-            # "valido" solo indica que WinForce devolvio un puntaje numerico,
-            # no que el cliente este aprobado para la venta (core/api.py).
-            texto_score += "puntaje obtenido" if score.get("valido") else "puntaje no disponible"
+        clase = clasificar_score(score.get("valor")) if score else None
+        if clase:
             self.lbl_score.config(
-                text=texto_score,
-                bootstyle=_bootstyle_riesgo(score.get("riesgo")),
+                text=(
+                    f"Score: {score['valor']} \u2014 Riesgo {clase['riesgo']} "
+                    f"({clase['categoria']})"
+                ),
+                foreground=clase["color"],
                 font=self._font_score_destacado,
             )
+            self._rango_actual = clase["rango"]
+            texto_rango = f"Rango: {clase['rango']}"
+            if not clase["vendible"]:
+                texto_rango += " \u2014 NO SE LE PUEDE VENDER"
+            self.lbl_rango.config(
+                text=texto_rango,
+                foreground=clase["color"],
+                font=self._font_score_normal if clase["vendible"] else self._font_score_destacado,
+            )
+            self.btn_copiar_rango.config(state="normal")
         else:
-            if not resultado.get("se_pidio_documento"):
+            if score:
+                texto = "Score: \u2014 (puntaje no disponible)"
+            elif not resultado.get("se_pidio_documento"):
                 texto = "Score: \u2014 (no se ingres\u00f3 documento)"
             else:
                 texto = "Score: \u2014 (sin cobertura)"
-            self.lbl_score.config(text=texto, bootstyle="secondary", font=self._font_score_normal)
+            self.lbl_score.config(
+                text=texto, bootstyle="secondary", foreground="", font=self._font_score_normal
+            )
+            self._rango_actual = None
+            self.lbl_rango.config(
+                text="Rango: \u2014", foreground="", font=self._font_score_normal
+            )
+            self.btn_copiar_rango.config(state="disabled")
+        self._resaltar_leyenda(clase["categoria"] if clase else None)
         self._fin_validar("Estado: listo")
+
+    def _resaltar_leyenda(self, categoria: str | None) -> None:
+        colores = {c: col for _t, _r, c, col in _TABLA_SCORE}
+        for nombre, lbl in self._leyenda.items():
+            activa = nombre == categoria
+            lbl.config(
+                foreground=colores[nombre] if activa else _COLOR_INACTIVO,
+                font=self._font_score_destacado if activa else self._font_score_normal,
+            )
 
     def _fin_validar(self, estado):
         self.btn_validar.config(state="normal")
