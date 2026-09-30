@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-09-29.
+Última actualización: 2026-09-30.
 
 ---
 
@@ -52,6 +52,7 @@ el runbook de la Etapa E con el detalle real de esa instalación.
 | 2026-09-29 | **Fix: el score de RUC fallaba con "campos faltantes"** — `data[tipo_doc]` usa el Catálogo 06 de SUNAT (6 para RUC, no 3) y el campo de longitud se llama `logintud` en WinForce (typo real de ellos). Encontrado comparando una captura real de `tools/captura.py` contra el payload; verificado en vivo dos veces (mismo puntaje 575/ALTO que la captura del navegador). Release `v2026.09.29.2`, 240 tests | `9395033` |
 | 2026-09-29 | **Icono nuevo de la extensión de Chrome** — reemplaza el cuadrado verde con flecha por un recuadro naranja con bordes redondeados y la "W" de Win | `136d225` |
 | 2026-09-29 | **Etapa D completada** — instalado en todas las máquinas de la oficina; el usuario reportó funcionando sin incidencias, con una cuenta de WinForce de producción distinta de la usada en desarrollo. RUC y CE confirmados funcionando en producción. Reportado por el usuario, no verificable contra código | (despliegue operativo, sin commit) |
+| 2026-09-30 | **Ventana del agente: logo, borrador y tabla comercial de scores** — logo junto a los campos, botones de limpiar con icono de borrador, rango de 100 puntos copiable + riesgo/color según la tabla de la empresa (el `NivelRiesgo` de WinForce ya no se muestra); Release `v2026.09.30`, 264 tests | `2e49cd2` |
 
 ---
 

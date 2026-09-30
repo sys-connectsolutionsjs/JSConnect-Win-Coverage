@@ -13,6 +13,21 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-09-30 — Sesión — logo, botones de borrador y tabla comercial de scores + Release v2026.09.30
+- **Snapshot completo**: `resumenes/2026-09-30.md`.
+- **Ventana del agente**: logo de la empresa a la derecha de los campos (margen
+  recortado), botón de borrador en coordenadas y documento, ventana de 700 a 440 px.
+  Dos rondas de revisión del `.exe` con el usuario (logo equivocado, posición,
+  icono de borrador).
+- **Tabla comercial de scores** (`clasificar_score()`): rango de 100 puntos +
+  riesgo + categoría + color (0-200 MUY ALTO/rojo + "NO SE LE PUEDE VENDER" ·
+  201-400 ALTO/naranja · 401-600 REGULAR/dorado · 601-800 BAJO/verde · 801-999
+  MUY BAJO/azul). Botón Copiar del rango y leyenda de categorías.
+- **Decisión**: el riesgo mostrado sale solo de la tabla de la empresa; el
+  `NivelRiesgo` de WinForce ya no se muestra (no coincidía).
+- **Release** `v2026.09.30` (tag = commit `2e49cd2`). Tests 240 → **264**.
+- **Documentación**: `README.md` (es/en), `TestingLog.md`, `AGENTS.md` (tarea 42).
+
 ### 2026-09-29 — Sesión — falso positivo de sesión muerta, fix del updater, score de RUC, Etapa D en producción
 - **Snapshot completo**: `resumenes/2026-09-29.md`.
 - **Sesión del proxy**: el log mostró un falso positivo real (un timeout puntual
