@@ -192,7 +192,7 @@ SQLite ya viene en Python; no añade dependencias.
   ResumenDelDia.md.
 - **`README.md`** se actualiza con los avances cuando el plan implementado lo amerite
   (seguridad, funciones nuevas, estructura, comandos, etc.).
-- **Cierre de sesión**: al terminar una sesión se actualiza AGENTS.md (Historial) con
+- **Cierre de sesión** (automatizable con `/documentation:cerrar-sesion`, ver tarea 43): al terminar una sesión se actualiza AGENTS.md (Historial) con
   el resumen de lo hecho en el día. Después, al confirmar el usuario que ya terminó la
   sesión, se le pregunta si desea presentar el resumen del día desde
   `ResumenDelDia.md`.
@@ -387,6 +387,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
     con el detalle operativo real de esta instalación (pendiente de que el
     usuario lo comparta). Detalle en `PlanesAprobados.md`/`Roadmap.md`.
 42. **Ventana del agente: logo, limpiar campos y tabla comercial de scores** [COMPLETADO — 2026-09-30]: logo de la empresa (`assets/LogoJSConnectSolutionsLogo.png`, margen recortado con `_recortar_margen`) a la derecha de los campos; botón de borrador (`assets/icons/borrador.png`, `tools/generar_iconos.py`) en coordenadas y documento; `clasificar_score()` reemplaza a `_bootstyle_riesgo`: rango de 100 puntos + riesgo + categoría + color según la tabla de la empresa (0-200 MUY ALTO/rojo + "NO SE LE PUEDE VENDER" · 201-400 ALTO/naranja · 401-600 REGULAR/dorado · 601-800 BAJO/verde · 801-999 MUY BAJO/azul oscuro); el `NivelRiesgo` de WinForce ya no se muestra (no coincidía: 423 → WinForce "MUY ALTO", tabla REGULAR). Fila `Rango: SCORE: x - y` con botón Copiar y leyenda de las 5 categorías. `build.ps1` embebe logo y borrador con `--add-data`. **264 tests, ruff limpio.** Release `v2026.09.30`.
+43. **Plugin de documentación `documentation`** [COMPLETADO — 2026-09-30]: repo aparte y público, https://github.com/AngelSanchezDev/Documentation-plugin (v1.0.1). Automatiza el **arranque** (hook `SessionStart`: crea los archivos de documentación que falten sin pisar ninguno y avisa si `ResumenDelDia.md` es de otro día) y el **cierre** (`/documentation:cerrar-sesion`: audita, actualiza `AGENTS.md`/`Roadmap.md`/`PlanesAprobados.md`/`TestingLog.md` y rota el resumen del día con `doc_sync.py rotar`). Se instala una vez por PC: `claude plugin marketplace add AngelSanchezDev/Documentation-plugin` + `claude plugin install documentation@documentation-plugin`. Sus 21 tests viven en ese repo, no aquí. Verificado de punta a punta en un proyecto nuevo (bootstrap por el hook + cierre completo). **No registra solo el trabajo del día**: el resumen diario lo sigue narrando Claude. Las reglas de esta sección siguen vigentes; el plugin las aplica.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)

@@ -11,6 +11,16 @@ condensada en `HistorialResumenes.md`.
 
 - (nada todavía)
 
+- **Plugin `documentation`** (tarea 43 de AGENTS.md): repo
+  `AngelSanchezDev/Documentation-plugin` v1.0.1, con hook `SessionStart` +
+  `/documentation:cerrar-sesion` + `doc_sync.py` (21 tests en ese repo). Instalado
+  en esta PC desde GitHub. Probado: proyecto nuevo (el hook crea los 7 archivos) y
+  cierre completo con snapshot/historial/rotación. Commits con la identidad
+  noreply de AngelSanchezDev; la cuenta `gh` activa se devolvió a
+  `sys-connectsolutionsjs`. Dato: en este repo, `ResumenDelDia.md` dice
+  "(se fija al abrir la proxima sesion)" y el hook lo sellará con la fecha del
+  día en la próxima sesión.
+
 ## Pendiente al iniciar
 
 - Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
