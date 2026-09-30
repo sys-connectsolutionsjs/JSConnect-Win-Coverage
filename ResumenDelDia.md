@@ -136,18 +136,46 @@ en `HistorialResumenes.md` + cierre en `AGENTS.md`, al abrir esta sesión.
   no decide la hipótesis.
 - **240 tests, ruff limpio.**
 
+## Sexta parte — ícono nuevo de la extensión de Chrome
+
+- Pedido explícito: reemplazar el cuadrado verde con la flecha "mal hecha"
+  por un recuadro naranja con bordes redondeados y la letra "W" (de Win) en
+  blanco. `tools/generar_iconos.py::generar_icono_extension()` reescrita con
+  el mismo patrón de esquinas redondeadas + supersampling que ya usan los
+  iconos de agente/owner (Arial Bold para la "W", centrada con `textbbox`).
+  Extensión reconstruida (`.extension_build`/`.crx`) con el ícono nuevo.
+  Commit `136d225`.
+
+## Séptima parte — Etapa D completada en producción + sincronización de documentación
+
+- **Noticia del usuario**: la Etapa D (instalación del proxy en la PC oficial)
+  ya finalizó — el sistema está instalado en **todas las máquinas de la
+  oficina** y reportó estar funcionando **sin incidencias**. Falta ver cómo
+  evoluciona en la semana (monitoreo, no una tarea con pasos).
+- Se asignó una **cuenta de WinForce de producción distinta** de la usada en
+  desarrollo/pruebas en esta PC — recontextualiza la hipótesis de "dos logins
+  en paralelo" (ya no aplica al escenario dev/prod compartiendo cuenta; sigue
+  en observación esta semana por si la sesión de producción muere igual).
+- **RUC y CE confirmados funcionando en producción** — cierra la hipótesis
+  `tipo_doc=4` de CE que había quedado sin confirmar en la Quinta parte.
+- La duda del usuario en `Escalabilidad.md` (2026-09-27) queda **diferida a
+  pedido explícito suyo** — no urgente, se revisa otro día.
+- `actualizar_score_cliente`/`newsearch.php` y el backlog v1.1: el usuario
+  pospone la conversación a la próxima sesión.
+- **Documentación actualizada**: `Roadmap.md` (Etapa D→completada, Etapa
+  E→ya no bloqueada por acceso, investigaciones abiertas actualizadas),
+  `PlanesAprobados.md` (mismo criterio + cola activa), `AGENTS.md` (tarea 41
+  + cierre de la sesión).
+
 ## Pendiente al cerrar hoy
 
-- **Verificación en vivo pendiente** (no reproducible desde este entorno):
-  reiniciar el servicio real, renovar con la extensión y confirmar la línea
-  `renovada` en `logs/sesion_eventos.jsonl`.
-- Correr los experimentos del plan con el usuario para confirmar o descartar la
-  hipótesis de "dos logins en paralelo" (cerrar pestaña/Chrome, cerrar sesión
-  en WinForce, login desde otra PC) — ver `docs/rotacion-credenciales.md`.
-- Verificar contra el código la afirmación de `Escalabilidad.md` puesta en duda
-  el 2026-09-27 (sigue abierto).
-- Confirmar la hipótesis de CE (`tipo_doc=4`) con un documento de prueba que
-  sí tenga historial real en Equifax.
-- Resto de pendientes de cierres anteriores (Etapa D/E en la PC oficial, Fase 5
-  de documentación, decisión de `actualizar_score_cliente`/`newsearch.php`)
-  sigue abierto.
+- Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
+  observación, no una tarea con pasos.
+- Escribir el runbook de la Etapa E (`docs/proxy-deploy.md`) en cuanto el
+  usuario comparta el detalle operativo real de la instalación — ya no está
+  bloqueada por acceso físico, solo falta ese detalle.
+- Fase 5 (barrido final de documentación) sigue siendo la última tarea del
+  plan grande, después de la Etapa E.
+- Diferido a otra sesión (a pedido del usuario): la duda de
+  `Escalabilidad.md`, la decisión de `actualizar_score_cliente`/
+  `newsearch.php`, y el backlog v1.1.

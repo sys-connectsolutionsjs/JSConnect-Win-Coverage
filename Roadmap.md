@@ -9,14 +9,13 @@ cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
 ## Estado en una línea
 
-El núcleo, proxy, keepalive, extensión, GUI, detección de sesión muerta,
-persistencia bajo LocalSystem y activación RSA están construidos y probados. La
-consola owner también generó un código que activó correctamente un agente. El
+**La Etapa D se completó (2026-09-29): el sistema ya está instalado en todas
+las máquinas de la oficina y el usuario reportó que funciona sin incidencias**
+(cuenta de WinForce de producción separada de la usada en desarrollo). El
 score de RUC y el auto-actualizador, ambos con bugs reales encontrados en el
-primer uso real del agente, quedaron corregidos y verificados en vivo
-(2026-09-29). El siguiente paso es cerrar el ensayo completo en la PC de
-desarrollo (en curso desde 2026-09-18) y luego instalar y validar el servicio en
-la PC owner oficial; nada corre en producción todavía.
+primer uso real del agente, quedaron corregidos y verificados en vivo antes del
+despliegue. Lo que sigue: monitorear la primera semana en producción y escribir
+el runbook de la Etapa E con el detalle real de esa instalación.
 
 ---
 
@@ -52,53 +51,39 @@ la PC owner oficial; nada corre en producción todavía.
 | 2026-09-29 | **Fix del auto-actualizador** — la app no se cerraba al actualizar, el `.bat` movía el `.exe` sin comprobar el resultado y relanzaba la versión vieja (segunda ventana, diálogo de proxy roto). Ahora espera el cierre real del proceso, reintenta el `move`, y la GUI se cierra sola con una barra de progreso. Release `v2026.09.29.1`, 238 tests | `71337be` |
 | 2026-09-29 | **Fix: el score de RUC fallaba con "campos faltantes"** — `data[tipo_doc]` usa el Catálogo 06 de SUNAT (6 para RUC, no 3) y el campo de longitud se llama `logintud` en WinForce (typo real de ellos). Encontrado comparando una captura real de `tools/captura.py` contra el payload; verificado en vivo dos veces (mismo puntaje 575/ALTO que la captura del navegador). Release `v2026.09.29.2`, 240 tests | `9395033` |
 | 2026-09-29 | **Icono nuevo de la extensión de Chrome** — reemplaza el cuadrado verde con flecha por un recuadro naranja con bordes redondeados y la "W" de Win | `136d225` |
+| 2026-09-29 | **Etapa D completada** — instalado en todas las máquinas de la oficina; el usuario reportó funcionando sin incidencias, con una cuenta de WinForce de producción distinta de la usada en desarrollo. RUC y CE confirmados funcionando en producción. Reportado por el usuario, no verificable contra código | (despliegue operativo, sin commit) |
 
 ---
 
 ## Aprobado y pendiente — en orden de ejecución
 
-### 0. Ensayo previo en la PC de desarrollo — en curso (2026-09-18)
+### 0. Ensayo previo + Etapa D — COMPLETADOS (2026-09-29)
 
-Instalador re-ejecutable con pregunta de tokens ya probado dos veces; consola owner
-(con Reiniciar servicio) y agente contra el proxy probados. Falta:
-sesión WinForce estable (una sola vía de login), persistencia tras reiniciar el
-servicio, agente contra el proxy, carga con `tools/probar_concurrencia.py` y
-desinstalar el ensayo. **Firewall resuelto 2026-09-25**: el instalador ya no solo
-imprime el comando — el paso `[11/13]` lo ejecuta solo (idempotente, con fallback
-manual si el firewall está gobernado por dominio).
-Hallazgo: `localhost` daba 403 por `allowed_networks` (corregido: loopback siempre
-permitido; ver `docs/arquitectura.md`, "Control de acceso"). Hallazgo: la extensión de Chrome forzada por política solo se aplica en PC
-gestionada (dominio/Azure AD); en las demás se carga a mano (Modo de
-desarrollador → Cargar descomprimida → `.extension_build`).
+El ensayo en la PC de desarrollo (iniciado 2026-09-18) y la Etapa D (PC owner
+oficial y servicio de Windows) quedaron **superados por el despliegue real**:
+el usuario reportó el sistema instalado en **todas las máquinas de la
+oficina**, funcionando **sin incidencias**, con una cuenta de WinForce de
+producción **separada** de la usada en desarrollo. Detalle de los pasos
+seguidos en `PlanesAprobados.md` ("Etapa D — PC owner oficial"). Falta
+monitorear la primera semana en producción (no es una tarea con pasos, es
+observación).
 
-### 1. Etapa D — PC owner oficial y servicio de Windows
+### 1. Etapa E — runbook de la PC owner
 
-1. Clonar/actualizar `main` en la PC owner oficial.
-2. Transferir `private_key.pem` por un canal privado, fuera de Git, y restringir
-   su ACL. Construir/abrir la consola owner y realizar una activación de control.
-3. Ejecutar `install_service.bat` como Administrador y verificar sus 12 pasos.
-4. Iniciar sesión en WinForce y renovar la cookie por la extensión o la consola.
-5. Reiniciar el servicio y confirmar que LocalSystem recupera la cookie.
-6. Configurar un agente con URL completa `http://<ip>:8080` y token; validar
-   cobertura y score reales.
-7. Revisar `<repo>\logs\` sin secretos, alertas y firewall limitado a la LAN.
+Ya no está bloqueada por la Etapa D (que se completó) — sí está pendiente de
+que el usuario comparta el detalle operativo real de esa instalación (qué
+pasos se siguieron, qué se ajustó) para poder escribir
+`docs/proxy-deploy.md` sin inventar contenido. Debe cubrir: Python 3.14.7,
+ACL, LocalSystem, firewall, alta de agentes y la renovación diaria de sesión.
 
-La etapa requiere acceso físico a la PC owner oficial y el traslado privado del
-PEM. Es el siguiente trabajo operativo.
-
-### 2. Etapa E — runbook de la PC owner
-
-Actualizar `docs/proxy-deploy.md` con el procedimiento observado en la Etapa D:
-Python 3.14.7, ACL, LocalSystem, firewall, alta de agentes y renovación diaria.
-
-### 3. Etapa C.12 — modo standalone, opcional
+### 2. Etapa C.12 — modo standalone, opcional
 
 Probar pegando una `PHPSESSID` solo si se necesita el modo sin proxy. Hoy el modo
 proxy configurado gana y habría que limpiar `JSWinClient` del keyring.
 
-### 4. Fase 5 — barrido final de documentación
+### 3. Fase 5 — barrido final de documentación
 
-Resolver el checklist histórico que siga vigente después de D/E. En este cierre
+Resolver el checklist histórico que siga vigente después de E. En este cierre
 se actualizaron los documentos afectados por activación y handoff; los snapshots
 anteriores permanecen inmutables.
 
@@ -107,15 +92,18 @@ anteriores permanecen inmutables.
 ## Investigaciones abiertas (2026-09-29)
 
 - **"Dos logins en paralelo" invalidan la sesión** — hipótesis abierta desde
-  el 2026-09-18, sigue sin confirmar. Tabla de experimentos lista en
-  `docs/rotacion-credenciales.md` ("¿Por qué se cerró la sesión?").
-- **`tipo_doc=4` para CE** en el Catálogo 06 de SUNAT — corregido en el
-  código junto con el fix de RUC, pero sin confirmar con una captura real:
-  el único CE probado no tenía historial en Equifax. Repetir con un CE que
-  sí tenga reporte.
+  el 2026-09-18. Recontextualizada: producción usa una cuenta de WinForce
+  **distinta** de la de desarrollo, así que el escenario concreto que se
+  investigaba en esta PC (dev y prod compartiendo cuenta) ya no aplica. Sigue
+  en observación esta semana por si la sesión de producción muere sin causa
+  clara. Tabla de experimentos lista en `docs/rotacion-credenciales.md`
+  ("¿Por qué se cerró la sesión?") si hace falta retomarla.
+- **`tipo_doc=4` para CE** en el Catálogo 06 de SUNAT — **CONFIRMADO**:
+  probado en producción junto con RUC, ambos funcionando (2026-09-29,
+  reportado por el usuario).
 - **Duda del usuario en `Escalabilidad.md`** (2026-09-27, comentario a mano
-  bajo "No hay que reescribir nada para escalar") — sin revisar contra el
-  código todavía.
+  bajo "No hay que reescribir nada para escalar") — **diferida a pedido del
+  usuario**, no urgente, se revisa otro día.
 
 ## Backlog v1.1
 
@@ -131,5 +119,4 @@ anteriores permanecen inmutables.
 
 | Etapa | Bloqueada por |
 |---|---|
-| D | acceso a la PC owner oficial y transferencia privada del PEM |
-| E | resultados reales de la Etapa D |
+| E | que el usuario comparta el detalle operativo real de la instalación (Etapa D ya se completó) |

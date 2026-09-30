@@ -374,6 +374,18 @@ real del tema vía `ttk.Style().colors.primary`/`.bg`, no hardcodeado) + una
 `Label` de una sola línea con `bind` de click; `_mostrar_pagina()` alterna la
 barra/el `bootstyle` del texto entre activo e inactivo. **Con esto se cierran
 las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
+41. **Etapa D — despliegue en la PC oficial** [COMPLETADO — reportado por el
+    usuario 2026-09-29]: el sistema quedó instalado en **todas las máquinas
+    de la oficina**, funcionando **sin incidencias** según el usuario. Se
+    asignó una **cuenta de WinForce de producción distinta** de la usada en
+    desarrollo/pruebas en esta PC. RUC y CE (fix `9395033`, mismo día)
+    confirmados funcionando en producción — cierra la hipótesis `tipo_doc=4`
+    de CE que había quedado sin confirmar. **Este resultado es un reporte
+    directo del usuario sobre estado operativo real, no algo verificado
+    leyendo el código.** Falta monitorear la primera semana de uso real
+    (observación, no una tarea con pasos) y escribir el runbook de la Etapa E
+    con el detalle operativo real de esta instalación (pendiente de que el
+    usuario lo comparta). Detalle en `PlanesAprobados.md`/`Roadmap.md`.
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -1039,3 +1051,72 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Pendiente real para la próxima sesión**: verificar contra el código la
   afirmación de `Escalabilidad.md` que el usuario puso en duda. Resto de
   pendientes de cierres anteriores sigue abierto.
+
+### Cierre de la sesión 2026-09-29 [CONTEXTO PARA LA SIGUIENTE]
+
+- **Rotación de resúmenes** al abrir la sesión: `git pull --ff-only` trajo los
+  2 commits del 2026-09-27 (diagramas); `resumenes/2026-09-27.md` reconstruido
+  desde esos commits + entrada en `HistorialResumenes.md` + tarea/cierre en
+  este archivo, ya que esa sesión (hecha en otra PC) no había dejado su propio
+  `ResumenDelDia.md`.
+- **Sesión del proxy — falso positivo real corregido**: el usuario reportó
+  "a veces la sesión se cierra"; en `logs/winsw.err.log` de esa misma mañana
+  apareció un caso real (renovada → timeout puntual de WinForce en `/health`
+  → marcada "MUERTA" con una sola respuesta fallida → tras reinicio, la misma
+  cookie resultó seguir viva). `_confirmar_muerte()` (NUEVO en
+  `validator_app/proxy/server.py`) reintenta antes de declarar muerte;
+  `logs/sesion_eventos.jsonl` (NUEVO) registra cada renovación/muerte con
+  causa, origen y edad de la cookie (sobrevive a reinicios, antes todo vivía
+  en memoria). 11 tests nuevos, 235 en total. Commits `3c3d4c1`, `dc7f4ea`.
+- **GUI — Enter valida + textos más claros**: `<Return>`/`<KP_Enter>`
+  disparan la misma validación que el botón VALIDAR (con guard contra doble
+  disparo); el resultado del score pasa de `"MUY ALTO — VALIDO"` a
+  `"riesgo: MUY ALTO — puntaje obtenido"` (ese booleano solo indica que
+  WinForce devolvió un número, no que el cliente esté aprobado). Verificado
+  con una `App()` real. 238 tests. Commit `c30f783`.
+- **Fix real del auto-actualizador**: al aplicar una actualización la app
+  nunca se cerraba, el `.bat` esperaba un timeout fijo de 2s y hacía `move`
+  sin comprobar el resultado — el `.exe` seguía bloqueado, el move fallaba en
+  silencio, y el `start` de después relanzaba la **versión vieja** (de ahí la
+  segunda ventana y el diálogo de "Configurar Proxy" roto con dos procesos
+  vivos). Ahora el `.bat` espera activamente a que el PID del proceso actual
+  desaparezca y reintenta el `move` con chequeo de `errorlevel`; la GUI se
+  cierra sola con una barra de progreso mientras corre. El diálogo de
+  actualización deja de mostrar los checksums SHA-256 crudos (confundían al
+  usuario, los tomó por commits). Release `v2026.09.29.1`. 238 tests.
+  Commit `71337be`.
+- **Fix real del score de RUC** (bug reportado en el primer uso real con un
+  RUC): `HTTP 502 "Por favor, corregir los campos faltantes"`. Se descartó
+  con datos la hipótesis de que RUC necesitara coordenadas (falló igual con
+  y sin ellas) — el guard que se había puesto en la GUI se revirtió por
+  afirmar una causa falsa. La causa real se encontró comparando, campo por
+  campo, una captura real de `tools/captura.py` (score de RUC exitoso desde
+  la propia WinForce, 575/ALTO) contra el payload del código: `data[tipo_doc]`
+  usa el **Catálogo 06 de SUNAT** (6 para RUC, no el 3 de la tabla interna de
+  la app) y el campo de longitud se llama **`logintud`** en WinForce (typo
+  real de ellos). Verificado en vivo, dos veces, contra el proxy real: mismo
+  puntaje exacto que la captura del navegador. Release `v2026.09.29.2`.
+  240 tests. Commit `9395033`.
+- **Ícono nuevo de la extensión de Chrome**: pedido explícito — reemplaza el
+  cuadrado verde con la flecha "mal hecha" por un recuadro naranja con
+  bordes redondeados y la letra "W" (de Win) en blanco, siguiendo el mismo
+  patrón de esquinas redondeadas + supersampling que ya usan los iconos de
+  agente/owner. Extensión reconstruida (`.extension_build`/`.crx`) con el
+  ícono nuevo. Commit `136d225`.
+- **Etapa D completada en producción** (ver tarea 41): todas las máquinas de
+  la oficina, sin incidencias, cuenta de WinForce de producción separada de
+  la de desarrollo — esto además confirma la hipótesis `tipo_doc=4` de CE
+  (probado junto con RUC) y recontextualiza la hipótesis de "dos logins en
+  paralelo" (ya no aplica al escenario dev/prod compartiendo cuenta).
+- **Documentación sincronizada** con todo lo de arriba: `Roadmap.md`
+  (Etapa D→completada, Etapa E→ya no bloqueada, investigaciones abiertas
+  actualizadas), `PlanesAprobados.md` (mismo criterio + cola activa),
+  `TestingLog.md`, `ResumenDelDia.md`.
+- **Diferido explícitamente por el usuario, no urgente**: la duda de
+  `Escalabilidad.md` (2026-09-27) se revisa otro día; la decisión de
+  `actualizar_score_cliente`/`newsearch.php` y el backlog v1.1 se hablan en
+  la próxima sesión.
+- **Pendiente real para la próxima sesión**: monitorear la primera semana de
+  producción (sesión del proxy, RUC/CE); escribir el runbook de la Etapa E
+  en cuanto el usuario comparta el detalle operativo real; Fase 5 (barrido
+  de documentación) sigue siendo la última tarea del plan grande.

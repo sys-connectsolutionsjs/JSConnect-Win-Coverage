@@ -367,7 +367,17 @@ Probar el modo standalone pegando la `PHPSESSID`. Hoy exige borrar a mano
 proxy siempre gana (`main_window.py:75-77`, `:175`) y el diálogo de proxy no
 tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalone.
 
-### Etapa D — PC owner oficial y servicio de Windows  [ENSAYO EN PC DEV 2026-09-18 — falta la PC oficial]
+### Etapa D — PC owner oficial y servicio de Windows  [COMPLETADA 2026-09-29 — reportado por el usuario]
+
+> **Resultado final**: el sistema quedó instalado en **todas las máquinas de
+> la oficina**; el usuario reportó que funciona **sin incidencias**. Se
+> asignó una **cuenta de WinForce de producción distinta** de la usada en
+> desarrollo/pruebas en esta PC. RUC y CE (ver fix `9395033` del mismo día)
+> confirmados funcionando en producción. Este resultado es un reporte directo
+> del usuario sobre estado operativo real — no algo verificable leyendo el
+> código. Falta monitorear la primera semana de uso real (observación, no
+> una tarea con pasos). Los pasos 13-19 de abajo quedan como registro de lo
+> que se siguió; no se borran.
 
 > **Ensayo en la PC de desarrollo (2026-09-18)**: `install_service.bat` recorrió los 12
 > pasos y se ejecutó dos veces (idempotente); servicio `RUNNING`, consola owner, agente
@@ -410,13 +420,16 @@ idempotente, con fallback manual si el firewall está gobernado por dominio;
     LocalSystem funciona.)
 19. Regla de firewall para el puerto, **solo hacia la LAN** (`-Profile Domain,Private`).
 
-### Etapa E — Runbook de la PC de oficina  [EN COLA — bloqueada por acceso físico]
+### Etapa E — Runbook de la PC de oficina  [EN COLA — ya no bloqueada por acceso, falta el detalle operativo]
 
-La máquina está definida pero no es accesible. Dejar en `docs/proxy-deploy.md` el
-procedimiento **verificado en la Etapa D**, no el teórico: prerrequisitos
-(**Python 3.14.7**, ver 0.6), instalador corregido, ACL, cuenta del servicio
-(LocalSystem), firewall, alta de los 20 agentes y el ritual diario de renovación
-de la cookie del owner (extensión = principal; icono del Escritorio = fallback).
+La Etapa D ya se completó (2026-09-29, todas las máquinas, sin incidencias) —
+esta etapa ya no está bloqueada por acceso físico. Sigue pendiente de que el
+usuario comparta qué pasos siguió realmente en esa instalación (para no
+inventar contenido); con eso, dejar en `docs/proxy-deploy.md` el procedimiento
+**verificado**, no el teórico: prerrequisitos (**Python 3.14.7**, ver 0.6),
+instalador corregido, ACL, cuenta del servicio (LocalSystem), firewall, alta
+de los agentes y el ritual diario de renovación de la cookie del owner
+(extensión = principal; icono del Escritorio = fallback).
 
 ### 0.6 — Versión de Python (decisión registrada 2026-09-09)
 
@@ -443,17 +456,20 @@ Es **la última** — después de 0.5 / C.12 / D / E.
   en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
-- **Confirmar "dos logins en paralelo" invalidan la sesión** (hipótesis
-  abierta desde 2026-09-18, sin confirmar) — tabla de experimentos en
-  `docs/rotacion-credenciales.md` ("¿Por qué se cerró la sesión?").
-- **Confirmar `tipo_doc=4` para CE** (Catálogo 06 SUNAT) — corregido en el
-  código junto con el fix de score de RUC (2026-09-29, `9395033`), pero sin
-  confirmar con una captura real: el único CE probado (`007187041`) no
-  tenía historial en Equifax, así que no decidió la hipótesis.
+- **"Dos logins en paralelo" invalidan la sesión** (hipótesis abierta desde
+  2026-09-18) — recontextualizada 2026-09-29: producción usa una cuenta de
+  WinForce distinta de la de desarrollo, así que el escenario que se
+  investigaba (dev/prod compartiendo cuenta) ya no aplica. Sigue en
+  observación esta semana en producción. Tabla de experimentos en
+  `docs/rotacion-credenciales.md` ("¿Por qué se cerró la sesión?") si hace
+  falta retomarla.
+- ~~Confirmar `tipo_doc=4` para CE~~ → **CONFIRMADO 2026-09-29**: probado en
+  producción junto con RUC, ambos funcionando (reportado por el usuario).
 - **Revisar la duda del usuario en `Escalabilidad.md`** (comentario a mano,
-  2026-09-27, bajo "No hay que reescribir nada para escalar") contra el
-  código real.
-- Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
+  2026-09-27, bajo "No hay que reescribir nada para escalar") — **diferida
+  a pedido explícito del usuario (2026-09-29)**, no urgente, se revisa otro día.
+- Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`
+  — **a discutir en la próxima sesión**, según el usuario (2026-09-29).
 - ~~Conectar GUI a core end-to-end~~ → **absorbido por el plan "Sesión WinForce robusta"
   (Fase 3)**.
 - ~~Escribir `tests/test_proxy.py`~~ → **absorbido por el plan "Sesión WinForce robusta"
