@@ -31,5 +31,3 @@ condensada en `HistorialResumenes.md`.
   después de la Etapa E.
 - Diferido a pedido del usuario: la duda de `Escalabilidad.md`, la decisión de
   `actualizar_score_cliente`/`newsearch.php`, y el backlog v1.1.
-- Borrar `assets/LogoJSConnectSolutions.png` (el logo con texto, sin usar ni
-  versionar).
