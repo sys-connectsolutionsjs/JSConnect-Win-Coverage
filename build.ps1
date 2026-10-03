@@ -1,4 +1,11 @@
 # build.ps1 - empaqueta la app con PyInstaller y embebe el commit SHA actual
+# -RepoName: repo de GitHub donde el actualizador del agente busca Releases.
+#   Por defecto el original; la variante Windows 11 se compila con
+#   -RepoName "W11-JSConnect-Win-Coverage" para que sus agentes no "actualicen"
+#   al Release del otro repo (que tiene otro commit y seria volver atras).
+param(
+    [string]$RepoName = "JSConnect-Win-Coverage"
+)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
@@ -16,6 +23,7 @@ if (-not $tag) { $tag = "unknown" }
 
 Write-Host "Commit: $commit"
 Write-Host "Tag:    $tag"
+Write-Host "Repo de actualizaciones: sys-connectsolutionsjs/$RepoName"
 
 # 2. Generar validator_app/version.py
 $content = @"
@@ -23,7 +31,7 @@ $content = @"
 BUILD_COMMIT = "$commit"
 BUILD_TAG = "$tag"
 REPO_OWNER = "sys-connectsolutionsjs"
-REPO_NAME = "JSConnect-Win-Coverage"
+REPO_NAME = "$RepoName"
 "@
 Set-Content -Path "$root\validator_app\version.py" -Value $content -Encoding UTF8
 

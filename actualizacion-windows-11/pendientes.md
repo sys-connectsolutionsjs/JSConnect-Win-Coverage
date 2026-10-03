@@ -20,13 +20,18 @@ Nada de esto se resolvió en la sesión del 2026-10-02.
   desactivar Smart App Control (en muchas versiones no se puede volver a activar
   sin reinstalar Windows).
 
-## 3. ¿Dónde se publica el Release?
-- El actualizador de los agentes busca Releases en el repo **original**:
-  `REPO_NAME = "JSConnect-Win-Coverage"` en `build.ps1` (se escribe a
-  `validator_app/version.py` al compilar).
-- Si este repo W11 pasa a ser el oficial: cambiar `REPO_NAME` en `build.ps1`,
-  recompilar y entregar el `.exe` nuevo **a mano una vez** (los `.exe` viejos
-  siguen mirando el repo original).
+## 3. Releases: dos repos, dos canales de actualización
+- **Decidido 2026-10-02:** los `.exe` publicados en **este** repo se compilan con
+  `powershell -ExecutionPolicy Bypass -File build.ps1 -RepoName "W11-JSConnect-Win-Coverage"`,
+  así su actualizador busca Releases **aquí**. Sin el parámetro, `build.ps1` sigue
+  apuntando al repo original (valor por defecto).
+- **Por qué importa:** el actualizador compara el commit embebido con el commit del
+  tag del último Release **del repo que tiene grabado**. Un `.exe` de este repo que
+  apuntara al original vería `v2026.09.30` (otro commit) y ofrecería "actualizar",
+  o sea **volver a la versión vieja**.
+- Los agentes con el `.exe` del repo original siguen mirando el original; no ven
+  los Releases de aquí. Para pasarlos a este canal hay que entregarles el `.exe`
+  de aquí **a mano una vez**.
 - Los agentes con Windows 10 **no necesitan** el `.exe` nuevo (ver
   `cambios-por-archivo.md` §9).
 
