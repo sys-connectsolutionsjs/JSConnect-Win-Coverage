@@ -158,6 +158,13 @@ Notas:
   desde GitHub → Releases → Draft.
 - Sin firma de código, Windows SmartScreen pedirá *Más información → Ejecutar de todas
   formas* la primera vez.
+- En **Windows 11 con Smart App Control activo**, un `.exe` sin firma se **bloquea** sin
+  opción de ejecutarlo (pasó con `JSConnect-Win-Coverage.exe` en la PC oficina,
+  2026-10-02). Ahí el agente se corre desde el código (`.venv\Scripts\pythonw.exe
+  main.py`). Ver `actualizacion-windows-11/cambios-en-esta-pc.md`.
+- El icono **"Renovar sesion WinForce"** del Escritorio corre **sin elevar** y ya no lee
+  `config.yaml` (ACL de administrador): usa `/local/renovar`, que no necesita el admin
+  key (corregido 2026-10-02; antes fallaba con `PermissionError`).
 - El botón **Renovar sesion WinForce** de la consola owner empaquetada no se ha probado
   dentro del `.exe` (necesita Chromium/Playwright); en la PC del proxy usar la extensión o
   el icono del Escritorio (que corren desde el repo con `python`).
@@ -235,15 +242,24 @@ keyring.set_password('JSWinClient', 'proxy_url', 'http://192.168.1.50:8080')
 ## Firewall (Windows Defender)
 
 Desde el 2026-09-25, `install_service.bat` (paso `[11/13]`) abre el puerto
-automáticamente y es idempotente (no duplica la regla si ya existe). El comando de
-abajo queda solo como **fallback manual** — hace falta si el firewall está
-gobernado por Directiva de Grupo/dominio (el paso automático avisa con `[WARN]` y
-sigue instalando en ese caso) o si se cambió el puerto después a mano:
+automáticamente y es idempotente. Desde el 2026-10-02 la regla usa **todos los
+perfiles** (`-Profile Any`) limitada a IP de LAN/Tailscale (`-RemoteAddress`), y si
+ya existe se **actualiza** (puerto, perfil, rangos) en vez de saltarse: Windows 11
+clasificó la red de la oficina como **Pública** y la regla vieja (`Domain,Private`)
+no aplicaba → los agentes daban timeout. El comando de abajo queda solo como
+**fallback manual** — hace falta si el firewall está gobernado por Directiva de
+Grupo/dominio (el paso automático avisa con `[WARN]` y sigue instalando) o si se
+cambió el puerto después a mano:
 
 ```powershell
-# En PC proxy (como Admin): permitir puerto 8080 entrante
-New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow -Profile Domain,Private
+# En PC proxy (como Admin): permitir puerto 8080 entrante solo desde LAN/Tailscale
+New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow -Profile Any -RemoteAddress 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10
+# Si la regla ya existe con el perfil viejo:
+Set-NetFirewallRule -DisplayName "JSWinProxy API" -Profile Any -RemoteAddress 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10
 ```
+
+Para ver cómo clasificó Windows la red: `Get-NetConnectionProfile` (columna
+`NetworkCategory`).
 
 `uninstall_service.bat` quita la regla (`Remove-NetFirewallRule -DisplayName
 "JSWinProxy API"`) al desinstalar.
@@ -328,6 +344,9 @@ consola** — es la única credencial no rotable, y su exposición se maneja apa
 | `/admin/*` responde 403 desde otra PC | El admin key solo se acepta desde `127.0.0.1` (evita que viaje por LAN: expone el proxy_token vía `/admin/config`) | Usar la consola owner en la propia PC del proxy, o `rotate_creds.py`/scripts locales |
 | Agente: "No se pudo conectar al proxy" con `WinError 10061` | Se configuró `http://localhost:8080` (o `127.0.0.1`) en un agente que corre en otra PC — ahí `localhost` apunta al propio agente, no al proxy | Copiar la IP real desde `JSConnect-Win-Owner.exe` ("URL para los agentes") y usarla en el agente; si sigue fallando, revisar el firewall del puerto en la PC del proxy |
 | Agente: "No se pudo conectar al proxy" con **Timeout** (no "rechazada") | La IP y el puerto son correctos, pero el Firewall de Windows de la PC del proxy descarta el paquete en silencio (sin regla de entrada) en vez de rechazarlo — por eso el error es timeout, no `WinError 10061` | Reinstalar/reejecutar `install_service.bat` (paso `[11/13]` la crea sola) o correr a mano el comando de "Firewall" de arriba en la PC del proxy |
+| Agente: **Timeout** aunque la regla "JSWinProxy API" existe (típico en **Windows 11**) | La red de la PC del proxy está como **Pública** (`Get-NetConnectionProfile`) y la regla es de una versión vieja del instalador, solo `Domain,Private` | Reejecutar `install_service.bat` (actualiza la regla a `-Profile Any` con rangos LAN) o el `Set-NetFirewallRule` de la sección "Firewall" |
+| Icono "Renovar sesion WinForce" falla con `PermissionError` sobre `config.yaml` | Versión anterior al 2026-10-02: leía `config.yaml` (ACL de administrador) sin elevar | Actualizar el repo (`git pull`); la versión actual usa `/local/renovar` sin leer `config.yaml` |
+| No sale el popup "sesión caducada" aunque la tarea `JSWinProxy-AvisoSesion` existe | Versión anterior al 2026-10-02: el proxy escribía el evento con `eventcreate`, que rechaza el origen registrado con `New-EventLog` (fallaba en silencio) | Actualizar el repo y reiniciar el servicio; la versión actual usa `ReportEventW`. Comprobar en el Visor de Eventos → Aplicación, origen JSWinProxy, ID 101 |
 | Un cambio en `server.py` o `config.yaml` no surte efecto | El servicio Python carga el código y la configuración solo al arrancar | Consola owner → **Reiniciar servicio** (pide UAC) o `Restart-Service JSWinProxy` como Administrador; la sesión WinForce persiste |
 | Agente: "IP no permitida: <ip>" (403) | La IP que ve el proxy no está en `allowed_networks` (localhost siempre pasa) | Añadir su CIDR en `config.yaml` + `Restart-Service JSWinProxy`; las IP públicas del router NO se agregan |
 | WinForce: sesión caducada | Tope absoluto o login expirado | Iniciar sesión y renovar desde extensión/consola owner |

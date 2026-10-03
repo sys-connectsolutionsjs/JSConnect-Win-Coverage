@@ -11,7 +11,13 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (264 en total, a 2026-09-30)
+## Inventario de tests (287 en total, a 2026-10-02)
+
+> 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
+> +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
+> `test_owner_app.py` +3, `test_gui_activacion.py` +1, `test_secretos.py` 1
+> reemplazado. Detalle en `actualizacion-windows-11/cambios-por-archivo.md`. Las
+> cifras por archivo de la tabla son las del 2026-09-30 más esos incrementos.
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) + **`bitacora_sesion_aislada` (aísla `logs/sesion_eventos.jsonl` en `tmp_path`) + `sin_espera_de_confirmacion` (pone `SESSION_CONFIRM_DELAY_SECONDS` en 0, 2026-09-29)** |
@@ -40,6 +46,28 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-02 — PC oficina en Windows 11 (owner + proxy)
+- **Fallas encontradas en la PC real, no supuestas**:
+  - `eventcreate` rechaza el origen `JSWinProxy`;
+  - `get_config()` sin elevar da `PermissionError`;
+  - `wmic` no existe;
+  - la red está como Pública y la regla de firewall era `Domain,Private`.
+- **Tests nuevos (+23, 264 → 287)**:
+  - `ReportEventW` con tipo ERROR/INFORMATION y su caso de fallo, con una DLL falsa para no escribir en el Event Log real;
+  - huella con y sin `wmic`, que da el mismo resultado con los mismos valores, y la huella legacy aceptada;
+  - `push_session_cookie` y `_verificar_proxy` sin `config.yaml` legible;
+  - `proxy_local_url_seguro`, tomando el puerto de la extensión;
+  - `CREATE_NO_WINDOW` en la consola owner y en `secretos`;
+  - ACL por SID;
+  - guardas estáticas del `.bat`: firewall `Any` con rangos, sin pipe con `!PROXY_PORT!`, `-m pip`, health check con errorlevel diferido.
+- **Pruebas reales**:
+  - el evento 101 disparó la tarea del popup, también con una caducidad real a las 18:29:48;
+  - portapapeles privado: se puede pegar después de cerrar la consola, y la limpieza a los 60 s funciona;
+  - `.bat` de prueba aislado para la lógica de puerto, `pythonw` y health check;
+  - `install_service.bat` re-ejecutado completo, con los 13 pasos OK.
+- **Bug encontrado al probar**: si la ventana de Tk era la dueña del portapapeles, Tk lo vaciaba al cerrarse. Se pasó a una ventana de mensajes propia.
+- Detalle completo: `actualizacion-windows-11/verificacion.md`.
 
 ### Sesión 2026-09-30 — logo, botones de limpiar y tabla comercial de scores
 - **Test rojo primero**: `clasificar_score()` (rango de 100 puntos, riesgo,

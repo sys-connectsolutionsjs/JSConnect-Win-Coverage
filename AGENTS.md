@@ -14,7 +14,10 @@ información en milisegundos, sin cargar página, sin mapa ni navegador.
 - Licencias/activación: `cryptography` (RSA, firma asimétrica)
 - Empaquetado: `PyInstaller` (un único .exe portable)
 - Dev: `playwright` (solo captura, NO va en el .exe) · Tests: `pytest` · Lint: `ruff`
-- Plataforma: Windows 10 (única soportada)
+- Plataforma: agentes en **Windows 10** (probado); PC oficina (owner + proxy) en
+  Windows 10 o **Windows 11 Pro** (probado en 25H2 el 2026-10-02, ver
+  `actualizacion-windows-11/`). En Windows 11 con Smart App Control los `.exe`
+  sin firma se bloquean.
 
 ## Estructura
 ```
@@ -34,6 +37,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 ├── HistorialResumenes.md     # índice cronológico condensado de sesiones pasadas
 ├── Escalabilidad.md          # guía para futuros programadores (escalabilidad remota)
 ├── anotaciones.md            # glosario técnico para futuros devs
+├── actualizacion-windows-11/ # adaptación de la PC owner/proxy a Windows 11 (2026-10-02)
 ├── .claude/
 │   ├── settings.json         # config versionada (hook PostToolUse de doc-sync)
 │   └── hooks/historial_sync.py  # recuerda sincronizar docs al rotar un resumen
@@ -754,6 +758,10 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
     cuando se retome trabajo que la necesite.
   - `eventcreate` sin privilegios elevados da "Acceso denegado" (probar en
     foreground). Bajo el servicio LocalSystem funciona; se verifica en la Etapa D.
+    **[CORRECCIÓN 2026-10-02]** En una instalación limpia NO funciona ni como
+    LocalSystem: `install_service.bat` registra el origen con `New-EventLog` y
+    `eventcreate` solo acepta orígenes propios (`CustomSource=1`). Ahora
+    `server._aviso_event_log` usa `ReportEventW` — ver `actualizacion-windows-11/`.
   - `config.yaml`, `proxy_token.txt`, `admin_key.txt` son gitignored → **no
     están en git**; en la otra PC hay que regenerarlos (o correr
     `install_service.bat`). El `config.yaml` local de esta PC usa puerto 8090.
@@ -1136,3 +1144,32 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   el `.exe` del owner se reutilizó, no cambió).
 - **Pendiente**: el mismo de los cierres anteriores (monitoreo de producción,
   runbook de la Etapa E, Fase 5, duda de `Escalabilidad.md`, `actualizar_score_cliente`).
+
+### Cierre de la sesión 2026-10-02 [CONTEXTO PARA LA SIGUIENTE — PC oficina en Windows 11]
+
+- **Repo**: estos cambios viven **solo** en `sys-connectsolutionsjs/W11-JSConnect-Win-Coverage`
+  (remoto `w11`); el repo original no recibió nada. Código en el commit `5cb8768`;
+  la documentación va en el commit siguiente.
+- **Qué pasó**: se instaló la PC oficina con **Windows 11 Pro 25H2** (owner + proxy) y
+  se encontraron 6 problemas reales:
+  1. red **Pública** con una regla de firewall `Domain,Private`;
+  2. **`wmic` eliminado**, del que dependía la huella;
+  3. `eventcreate` rechaza el origen de `New-EventLog`, así que **el popup nunca salía**;
+  4. `rotate_creds` sin elevar daba `PermissionError` en `config.yaml`;
+  5. ventanas de **Windows Terminal** por no usar `CREATE_NO_WINDOW`;
+  6. tokens que quedaban en el historial **Win+V**.
+
+  Además había bugs del `.bat` (puerto, health check, ACL por nombre) y la
+  extensión no daba ninguna señal al hacer clic. **Detalle completo en
+  `actualizacion-windows-11/`.**
+- **Agentes**: siguen en Windows 10 con el Release `v2026.09.30`; no necesitan
+  cambios, porque ni la API del proxy ni la huella en Windows 10 cambiaron.
+- **Smart App Control** (Windows 11) bloquea los `.exe` sin firma. En la PC oficina
+  el agente corre desde el código con un lanzador local.
+- **Tests**: 264 → **287**, ruff limpio. Instalador re-ejecutado completo en la PC real.
+- **Pendiente**:
+  - revisar la adaptación con calma;
+  - **la sesión de WinForce muere unos 10 min después de cada renovación** (sin investigar);
+  - probar un agente con Windows 10 real;
+  - decidir dónde va el Release (`REPO_NAME` en `build.ps1`);
+  - la firma de código.

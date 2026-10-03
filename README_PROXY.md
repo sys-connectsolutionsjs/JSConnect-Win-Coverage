@@ -93,9 +93,14 @@ keyring.set_password('JSWinClient', 'proxy_token', '$proxyToken')
 ## Firewall (Windows Defender - PC Proxy)
 
 ```powershell
-# Como Administrador en PC proxy
-New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow -Profile Domain,Private
+# Como Administrador en PC proxy (install_service.bat ya lo hace en el paso 11/13)
+New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow -Profile Any -RemoteAddress 192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10
 ```
+
+`-Profile Any` porque Windows 11 suele clasificar la red de la oficina como
+**Pública** (con `Domain,Private` los agentes daban timeout); `-RemoteAddress`
+limita el acceso a IP de LAN y Tailscale (los mismos rangos que `allowed_networks`).
+Ver `actualizacion-windows-11/`.
 
 ---
 

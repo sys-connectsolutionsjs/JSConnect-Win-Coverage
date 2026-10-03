@@ -6,7 +6,10 @@
 
 ## Requisitos por Máquina
 
-- Windows 10
+- Windows 10 (probado). En Windows 11 con **Smart App Control** activo el `.exe`
+  sin firma se bloquea; ahí correr desde el código o firmar el ejecutable (ver
+  `actualizacion-windows-11/pendientes.md`). La huella de activación funciona
+  igual con o sin `wmic` (Windows 11 24H2+ ya no lo trae).
 - `JSConnect-Win-Coverage.exe` (última release)
 - Acceso LAN a la PC proxy (puerto 8080)
 - Token del proxy (entregado por owner al instalar proxy)

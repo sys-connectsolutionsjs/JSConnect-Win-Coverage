@@ -21,25 +21,52 @@ condensada en `HistorialResumenes.md`.
   "(se fija al abrir la proxima sesion)" y el hook lo sellará con la fecha del
   día en la próxima sesión.
 
-- **2026-10-02 — Instalación de la PC oficina (Windows 11 Pro, proxy + owner) y
-  fix del popup de sesión caducada.** En una instalación limpia,
-  `install_service.bat` registra el origen `JSWinProxy` con `New-EventLog`, y
-  `eventcreate` (que usaba `server._aviso_event_log`) rechaza ese origen siempre:
-  "El parámetro de origen se usa para identificar solo las aplicaciones/scripts",
-  porque solo acepta orígenes con `CustomSource=1`. El fallo pasaba en silencio
-  (`check=False`), así que el evento 101 nunca se escribía y la tarea
-  `JSWinProxy-AvisoSesion` nunca sacaba el popup. La nota anterior ("bajo
-  LocalSystem funciona") no aplica a este caso. Fix: `_aviso_event_log` pasa a
-  `ReportEventW` vía ctypes (+2 tests en `test_proxy.py`). Verificado de punta a
-  punta: el evento 101 real disparó la tarea (resultado 0). La extensión ahora
-  pone un badge al hacer clic ("…", "✓", "X", "!", "?") porque Windows puede
-  ocultar la notificación de Chrome y el clic no daba ninguna señal visible.
-  Además, Smart App Control (Windows 11) bloquea los `.exe` sin firma: aquí el
-  agente corre desde el código fuente con un lanzador local. Hay que revisarlo
-  antes de repartir el `.exe` a agentes con Windows 11.
+### 2026-10-02 — PC oficina en Windows 11 (owner + proxy)
+
+> Detalle completo para revisar con calma: **[`actualizacion-windows-11/`](actualizacion-windows-11/README.md)**
+> (cambios por archivo, verificación, cambios en la PC, pendientes).
+> Código: commit `5cb8768`. Solo en el repo `W11-JSConnect-Win-Coverage`;
+> el repo original no se tocó.
+
+1. **Instalación de la PC oficina** (Windows 11 Pro 25H2, build 26200). Se instaló
+   Git, Python 3.14.7 (todos los usuarios), el `.venv` y Chromium. Se clonó el
+   repo y se ejecutó `install_service.bat`: servicio `JSWinProxy` en el
+   puerto 8080, tokens nuevos, tarea de aviso e icono del Escritorio. También se
+   compilaron `JSConnect-Win-Owner.exe` y `JSConnect-Win-Coverage.exe`.
+2. **Smart App Control** (Windows 11) bloquea `JSConnect-Win-Coverage.exe` porque
+   no está firmado. En esta PC el agente corre desde el código con el lanzador
+   `%LOCALAPPDATA%\JSConnect-Win-Coverage\lanzar_agente.pyw` y accesos directos
+   con AppUserModelID propio, anclables a la barra de tareas.
+3. **El popup "sesión caducada" nunca salía.** `eventcreate` rechaza el origen
+   `JSWinProxy` registrado con `New-EventLog`, y el error se perdía en silencio.
+   Se corrigió con `ReportEventW` (ctypes). Verificado en producción: la sesión
+   caducó de verdad a las 18:29 y la tarea mostró el popup (resultado 0). La
+   extensión de Chrome ahora pone un badge al hacer clic (…, ✓, X, !, ?).
+4. **Adaptación a Windows 11** (6 problemas reales, ver la carpeta):
+   - firewall con perfil Any, limitado a la LAN, porque la red es Pública;
+   - huella sin `wmic`, por CIM, compatible hacia atrás;
+   - renovar la sesión sin elevar, porque `config.yaml` tiene ACL de administrador;
+   - `CREATE_NO_WINDOW` para que Windows Terminal no robe el foco;
+   - secretos fuera del historial Win+V;
+   - bugs de `install_service.bat`: puerto, health check, ACL por SID y Python real.
+
+   Resultado: 287 tests en verde y el instalador re-ejecutado completo en la PC.
+5. **Los agentes siguen en Windows 10** con el Release `v2026.09.30` y no
+   necesitan nada: la API del proxy no cambió y la huella en Windows 10 es
+   idéntica.
+6. **Subida al repo `W11-JSConnect-Win-Coverage`**: el remoto `w11`, con el commit
+   de código `5cb8768` y este commit de documentación.
 
 ## Pendiente al iniciar
 
+- **Revisar con calma la adaptación a Windows 11** (`actualizacion-windows-11/`)
+  antes de darla por buena.
+- **Investigar por qué la sesión de WinForce muere unos 10 min después de cada
+  renovación** (`actualizacion-windows-11/pendientes.md` §1).
+- Probar un **agente real con Windows 10** contra el proxy de la PC con Windows 11
+  (`actualizacion-windows-11/verificacion.md`).
+- Decidir **dónde se publica el Release** (repo original o W11; `REPO_NAME` en
+  `build.ps1`).
 - Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
   observación, no una tarea con pasos.
 - Escribir el runbook de la Etapa E (`docs/proxy-deploy.md`) en cuanto el

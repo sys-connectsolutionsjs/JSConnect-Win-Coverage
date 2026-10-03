@@ -417,8 +417,13 @@ idempotente, con fallback manual si el firewall está gobernado por dominio;
 18. Verificar el aviso de la Etapa R end-to-end: forzar sesión muerta → evento
     101 en el Visor de Eventos + popup de la tarea programada + badge/toast de la
     extensión. (En foreground sin elevar `eventcreate` da "Acceso denegado"; bajo
-    LocalSystem funciona.)
+    LocalSystem funciona.) **[2026-10-02]** Verificado en la PC oficina con Windows 11:
+    con `eventcreate` NO salía (rechaza el origen de `New-EventLog`); ya se usa
+    `ReportEventW` y la caducidad real de las 18:29 disparó el popup.
 19. Regla de firewall para el puerto, **solo hacia la LAN** (`-Profile Domain,Private`).
+    **[2026-10-02]** Cambiado a `-Profile Any -RemoteAddress <rangos LAN/Tailscale>`:
+    Windows 11 dejó la red de la oficina como Pública y `Domain,Private` no aplicaba.
+    Sigue siendo "solo LAN", ahora por rango de IP en vez de por perfil.
 
 ### Etapa E — Runbook de la PC de oficina  [EN COLA — ya no bloqueada por acceso, falta el detalle operativo]
 

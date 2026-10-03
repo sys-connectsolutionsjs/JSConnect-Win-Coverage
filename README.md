@@ -41,7 +41,8 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 - **Nuevo**: Configuración de proxy via GUI (menú ⚙️ Configuración → Configurar Proxy).
 
 ### Requisitos
-- Windows 10.
+- **Agentes**: Windows 10 (probado). En Windows 11 con Smart App Control activo, el `.exe` sin firma se bloquea (ver Seguridad y avisos).
+- **PC oficina (owner + proxy)**: Windows 10 o **Windows 11 Pro** (probado en 25H2, ver [`actualizacion-windows-11/`](actualizacion-windows-11/README.md)).
 - Python 3.12+ (solo para desarrollo; el .exe final no necesita Python).
 - **Para proxy (PC oficina)**: Python 3.12+, puerto 8080 libre, permisos de Administrador.
 
@@ -139,6 +140,8 @@ Ver `docs/proxy-deploy.md` para detalles completos, firewall, rotación de crede
 - Cada usuario usa su propia credencial del sistema de validación (modo standalone) **O** el proxy centralizado (modo producción).
 - **Producción = Proxy Local**: agentes no tienen credenciales WinForce; solo token proxy LAN.
 - Sin certificado de firma, Windows SmartScreen pedirá **Más información → Ejecutar de todas formas** la primera vez.
+- En **Windows 11 con Smart App Control activo**, los `.exe` sin firma se **bloquean** (sin opción de "ejecutar de todas formas"). Alternativas: correr desde el código (`pythonw main.py`) o firmar el ejecutable. Detalle en `actualizacion-windows-11/pendientes.md`.
+- En Windows 11 las redes nuevas suelen quedar como **Públicas**: el instalador crea la regla de firewall para todos los perfiles, limitada a IP de LAN/Tailscale.
 - Repositorio público sin licencia: todos los derechos reservados (ver Licencia).
 - **NUNCA en repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, credenciales reales.
 
@@ -155,6 +158,7 @@ Mapa interactivo de cobertura · Ofertas/catálogo de venta · Instalador con au
 - `rotacion-credenciales.md` — Proceso rotación WinForce (RDP v1 → VPN v2)
 - `escalabilidad-remota.md` — Guía para futuros programadores (VPN + auto-discovery)
 - `diagramas/` — 8 diagramas PlantUML (actividad, estados, casos de uso, clases, componentes, despliegue, secuencia y actividad del owner)
+- `../actualizacion-windows-11/` — Adaptación de la PC owner/proxy a Windows 11 (2026-10-02): cambios por archivo, verificación, pendientes
 
 ---
 
@@ -195,7 +199,8 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 - **New**: Proxy configuration via GUI (menu ⚙️ Configuración → Configurar Proxy).
 
 ### Requirements
-- Windows 10.
+- **Agents**: Windows 10 (tested). On Windows 11 with Smart App Control on, the unsigned `.exe` is blocked (see Security & notices).
+- **Office PC (owner + proxy)**: Windows 10 or **Windows 11 Pro** (tested on 25H2, see [`actualizacion-windows-11/`](actualizacion-windows-11/README.md)).
 - Python 3.12+ (development only; the final .exe does not need Python).
 - **For proxy (office PC)**: Python 3.12+, port 8080 free, Administrator permissions.
 
@@ -294,6 +299,8 @@ See `docs/proxy-deploy.md` for full details, firewall, credential rotation, and 
 - Each user uses their own validation-system credentials (standalone mode) **OR** the centralized proxy (production mode).
 - **Production = Local Proxy**: agents have no WinForce credentials; only LAN proxy token.
 - Without a signing certificate, Windows SmartScreen will ask for **More info → Run anyway** on first launch.
+- On **Windows 11 with Smart App Control on**, unsigned `.exe` files are **blocked** (no "run anyway"). Options: run from source (`pythonw main.py`) or sign the executable. See `actualizacion-windows-11/pendientes.md`.
+- On Windows 11 new networks are usually **Public**: the installer creates the firewall rule for all profiles, restricted to LAN/Tailscale IPs.
 - Public repository with no license: all rights reserved (see License).
 - **NEVER in repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, real credentials.
 
@@ -310,3 +317,4 @@ Interactive coverage map · Sales offers/catalog · Installer with auto-update �
 - `rotacion-credenciales.md` — WinForce credential rotation process (RDP v1 → VPN v2)
 - `escalabilidad-remota.md` — Guide for future programmers (VPN + auto-discovery)
 - `diagramas/` — 8 PlantUML diagrams (activity, state, use cases, classes, components, deployment, sequence and owner activity)
+- `../actualizacion-windows-11/` — Windows 11 adaptation of the owner/proxy PC (2026-10-02): changes per file, verification, open items

@@ -51,7 +51,8 @@ Mecanismo en `ValidatorAPI` (proxy y standalone) que detecta sesión expirada o 
 ### Aviso de sesión muerta (Etapa R, 3 capas)
 Cuando el proxy confirma que la sesión WinForce murió (`_marcar_sesion_muerta()`), avisa por tres vías independientes, cada una degrada sola:
 1. **HTTP 503 al agente** — ver "Sesión caducada (HTTP 503)".
-2. **Evento de Windows + tarea programada** — el proxy escribe un evento (`eventcreate`, origen `JSWinProxy`, ID **101** = caducó / **102** = renovada) en el Registro de Aplicación; `install_service.bat` registra la tarea `JSWinProxy-AvisoSesion` (`schtasks /sc ONEVENT`) que le saca un `msg *` al owner en su escritorio. Es la vía nativa para que un servicio **LocalSystem** (sesión 0, sin escritorio) alcance a un humano. En foreground sin elevar, `eventcreate` da "Acceso denegado" (esperado; bajo el servicio funciona).
+2. **Evento de Windows + tarea programada** — el proxy escribe un evento (origen `JSWinProxy`, ID **101** = caducó / **102** = renovada) en el Registro de Aplicación con la API Win32 **`ReportEventW`** (ctypes, `server._aviso_event_log`); `install_service.bat` registra la tarea `JSWinProxy-AvisoSesion` (`schtasks /sc ONEVENT`) que le saca un `msg *` al owner en su escritorio. Es la vía nativa para que un servicio **LocalSystem** (sesión 0, sin escritorio) alcance a un humano.
+   - **Lección (2026-10-02)**: antes se usaba `eventcreate.exe`, y **nunca funcionó en una instalación limpia**: `eventcreate` solo escribe en orígenes creados por él mismo (valor `CustomSource=1` en el registro), y `install_service.bat` registra `JSWinProxy` con `New-EventLog` (.NET). Respondía *"El parámetro de origen se usa para identificar solo las aplicaciones/scripts"* incluso como LocalSystem, y como se llamaba con `check=False` el error se perdía. `ReportEventW` acepta cualquier origen registrado (y, si no lo está, igual escribe el ID, que es lo que filtra la tarea).
 3. **Toast de la extensión de Chrome** — `background.js` dispara `chrome.notifications` solo en la transición viva↔muerta (estado previo en `chrome.storage.session`), no cada sondeo.
 4. **Webhook opcional** — `config.alert_webhook_url` (vacío = desactivado): POST `{"text": ...}`, forma que aceptan Teams/Slack/Discord. Para owner remoto o varias oficinas.
 
@@ -608,6 +609,15 @@ Herramienta que convierte cualquier exe en servicio Windows nativo.
 - Comandos: `winsw.exe install | start | stop | uninstall | status`
 - Logs stdout/stderr: `<repo>\logs\`. El Visor de Eventos solo recibe las
   alertas de sesión 101/102 creadas por el proxy.
+
+### Windows 11 — diferencias que afectan al proyecto (2026-10-02)
+Detectadas al instalar la PC oficina en Windows 11 Pro 25H2. Detalle en `actualizacion-windows-11/`.
+- **Red Pública por defecto**: las redes nuevas quedan como *Públicas*; una regla de firewall `Domain,Private` no aplica ahí (el agente ve **timeout**). El instalador usa `-Profile Any` + `-RemoteAddress` con los rangos LAN/Tailscale. Ver la categoría con `Get-NetConnectionProfile`.
+- **`wmic` eliminado** (24H2+): la huella (`fingerprint.py`) lee lo mismo por CIM (`Win32_Processor.ProcessorId`, `Win32_Volume.SerialNumber`) cuando `wmic` no existe; `huellas_compatibles()` acepta también la huella vieja calculada sin `wmic`.
+- **Windows Terminal como consola por defecto**: cada `subprocess` lanzado desde una app con ventana abre una Terminal visible que roba el foco → usar `creationflags=subprocess.CREATE_NO_WINDOW`.
+- **Historial del portapapeles (Win+V) y nube**: guardan lo copiado aunque la app lo borre. Para secretos: formatos `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory=0`, `CanUploadToCloudClipboard=0` (`owner_app.copiar_sin_historial`). El dueño del portapapeles NO debe ser una ventana de Tk: Tk lo vacía al cerrarse.
+- **Smart App Control**: bloquea `.exe` sin firma, sin la opción "ejecutar de todas formas" de SmartScreen; queda en el Visor de Eventos → `Microsoft-Windows-CodeIntegrity/Operational` (IDs 3033/3077). Python sí está firmado, así que correr desde el código funciona. Solución de fondo: firmar los `.exe` (`actualizacion-windows-11/pendientes.md`).
+- **No es de Windows 11 pero salió ahí**: `config.yaml` tiene ACL SYSTEM+Administradores → cualquier proceso **no elevado** que llame `get_config()` recibe `PermissionError`; para `/local/*` usar `config.proxy_local_url_seguro()`.
 
 ---
 
