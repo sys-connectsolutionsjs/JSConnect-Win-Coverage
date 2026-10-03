@@ -110,22 +110,24 @@ def test_rotar_cual_invalido(base_dir):
         secretos.rotar(base_dir, "otra_cosa", runner=lambda *a, **k: _Resultado(0))
 
 
-def test_rotar_icacls_cae_a_administrators_en_ingles(base_dir):
-    """Si el sistema esta en ingles, BUILTIN\\Administradores falla y se
-    reintenta con Administrators (mismo fallback de install_service.bat)."""
+def test_rotar_icacls_usa_sids_independientes_del_idioma(base_dir):
+    """La ACL se aplica por SID (SYSTEM y Administradores), no por nombres
+    traducidos ("Administradores"/"Administrators"), y sin abrir ventana."""
     intentos = []
 
     def runner(args, **kwargs):
         if "icacls" in args:
-            intentos.append(args)
-            if "BUILTIN\\Administradores:F" in args:
-                return _Resultado(1)
+            intentos.append((args, kwargs))
         return _Resultado(0)
 
     secretos.rotar(base_dir, "proxy_token", runner=runner)
 
-    assert any("BUILTIN\\Administradores:F" in a for a in intentos)
-    assert any("BUILTIN\\Administrators:F" in a for a in intentos)
+    assert len(intentos) == 2  # config.yaml + proxy_token.txt
+    for args, kwargs in intentos:
+        assert "*S-1-5-18:F" in args
+        assert "*S-1-5-32-544:F" in args
+        assert not any("Administr" in a for a in args)
+        assert kwargs.get("creationflags") == secretos._SIN_VENTANA
 
 
 def test_ruta_instalacion_usa_binpath_del_servicio(tmp_path, monkeypatch):

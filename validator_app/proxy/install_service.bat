@@ -62,6 +62,16 @@ if %PY_VER% EQU 3 if %PY_MINOR% LSS 12 (
 )
 echo [OK] Python %PY_VER%.%PY_MINOR% detectado.
 
+REM Interprete REAL (no el alias de Microsoft Store de WindowsApps): pip y el
+REM icono del Escritorio usan este mismo, no lo primero que haya en PATH.
+for /f "delims=" %%i in ('python -c "import sys; print(sys.executable)"') do set "PYTHON_EXE=%%i"
+if not exist "%PYTHON_EXE%" (
+    echo [ERROR] No se pudo resolver el ejecutable de Python ^(%PYTHON_EXE%^).
+    pause
+    exit /b 1
+)
+echo [INFO] Usando Python: %PYTHON_EXE%
+
 REM Instalar dependencias
 echo.
 echo [2/13] Instalando dependencias (requirements-proxy.txt)...
@@ -78,7 +88,7 @@ if !errorLevel! equ 0 (
     echo [OK] Dependencias ya instaladas - nada que hacer.
     set "R2=ya estaba"
 ) else (
-    pip install -r "%REPO_ROOT%\requirements-proxy.txt" --quiet
+    "%PYTHON_EXE%" -m pip install -r "%REPO_ROOT%\requirements-proxy.txt" --quiet
     if errorlevel 1 (
         echo [ERROR] Fallo al instalar dependencias. Revisa tu conexion a internet.
         pause
@@ -217,15 +227,19 @@ if exist "%CONFIG_YAML%" (
     echo Verificando puerto !PROXY_PORT!...
     if defined OLD_PORT (
         echo [INFO] Se reutiliza el puerto anterior: lo ocupa el propio servicio.
-        ver >nul
+        REM errorlevel 1 = "libre" para el chequeo de abajo
+        call :puerto_libre_forzado
     ) else (
-        netstat -an | findstr ":!PROXY_PORT! " >nul
+        REM Sin pipe: cada lado de un pipe corre en un cmd hijo SIN delayed
+        REM expansion, y findstr buscaba el texto literal ":!PROXY_PORT! " (nunca
+        REM detectaba el puerto ocupado). Ademas solo cuenta puertos LOCALES en escucha.
+        call :puerto_en_uso !PROXY_PORT!
     )
     if not errorlevel 1 (
         echo [WARN] Puerto !PROXY_PORT! ya esta en uso.
         set /p PROXY_PORT="Ingresa otro puerto (ej: 8081, 9000): "
         if "!PROXY_PORT!"=="" set PROXY_PORT=8081
-        netstat -an | findstr ":!PROXY_PORT! " >nul
+        call :puerto_en_uso !PROXY_PORT!
         if not errorlevel 1 (
             echo [ERROR] Puerto !PROXY_PORT! tambien esta en uso. Elige otro.
             pause
@@ -270,11 +284,18 @@ if exist "%CONFIG_YAML%" (
 REM Restringir config.yaml: contiene proxy_token + admin_key en texto plano.
 REM .gitignore protege de GitHub; esta ACL protege de otros usuarios de la PC.
 echo [INFO] Restringiendo permisos de config.yaml (SYSTEM + Administradores)...
-icacls "%CONFIG_YAML%" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administradores:F" >nul 2>&1
-if errorlevel 1 icacls "%CONFIG_YAML%" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administrators:F" >nul 2>&1
-icacls "%BASE_DIR%\proxy_token.txt" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administradores:F" >nul 2>&1
-icacls "%BASE_DIR%\admin_key.txt" /inheritance:r /grant:r "SYSTEM:F" "BUILTIN\Administradores:F" >nul 2>&1
-echo [OK] Permisos aplicados (si fallo, revisa que corres como Administrador).
+REM Por SID (S-1-5-18 = SYSTEM, S-1-5-32-544 = Administradores): no depende del
+REM idioma de Windows ("Administradores" / "Administrators" / ...).
+set "ACL_OK=1"
+icacls "%CONFIG_YAML%" /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F >nul 2>&1 || set "ACL_OK=0"
+if exist "%BASE_DIR%\proxy_token.txt" icacls "%BASE_DIR%\proxy_token.txt" /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F >nul 2>&1 || set "ACL_OK=0"
+if exist "%BASE_DIR%\admin_key.txt" icacls "%BASE_DIR%\admin_key.txt" /inheritance:r /grant:r *S-1-5-18:F *S-1-5-32-544:F >nul 2>&1 || set "ACL_OK=0"
+if "%ACL_OK%"=="1" (
+    echo [OK] Permisos aplicados.
+) else (
+    echo [WARN] No se pudieron restringir los permisos de config.yaml / tokens.
+    echo        Revisa que corres como Administrador.
+)
 
 REM Instalar la extension de Chrome "Renovar sesion WinForce" (force-install por politica)
 echo.
@@ -392,16 +413,19 @@ timeout /t 3 /nobreak >nul
 
 set "HEALTH_URL=http://localhost:%PROXY_PORT%/health"
 echo Probando %HEALTH_URL% ...
-curl -s -m 5 "%HEALTH_URL%" > health_check.tmp 2>&1
+REM -f: un HTTP 4xx/5xx tambien cuenta como fallo (sin -f curl sale con 0).
+curl -s -f -m 5 "%HEALTH_URL%" > health_check.tmp 2>&1
 if %errorLevel% neq 0 (
     echo [WARN] Health check fallo ^(curl no disponible o servicio no listo^).
     echo         Verifica manualmente: curl %HEALTH_URL%
 ) else (
     type health_check.tmp
     findstr /C:"\"status\":\"ok\"" health_check.tmp >nul
-    if %errorLevel% equ 0 (
+    REM Con signos de exclamacion: dentro de un bloque, la forma con porcentajes se
+    REM expande al leer el bloque y siempre valia el 0 del curl de arriba.
+    if !errorLevel! equ 0 (
         echo.
-        echo [EXITO] Health check OK - Proxy funcionando correctamente!
+        echo [EXITO] Health check OK - Proxy funcionando correctamente.
     ) else (
         echo.
         echo [WARN] Health check respondio pero status no es 'ok'.
@@ -414,16 +438,31 @@ REM Windows Firewall por defecto DESCARTA (no rechaza) las conexiones sin
 REM regla: eso da un timeout de conexion en el agente, no un "rechazado" -
 REM mucho mas dificil de diagnosticar a distancia (bug real, 2026-09-25: el
 REM instalador solo IMPRIMIA este comando como nota manual, nunca lo corria).
+REM Perfil Any: Windows 11 clasifica las redes nuevas como PUBLICAS, y una regla
+REM solo Domain,Private no aplica ahi (agentes con timeout). Para no abrir el
+REM puerto a cualquiera en una red publica, solo se aceptan IP de LAN y de
+REM Tailscale (los mismos rangos que allowed_networks de config.py).
+set "FW_REMOTOS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10"
 echo.
 echo [11/13] Abriendo el puerto !PROXY_PORT! en el Firewall de Windows...
 powershell -NoProfile -Command "if (Get-NetFirewallRule -DisplayName 'JSWinProxy API' -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >nul 2>&1
 if !errorLevel! equ 0 (
-    echo [OK] La regla de firewall ya existia - nada que hacer.
-    set "R11=ya estaba"
+    REM Ya existia: se actualiza puerto/perfil/rangos por si cambiaron o la
+    REM creo una version anterior del instalador con solo Domain,Private.
+    powershell -NoProfile -Command "Get-NetFirewallRule -DisplayName 'JSWinProxy API' | Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -Protocol TCP -LocalPort !PROXY_PORT! -Profile Any -RemoteAddress !FW_REMOTOS! -ErrorAction Stop" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo [OK] La regla de firewall ya existia - actualizada a puerto !PROXY_PORT!, todos los perfiles.
+        set "R11=ya estaba - actualizada"
+    ) else (
+        set "R11=FALLO - ver aviso"
+        echo [WARN] No se pudo actualizar la regla existente "JSWinProxy API".
+        echo        Ejecuta a mano como Administrador:
+        echo        Set-NetFirewallRule -DisplayName "JSWinProxy API" -LocalPort !PROXY_PORT! -Profile Any -RemoteAddress !FW_REMOTOS!
+    )
     goto :firewall_listo
 )
-powershell -NoProfile -Command "New-NetFirewallRule -DisplayName 'JSWinProxy API' -Direction Inbound -LocalPort !PROXY_PORT! -Protocol TCP -Action Allow -Profile Domain,Private -ErrorAction Stop" >nul 2>&1
-if %errorLevel% equ 0 (
+powershell -NoProfile -Command "New-NetFirewallRule -DisplayName 'JSWinProxy API' -Direction Inbound -LocalPort !PROXY_PORT! -Protocol TCP -Action Allow -Profile Any -RemoteAddress !FW_REMOTOS! -ErrorAction Stop" >nul 2>&1
+if !errorLevel! equ 0 (
     echo [OK] Regla de firewall creada - agentes de otras PC ya pueden conectar.
     set "R11=hecho ahora"
 ) else (
@@ -431,7 +470,7 @@ if %errorLevel% equ 0 (
     echo [WARN] No se pudo crear la regla ^(firewall gobernado por Directiva de
     echo        Grupo/dominio?^). Pide al administrador de red que abra el puerto
     echo        !PROXY_PORT! TCP entrante, o ejecuta a mano como Administrador:
-    echo        New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort !PROXY_PORT! -Protocol TCP -Action Allow -Profile Domain,Private
+    echo        New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort !PROXY_PORT! -Protocol TCP -Action Allow -Profile Any -RemoteAddress !FW_REMOTOS!
 )
 :firewall_listo
 
@@ -473,7 +512,13 @@ if !errorLevel! equ 0 (
     set "R13=ya estaba"
     goto :icono_listo
 )
-for /f "delims=" %%p in ('where pythonw.exe 2^>nul') do set "PYTHONW_EXE=%%p"
+REM pythonw.exe junto al interprete real, no el que encuentre `where`: puede ser
+REM el alias de Microsoft Store de WindowsApps, o no estar en PATH.
+for %%d in ("%PYTHON_EXE%") do set "PYTHONW_EXE=%%~dpdpythonw.exe"
+if not exist "%PYTHONW_EXE%" (
+    set "PYTHONW_EXE="
+    for /f "delims=" %%p in ('where pythonw.exe 2^>nul') do if not defined PYTHONW_EXE set "PYTHONW_EXE=%%p"
+)
 if not defined PYTHONW_EXE set "PYTHONW_EXE=pythonw.exe"
 set "REPO_ROOT=%BASE_DIR%\..\.."
 powershell -NoProfile -Command "$w=New-Object -ComObject WScript.Shell; $l=$w.CreateShortcut((Join-Path $w.SpecialFolders('Desktop') 'Renovar sesion WinForce.lnk')); $l.TargetPath='%PYTHONW_EXE%'; $l.Arguments='-m validator_app.proxy.rotate_creds'; $l.WorkingDirectory=(Resolve-Path '%REPO_ROOT%').Path; $l.IconLocation='shell32.dll,44'; $l.Description='Renueva la sesion de WinForce del proxy'; $l.Save()" 2>nul
@@ -571,7 +616,7 @@ echo FIREWALL: el paso [11/13] ya abrio el puerto %PROXY_PORT% automaticamente.
 echo Si los agentes igual no conectan (firewall gobernado por Directiva de Grupo
 echo o dominio), pide al administrador de red que lo abra, o ejecuta a mano como
 echo Administrador:
-echo   New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort %PROXY_PORT% -Protocol TCP -Action Allow -Profile Domain,Private
+echo   New-NetFirewallRule -DisplayName "JSWinProxy API" -Direction Inbound -LocalPort %PROXY_PORT% -Protocol TCP -Action Allow -Profile Any -RemoteAddress %FW_REMOTOS%
 echo.
 pause
 exit /b 0
@@ -584,4 +629,12 @@ REM %1 = nombre de variable a setear; %2 = valor (posiblemente entre comillas)
 set "_tq_val=%~2"
 set "%1=%_tq_val%"
 set "_tq_val="
+goto :eof
+
+:puerto_libre_forzado
+exit /b 1
+
+:puerto_en_uso
+REM %1 = puerto. errorlevel 0 si hay algo ESCUCHANDO en ese puerto local, 1 si esta libre.
+powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort %1 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" >nul 2>&1
 goto :eof

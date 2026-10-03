@@ -82,13 +82,19 @@ def _ruta_recurso(relativa: str) -> Path:
     return raiz / relativa
 
 
-def activacion_vigente(huella: str) -> bool:
-    """True si esta PC tiene guardado un codigo de activacion valido para su huella."""
+def activacion_vigente(huella: str, alternativas=()) -> bool:
+    """True si esta PC tiene guardado un codigo de activacion valido para su huella.
+
+    `alternativas`: otras huellas de ESTA misma PC que tambien se aceptan (la
+    calculada antes de quitar la dependencia de `wmic`, ver
+    fingerprint.huellas_compatibles)."""
     guardado = activation_state.leer()
+    if not guardado:
+        return False
+    huella_guardada = guardado.get("huella")
     return bool(
-        guardado
-        and guardado.get("huella") == huella
-        and signer.validar_codigo(huella, guardado.get("codigo", ""))
+        (huella_guardada == huella or huella_guardada in alternativas)
+        and signer.validar_codigo(huella_guardada, guardado.get("codigo", ""))
     )
 
 
@@ -329,7 +335,7 @@ class App(ttk.Window):
             self.lbl_estado.config(text="Estado: modo desarrollo (activacion pendiente)")
             return
         huella = fingerprint.obtener_huella()
-        if activacion_vigente(huella):
+        if activacion_vigente(huella, fingerprint.huellas_compatibles()):
             return
         self._mostrar_activacion(huella)
 
@@ -348,7 +354,8 @@ class App(ttk.Window):
         frame = ttk.Frame(dialog, padding=16)
         frame.pack(fill="both", expand=True)
         if not requerida:
-            estado = "ACTIVADA" if activacion_vigente(huella) else "PENDIENTE de activar"
+            vigente = activacion_vigente(huella, fingerprint.huellas_compatibles())
+            estado = "ACTIVADA" if vigente else "PENDIENTE de activar"
             ttk.Label(frame, text=f"Estado de esta PC: {estado}", font=("", 10, "bold")).pack(
                 anchor="w", pady=(0, 8)
             )

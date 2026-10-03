@@ -151,6 +151,51 @@ def test_push_session_cookie_falla_si_nada_responde(monkeypatch):
     assert "no se pudo contactar" in msg.lower()
 
 
+def _config_ilegible():
+    raise PermissionError(13, "Acceso denegado", "config.yaml")
+
+
+def test_push_session_cookie_no_lee_config_yaml_si_local_renovar_responde(monkeypatch):
+    """El icono del Escritorio corre SIN elevar y config.yaml tiene ACL de
+    SYSTEM+Administradores: antes get_config() reventaba con PermissionError
+    antes de enviar nada (2026-10-02)."""
+    monkeypatch.setattr(rotate_creds, "get_config", _config_ilegible)
+    monkeypatch.setattr(rotate_creds, "proxy_local_url_seguro", lambda: "http://127.0.0.1:8080")
+    llamadas = _mock_post(monkeypatch, [httpx.Response(200, json={"ok": True})])
+
+    ok, _msg = rotate_creds.push_session_cookie("cookie-x")
+
+    assert ok is True
+    assert llamadas[0][0] == "http://127.0.0.1:8080/local/renovar"
+
+
+def test_push_session_cookie_sin_config_y_proxy_caido_da_error_claro(monkeypatch):
+    monkeypatch.setattr(rotate_creds, "get_config", _config_ilegible)
+    monkeypatch.setattr(rotate_creds, "proxy_local_url_seguro", lambda: "http://127.0.0.1:8080")
+    _mock_post(monkeypatch, [httpx.ConnectError("caido")])
+
+    ok, msg = rotate_creds.push_session_cookie("cookie-x")
+
+    assert ok is False
+    assert "JSWinProxy" in msg
+
+
+def test_verificar_proxy_usa_local_estado_sin_admin_key(monkeypatch):
+    monkeypatch.setattr(rotate_creds, "get_config", _config_ilegible)
+    monkeypatch.setattr(rotate_creds, "proxy_local_url_seguro", lambda: "http://127.0.0.1:8080")
+    pedidas = []
+
+    def fake_get(url, **kwargs):
+        pedidas.append((url, kwargs))
+        return httpx.Response(200, json={"session_alive": True})
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    rotate_creds._verificar_proxy()
+
+    assert pedidas == [("http://127.0.0.1:8080/local/estado", {"timeout": 5})]
+
+
 # --------------------------------------------------------------------------
 # rotate_creds — dispatch
 # --------------------------------------------------------------------------

@@ -351,3 +351,67 @@ def test_main_subcomando_rotar_secretos_escribe_json(monkeypatch, tmp_path):
 
     assert owner_app.main() == 0
     assert json.loads(ruta_salida.read_text(encoding="utf-8")) == {"admin_key": "z" * 64}
+
+
+# --------------------------------------------------------------------------
+# Windows 11: sin ventanas de Terminal y portapapeles privado
+# --------------------------------------------------------------------------
+
+
+class _ResultadoSimple:
+    def __init__(self, returncode=0):
+        self.returncode = returncode
+        self.stdout = ""
+        self.stderr = ""
+
+
+def test_reiniciar_y_elevar_no_abren_ventana(monkeypatch, tmp_path):
+    """En Windows 11 cada consola se abre en Windows Terminal y roba el foco."""
+    vistos = []
+
+    def runner(args, **kwargs):
+        vistos.append(kwargs.get("creationflags"))
+        return _ResultadoSimple(0)
+
+    owner_app.reiniciar_servicio(runner)
+    with pytest.raises(RuntimeError):  # sin JSON de salida: da igual aqui
+        owner_app._ejecutar_elevado(["--leer-secretos"], runner=runner)
+
+    assert vistos == [owner_app.SIN_VENTANA, owner_app.SIN_VENTANA]
+
+
+def test_consultar_servicio_no_abre_ventana(monkeypatch):
+    vistos = []
+
+    def fake_run(args, **kwargs):
+        vistos.append((args, kwargs.get("creationflags")))
+        return _ResultadoSimple(0)
+
+    monkeypatch.setattr(owner_app.subprocess, "run", fake_run)
+    owner_app.consultar_servicio()
+    assert vistos == [(["sc", "query", "JSWinProxy"], owner_app.SIN_VENTANA)]
+
+
+def test_copiar_sin_historial_devuelve_false_si_no_abre_el_portapapeles(monkeypatch):
+    """Si la API Win32 falla, el caller cae al portapapeles normal de Tk."""
+    import ctypes
+    import types
+
+    class _Fn:
+        def __init__(self, ret):
+            self.ret = ret
+
+        def __call__(self, *a):
+            return self.ret
+
+    destruidas = []
+    dll = types.SimpleNamespace(
+        CreateWindowExW=_Fn(77), DestroyWindow=lambda h: destruidas.append(h),
+        OpenClipboard=_Fn(0), EmptyClipboard=_Fn(1), CloseClipboard=_Fn(1),
+        SetClipboardData=_Fn(1), RegisterClipboardFormatW=_Fn(1),
+        GlobalAlloc=_Fn(1), GlobalLock=_Fn(1), GlobalUnlock=_Fn(1), GlobalFree=_Fn(1),
+    )
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *a, **k: dll, raising=False)
+
+    assert owner_app.copiar_sin_historial("secreto") is False
+    assert destruidas == [77]  # la ventana propia se libera igual

@@ -30,7 +30,6 @@ import json
 import logging
 import random
 import secrets
-import subprocess
 import threading
 import time
 import urllib.request
@@ -655,16 +654,41 @@ class ProxyValidatorAPI:
     def _aviso_event_log(event_id: int, tipo: str, mensaje: str) -> None:
         """Escribe un evento en el Registro de Windows (origen JSWinProxy). Una
         tarea programada disparada por el ID 101 le muestra el popup al owner.
-        `eventcreate.exe` viene con Windows -> sin dependencia nueva."""
-        subprocess.run(
-            [
-                "eventcreate", "/L", "APPLICATION", "/SO", "JSWinProxy",
-                "/T", tipo, "/ID", str(event_id), "/D", mensaje,
-            ],
-            capture_output=True,
-            timeout=10,
-            check=False,
-        )
+
+        Usa la API Win32 (`ReportEventW`) via ctypes, sin dependencia nueva.
+        Antes era `eventcreate.exe`, pero eventcreate solo escribe en origenes
+        creados por el mismo (`CustomSource=1`): install_service.bat registra
+        JSWinProxy con `New-EventLog`, y eventcreate lo rechazaba siempre
+        ("El parametro de origen se usa para identificar solo las
+        aplicaciones/scripts"), incluso como LocalSystem -> el popup nunca
+        salia (2026-10-02)."""
+        import ctypes
+        from ctypes import wintypes
+
+        advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+        advapi32.RegisterEventSourceW.restype = wintypes.HANDLE
+        advapi32.RegisterEventSourceW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        advapi32.ReportEventW.restype = wintypes.BOOL
+        advapi32.ReportEventW.argtypes = [
+            wintypes.HANDLE, wintypes.WORD, wintypes.WORD, wintypes.DWORD,
+            wintypes.LPVOID, wintypes.WORD, wintypes.DWORD,
+            ctypes.POINTER(wintypes.LPCWSTR), wintypes.LPVOID,
+        ]
+        advapi32.DeregisterEventSource.argtypes = [wintypes.HANDLE]
+
+        # EVENTLOG_ERROR_TYPE = 1, EVENTLOG_INFORMATION_TYPE = 4
+        tipo_win = 1 if tipo == "ERROR" else 4
+        handle = advapi32.RegisterEventSourceW(None, "JSWinProxy")
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            cadenas = (wintypes.LPCWSTR * 1)(mensaje)
+            if not advapi32.ReportEventW(
+                handle, tipo_win, 0, event_id, None, 1, 0, cadenas, None
+            ):
+                raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            advapi32.DeregisterEventSource(handle)
 
     def _aviso_webhook(self, texto: str) -> None:
         """POST fire-and-forget al webhook configurado. `{"text": ...}` es la

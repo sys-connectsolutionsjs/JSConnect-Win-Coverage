@@ -78,6 +78,35 @@ def test_yaml_file_apunta_junto_al_modulo():
     assert C._CONFIG_YAML.name == "config.yaml"
 
 
+def _config_ilegible():
+    raise PermissionError(13, "Acceso denegado", "config.yaml")
+
+
+def test_proxy_local_url_seguro_usa_config_si_se_puede_leer(yaml_file):
+    yaml_file.write_text(
+        f'proxy_token: "{TOK}"\nadmin_key: "{ADM}"\nproxy_port: 9999\n', encoding="utf-8"
+    )
+    assert C.proxy_local_url_seguro() == "http://127.0.0.1:9999"
+
+
+def test_proxy_local_url_seguro_sin_permiso_toma_el_puerto_de_la_extension(
+    monkeypatch, tmp_path
+):
+    """config.yaml con ACL de SYSTEM+Administradores (PermissionError sin elevar):
+    el puerto real sale de la extension que genero el instalador."""
+    bg = tmp_path / "background.js"
+    bg.write_text('const PROXY = "http://127.0.0.1:9090";\n', encoding="utf-8")
+    monkeypatch.setattr(C, "get_config", _config_ilegible)
+    monkeypatch.setattr(C, "_EXTENSION_BACKGROUND", bg)
+    assert C.proxy_local_url_seguro() == "http://127.0.0.1:9090"
+
+
+def test_proxy_local_url_seguro_sin_nada_usa_el_puerto_por_defecto(monkeypatch, tmp_path):
+    monkeypatch.setattr(C, "get_config", _config_ilegible)
+    monkeypatch.setattr(C, "_EXTENSION_BACKGROUND", tmp_path / "no-existe.js")
+    assert C.proxy_local_url_seguro() == C.PROXY_LOCAL_URL_POR_DEFECTO
+
+
 def test_proxy_local_url_ignora_proxy_host(yaml_file):
     # proxy_host=0.0.0.0 (bind de escucha) no es un destino valido para un
     # cliente; las llamadas locales (rotate_creds.py) deben ir a 127.0.0.1.

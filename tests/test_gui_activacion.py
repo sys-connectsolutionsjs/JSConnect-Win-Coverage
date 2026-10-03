@@ -28,6 +28,18 @@ def test_activacion_no_vigente_si_la_huella_guardada_es_de_otra_pc(monkeypatch):
     assert main_window.activacion_vigente(HUELLA) is False
 
 
+def test_activacion_vigente_con_huella_alternativa_de_la_misma_pc(monkeypatch):
+    """Activacion hecha antes de quitar `wmic` (huella legacy): sigue valida, y
+    la firma se verifica contra la huella GUARDADA."""
+    _guardado(monkeypatch, {"huella": "1111-2222-3333-4444", "codigo": "abc"})
+    verificadas = []
+    monkeypatch.setattr(
+        main_window.signer, "validar_codigo", lambda h, c: verificadas.append(h) or True
+    )
+    assert main_window.activacion_vigente(HUELLA, {HUELLA, "1111-2222-3333-4444"}) is True
+    assert verificadas == ["1111-2222-3333-4444"]
+
+
 def test_activacion_no_vigente_con_codigo_invalido(monkeypatch):
     _guardado(monkeypatch, {"huella": HUELLA, "codigo": "malo"})
     monkeypatch.setattr(main_window.signer, "validar_codigo", lambda h, c: False)

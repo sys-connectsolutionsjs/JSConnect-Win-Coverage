@@ -66,6 +66,46 @@ def test_regla_de_firewall_se_crea_automaticamente_con_fallback_manual():
     assert "Directiva de" in texto
 
 
+def test_firewall_cubre_red_publica_de_windows_11_solo_desde_lan():
+    """Windows 11 clasifica las redes nuevas como Publicas: con -Profile
+    Domain,Private la regla no aplicaba y los agentes daban timeout (2026-10-02).
+    Se usa -Profile Any limitado a rangos LAN/Tailscale, y una regla existente se
+    actualiza en vez de saltarse."""
+    texto = BAT.read_text(encoding="utf-8")
+    assert "-Profile Domain,Private" not in texto
+    assert "-Profile Any -RemoteAddress !FW_REMOTOS!" in texto
+    assert 'set "FW_REMOTOS=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,100.64.0.0/10"' in texto
+    assert "Set-NetFirewallRule" in texto
+
+
+def test_acl_por_sid_independiente_del_idioma():
+    texto = BAT.read_text(encoding="utf-8")
+    assert "BUILTIN\\Administr" not in texto
+    assert texto.count("*S-1-5-18:F *S-1-5-32-544:F") == 3  # config.yaml + 2 .txt
+
+
+def test_puerto_ocupado_no_usa_pipe_con_delayed_expansion():
+    """`netstat | findstr ":!PROXY_PORT! "`: cada lado del pipe corre sin delayed
+    expansion y findstr buscaba el texto literal -> nunca detectaba el puerto."""
+    texto = BAT.read_text(encoding="utf-8")
+    assert not re.search(r"\|\s*findstr[^\r\n]*!PROXY_PORT!", texto)
+    assert "Get-NetTCPConnection -LocalPort %1 -State Listen" in texto
+
+
+def test_pip_e_icono_usan_el_interprete_real():
+    texto = BAT.read_text(encoding="utf-8")
+    assert '"%PYTHON_EXE%" -m pip install' in texto
+    assert not re.search(r"^\s*pip install", texto, re.MULTILINE)
+    assert 'set "PYTHONW_EXE=%%~dpdpythonw.exe"' in texto
+
+
+def test_health_check_dentro_del_bloque_usa_errorlevel_diferido():
+    texto = BAT.read_text(encoding="utf-8")
+    bloque = texto.split("curl -s -f -m 5")[1].split("del health_check.tmp")[0]
+    assert "if !errorLevel! equ 0 (" in bloque
+    assert "if %errorLevel% equ 0" not in bloque
+
+
 def test_uninstall_quita_la_regla_de_firewall():
     texto = UNINSTALL_BAT.read_text(encoding="utf-8")
     assert "Remove-NetFirewallRule -DisplayName 'JSWinProxy API'" in texto

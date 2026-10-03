@@ -29,6 +29,10 @@ _BASE_DIR_DESARROLLO = Path(__file__).resolve().parent
 # espanol como segunda opcion (idioma real de las PC de la oficina).
 _ETIQUETAS_BINARY_PATH = ("BINARY_PATH_NAME", "NOMBRE_RUTA_BINARIO")
 
+# Windows 11 abre las consolas en Windows Terminal: sin este flag cada comando
+# lanzado desde la consola owner muestra una ventana que roba el foco.
+_SIN_VENTANA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 
 class SecretosError(Exception):
     """Error legible por el owner (se muestra tal cual en la GUI)."""
@@ -50,7 +54,8 @@ def ruta_instalacion(runner=subprocess.run) -> Path:
     """
     try:
         resultado = runner(
-            ["sc", "qc", NOMBRE_SERVICIO], capture_output=True, text=True, timeout=10, check=False
+            ["sc", "qc", NOMBRE_SERVICIO], capture_output=True, text=True, timeout=10,
+            check=False, creationflags=_SIN_VENTANA,
         )
     except OSError as exc:
         raise SecretosError(f"No se pudo consultar el servicio {NOMBRE_SERVICIO}: {exc}") from exc
@@ -113,14 +118,13 @@ def _reescribir_linea(texto: str, cual: str, valor_nuevo: str) -> str:
 
 
 def _aplicar_acl(ruta: Path, runner=subprocess.run) -> None:
-    """Misma restriccion que install_service.bat:273-276: SYSTEM + Administradores
-    (o Administrators en Windows en ingles), sin heredar del padre."""
-    args_base = ["icacls", str(ruta), "/inheritance:r", "/grant:r", "SYSTEM:F"]
-    resultado = runner(
-        [*args_base, "BUILTIN\\Administradores:F"], capture_output=True, check=False
+    """Misma restriccion que install_service.bat: SYSTEM + Administradores, sin
+    heredar del padre. Por SID (S-1-5-18 = SYSTEM, S-1-5-32-544 = Administradores),
+    que no depende del idioma de Windows, en vez de nombres traducidos."""
+    runner(
+        ["icacls", str(ruta), "/inheritance:r", "/grant:r", "*S-1-5-18:F", "*S-1-5-32-544:F"],
+        capture_output=True, check=False, creationflags=_SIN_VENTANA,
     )
-    if resultado.returncode != 0:
-        runner([*args_base, "BUILTIN\\Administrators:F"], capture_output=True, check=False)
 
 
 def rotar(base_dir: Path, cual: str, runner=subprocess.run) -> str:
@@ -155,7 +159,7 @@ def rotar(base_dir: Path, cual: str, runner=subprocess.run) -> str:
     try:
         runner(
             ["powershell", "-NoProfile", "-Command", f"Restart-Service {NOMBRE_SERVICIO}"],
-            capture_output=True, timeout=120, check=False,
+            capture_output=True, timeout=120, check=False, creationflags=_SIN_VENTANA,
         )
     except OSError as exc:
         raise SecretosError(

@@ -269,6 +269,59 @@ def test_marcar_sesion_viva_avisa_solo_si_venia_de_muerta(avisos_capturados):
     assert avisos_capturados == [("sesion_renovada", "")]
 
 
+class _FakeFn:
+    """Función de DLL falsa: admite restype/argtypes y registra las llamadas."""
+
+    def __init__(self, retorno):
+        self.retorno = retorno
+        self.llamadas = []
+
+    def __call__(self, *args):
+        self.llamadas.append(args)
+        return self.retorno
+
+
+@pytest.mark.parametrize(("tipo", "tipo_win"), [("ERROR", 1), ("INFORMATION", 4)])
+def test_aviso_event_log_usa_reportevent_con_origen_jswinproxy(monkeypatch, tipo, tipo_win):
+    """Regresión 2026-10-02: con `eventcreate` el evento nunca se escribía (rechaza
+    orígenes registrados con New-EventLog) y la tarea del popup no se disparaba.
+    Ahora va por ReportEventW, que acepta cualquier origen registrado."""
+    import ctypes
+
+    dll = types.SimpleNamespace(
+        RegisterEventSourceW=_FakeFn(1234),
+        ReportEventW=_FakeFn(1),
+        DeregisterEventSource=_FakeFn(1),
+    )
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *a, **k: dll, raising=False)
+
+    server.ProxyValidatorAPI._aviso_event_log(101, tipo, "sesion caducada")
+
+    assert dll.RegisterEventSourceW.llamadas == [(None, "JSWinProxy")]
+    (args,) = dll.ReportEventW.llamadas
+    assert args[0] == 1234
+    assert args[1] == tipo_win
+    assert args[3] == 101
+    assert args[7][0] == "sesion caducada"
+    assert dll.DeregisterEventSource.llamadas == [(1234,)]
+
+
+def test_aviso_event_log_falla_si_reportevent_falla(monkeypatch):
+    """Si ReportEventW falla, se lanza (el caller lo suprime) y el handle se libera."""
+    import ctypes
+
+    dll = types.SimpleNamespace(
+        RegisterEventSourceW=_FakeFn(1234),
+        ReportEventW=_FakeFn(0),
+        DeregisterEventSource=_FakeFn(1),
+    )
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *a, **k: dll, raising=False)
+
+    with pytest.raises(OSError):
+        server.ProxyValidatorAPI._aviso_event_log(101, "ERROR", "x")
+    assert dll.DeregisterEventSource.llamadas == [(1234,)]
+
+
 def test_validar_cobertura_aborta_rapido_si_sesion_muerta():
     pa = _mk_proxy_api()
     pa._client = FakeCore()

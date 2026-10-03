@@ -23,7 +23,7 @@ import getpass
 import sys
 
 from validator_app.core import api as core_api
-from validator_app.proxy.config import get_config
+from validator_app.proxy.config import get_config, proxy_local_url_seguro
 from validator_app.proxy.login_asistido import (
     LoginAsistidoError,
     capturar_php_sessid_asistido,
@@ -76,16 +76,18 @@ def push_session_cookie(php_sessid: str) -> tuple[bool, str]:
     Intenta primero `/local/renovar` (proceso vivo en 127.0.0.1, sin admin
     key); si no se puede conectar, cae a `/admin/rotar` con `X-Admin-Key`
     (mismo efecto server-side: `set_session_cookie()`).
+
+    /local/renovar NO lee config.yaml: tiene ACL de SYSTEM+Administradores y
+    este proceso (icono del Escritorio) corre sin elevar -> PermissionError.
+    Solo el fallback /admin/rotar necesita el admin key de config.yaml.
     """
     import httpx
 
-    config = get_config()
+    url_local = proxy_local_url_seguro()
     payload = {"php_sessid": php_sessid}
 
     try:
-        resp = httpx.post(
-            f"{config.proxy_local_url}/local/renovar", json=payload, timeout=10,
-        )
+        resp = httpx.post(f"{url_local}/local/renovar", json=payload, timeout=10)
     except httpx.RequestError:
         pass
     else:
@@ -93,6 +95,13 @@ def push_session_cookie(php_sessid: str) -> tuple[bool, str]:
             return True, "Cookie enviada al proxy (/local/renovar)."
         return False, f"/local/renovar devolvio HTTP {resp.status_code}: {resp.text[:200]}"
 
+    try:
+        config = get_config()
+    except Exception:
+        return False, (
+            f"No se pudo contactar al proxy en {url_local}. Comprueba que el "
+            "servicio JSWinProxy este encendido (sc query JSWinProxy)."
+        )
     try:
         resp = httpx.post(
             f"{config.proxy_local_url}/admin/rotar",
@@ -109,21 +118,18 @@ def push_session_cookie(php_sessid: str) -> tuple[bool, str]:
 
 
 def _verificar_proxy(quiet: bool = False) -> None:
-    """Comprueba que el proxy en marcha ya ve la sesion nueva (best-effort)."""
-    config = get_config()
+    """Comprueba que el proxy en marcha ya ve la sesion nueva (best-effort).
+
+    Usa /local/estado (solo desde 127.0.0.1, sin admin key) para no depender de
+    leer config.yaml, que sin elevar da PermissionError."""
     try:
         import httpx
 
-        resp = httpx.get(
-            f"{config.proxy_local_url}/admin/status",
-            headers={"X-Admin-Key": config.admin_key},
-            timeout=5,
-        )
+        resp = httpx.get(f"{proxy_local_url_seguro()}/local/estado", timeout=5)
         if not quiet:
             if resp.status_code == 200:
                 data = resp.json()
-                print(f"[OK] Proxy: logged_in={data.get('logged_in')}, "
-                      f"session_age={data.get('session_age')}s")
+                print(f"[OK] Proxy: session_alive={data.get('session_alive')}")
             else:
                 print(f"[WARN] Proxy respondio HTTP {resp.status_code}")
     except Exception as e:
@@ -150,12 +156,7 @@ def _main_manual() -> int:
     print("\n" + "=" * 60)
     print("  JSCONNECT WIN PROXY - ROTACION DE CREDENCIALES (--manual)")
     print("=" * 60)
-    config = get_config()
-    print(f"\nProxy detectado: {config.proxy_local_url}")
-    print(
-        f"Keyring: {config.win_keyring_service}/{config.win_keyring_user} "
-        "(del proceso del proxy)"
-    )
+    print(f"\nProxy detectado: {proxy_local_url_seguro()}")
 
     php_sessid = extract_php_sessid_from_input()
     if not php_sessid:

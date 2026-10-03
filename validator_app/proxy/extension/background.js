@@ -29,9 +29,15 @@ async function leerPhpSessid() {
   return c && c.value ? c.value : null;
 }
 
+// El badge da la respuesta al clic aunque Windows oculte la notificacion
+// (No molestar, notificaciones de Chrome apagadas): "…" procesando, "✓" ok,
+// "X" rechazada, "!" sin sesion en el navegador, "?" proxy inalcanzable.
+// revisarEstado() lo vuelve a dejar vacio en la siguiente alarma si todo va bien.
 async function renovar() {
+  badge("…", "#7f8c8d");
   const php = await leerPhpSessid();
   if (!php) {
+    badge("!", "#c0392b");
     notificar("No hay sesion de WinForce en este navegador. Inicia sesion primero y vuelve a pulsar.");
     return;
   }
@@ -47,12 +53,14 @@ async function renovar() {
       detalle = j.detail || j.message || "";
     } catch (_) {}
     if (r.ok) {
-      badge("", "#0a7d2c");
+      badge("✓", "#0a7d2c");
       notificar("Sesion del proxy renovada. Listo.");
     } else {
+      badge("X", "#c0392b");
       notificar("El proxy rechazo la sesion (" + (detalle || r.status) + "). Reinicia sesion en WinForce y reintenta.");
     }
   } catch (e) {
+    badge("?", "#7f8c8d");
     notificar("No se pudo contactar al proxy. Comprueba que el servicio JSWinProxy este encendido.");
   }
 }

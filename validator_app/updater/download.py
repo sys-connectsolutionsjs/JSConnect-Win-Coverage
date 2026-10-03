@@ -118,5 +118,11 @@ def aplicar_actualizacion(info: dict) -> bool:
     exe_actual = Path(sys.executable)
     bat = temp_dir / "updater.bat"
     bat.write_text(_script_updater(nuevo, exe_actual, os.getpid()), encoding="utf-8")
-    subprocess.Popen(["cmd", "/c", str(bat)], close_fds=True)
+    # CREATE_NO_WINDOW: en Windows 11 el .bat se abriria en una ventana de
+    # Windows Terminal. Sigue teniendo consola (oculta), asi que `timeout` funciona.
+    subprocess.Popen(
+        ["cmd", "/c", str(bat)],
+        close_fds=True,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
     return True

@@ -6,6 +6,7 @@ config.yaml es GITIGNORED - solo existe en la PC del proxy.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -129,6 +130,34 @@ def get_config() -> ProxyConfig:
     if _config is None:
         _config = ProxyConfig()
     return _config
+
+
+PROXY_LOCAL_URL_POR_DEFECTO = "http://127.0.0.1:8080"
+
+# La extension que arma install_service.bat (_instalar_extension.py) lleva el
+# puerto REAL de config.yaml y, a diferencia de config.yaml, es legible sin elevar.
+_EXTENSION_BACKGROUND = Path(__file__).resolve().parent / ".extension_build" / "background.js"
+_RE_PROXY_EXTENSION = re.compile(r'const PROXY = "(http://127\.0\.0\.1:\d+)"')
+
+
+def proxy_local_url_seguro() -> str:
+    """URL local del proxy sin exigir que config.yaml sea legible.
+
+    config.yaml tiene ACL de SYSTEM+Administradores: un proceso NO elevado del
+    owner (icono "Renovar sesion WinForce", consola owner) recibe PermissionError
+    al leerlo. Para /local/* solo hace falta el puerto: se toma de la extension
+    generada por el instalador y, si no esta, del puerto por defecto."""
+    try:
+        return get_config().proxy_local_url
+    except Exception:
+        pass
+    try:
+        m = _RE_PROXY_EXTENSION.search(_EXTENSION_BACKGROUND.read_text(encoding="utf-8"))
+        if m:
+            return m.group(1)
+    except OSError:
+        pass
+    return PROXY_LOCAL_URL_POR_DEFECTO
 
 
 def reset_config() -> None:

@@ -40,6 +40,10 @@ def estado_servicio(salida: str) -> str:
     return "Servicio proxy: no instalado o sin estado disponible"
 
 
+# Windows 11 abre las consolas en Windows Terminal: sin este flag cada `sc` o
+# `powershell` lanzado desde esta ventana muestra una Terminal que roba el foco.
+SIN_VENTANA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 CODIGO_UAC_CANCELADO = 2
 ESPERA_ARRANQUE_SEGUNDOS = 5
 SEGUNDOS_OCULTAR_SECRETO = 30
@@ -68,7 +72,8 @@ def reiniciar_servicio(runner=subprocess.run) -> tuple[bool, str]:
     La sesion WinForce se conserva: la cookie vive en el keyring, no en memoria."""
     try:
         resultado = runner(
-            comando_reinicio(), capture_output=True, text=True, timeout=120, check=False
+            comando_reinicio(), capture_output=True, text=True, timeout=120, check=False,
+            creationflags=SIN_VENTANA,
         )
     except subprocess.TimeoutExpired:
         return False, "El reinicio tardo demasiado. Revisa el estado del servicio."
@@ -84,11 +89,104 @@ def reiniciar_servicio(runner=subprocess.run) -> tuple[bool, str]:
 def consultar_servicio() -> str:
     try:
         resultado = subprocess.run(
-            ["sc", "query", "JSWinProxy"], capture_output=True, text=True, timeout=5, check=False
+            ["sc", "query", "JSWinProxy"], capture_output=True, text=True, timeout=5,
+            check=False, creationflags=SIN_VENTANA,
         )
     except OSError:
         return "Servicio proxy: no se pudo consultar"
     return estado_servicio(resultado.stdout + resultado.stderr)
+
+
+_CF_UNICODETEXT = 13
+_GMEM_MOVEABLE = 0x0002
+_HWND_MESSAGE = -3  # padre de las ventanas "message-only" (invisibles)
+# Formatos que el historial del portapapeles (Win+V) y la sincronizacion en la
+# nube de Windows 10 1809+/11 respetan: con ellos el secreto no queda guardado
+# alli aunque la consola lo borre del portapapeles a los 60 s.
+_FORMATOS_PRIVADOS = (
+    "ExcludeClipboardContentFromMonitorProcessing",
+    "CanIncludeInClipboardHistory",
+    "CanUploadToCloudClipboard",
+)
+
+
+def copiar_sin_historial(texto: str) -> bool:
+    """Copia `texto` al portapapeles marcado como privado (sin historial ni nube).
+
+    El dueño del portapapeles es una ventana de mensajes propia y no la de Tk:
+    con OpenClipboard(NULL), SetClipboardData falla, y si el dueño es una ventana
+    de Tk, Tk vacía el portapapeles al cerrarla (copiar, cerrar la consola y
+    pegar dejaba de funcionar). Devuelve False si algo falla, para que el caller
+    use el portapapeles normal de Tk."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    except (ImportError, OSError, AttributeError):
+        return False
+
+    user32.CreateWindowExW.argtypes = [
+        wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID,
+    ]
+    user32.CreateWindowExW.restype = wintypes.HWND
+    user32.DestroyWindow.argtypes = [wintypes.HWND]
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.OpenClipboard.restype = wintypes.BOOL
+    user32.EmptyClipboard.restype = wintypes.BOOL
+    user32.CloseClipboard.restype = wintypes.BOOL
+    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+    user32.SetClipboardData.restype = wintypes.HANDLE
+    user32.RegisterClipboardFormatW.argtypes = [wintypes.LPCWSTR]
+    user32.RegisterClipboardFormatW.restype = wintypes.UINT
+    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    kernel32.GlobalAlloc.restype = wintypes.HANDLE
+    kernel32.GlobalLock.argtypes = [wintypes.HANDLE]
+    kernel32.GlobalLock.restype = wintypes.LPVOID
+    kernel32.GlobalUnlock.argtypes = [wintypes.HANDLE]
+    kernel32.GlobalFree.argtypes = [wintypes.HANDLE]
+
+    def _poner(formato: int, datos: bytes) -> bool:
+        h = kernel32.GlobalAlloc(_GMEM_MOVEABLE, len(datos))
+        if not h:
+            return False
+        p = kernel32.GlobalLock(h)
+        if not p:
+            kernel32.GlobalFree(h)
+            return False
+        ctypes.memmove(p, datos, len(datos))
+        kernel32.GlobalUnlock(h)
+        if not user32.SetClipboardData(formato, h):
+            kernel32.GlobalFree(h)  # solo si el sistema NO tomo la propiedad
+            return False
+        return True
+
+    hwnd = user32.CreateWindowExW(
+        0, "STATIC", None, 0, 0, 0, 0, 0, wintypes.HWND(_HWND_MESSAGE), None, None, None
+    )
+    if not hwnd:
+        return False
+    try:
+        if not user32.OpenClipboard(hwnd):
+            return False
+        try:
+            if not user32.EmptyClipboard():
+                return False
+            if not _poner(_CF_UNICODETEXT, (texto + "\0").encode("utf-16-le")):
+                return False
+            cero = (0).to_bytes(4, "little")
+            for nombre in _FORMATOS_PRIVADOS:
+                formato = user32.RegisterClipboardFormatW(nombre)
+                if formato:
+                    _poner(formato, cero)
+            return True
+        finally:
+            user32.CloseClipboard()
+    finally:
+        user32.DestroyWindow(hwnd)
 
 
 URL_PROXY_LOCAL_POR_DEFECTO = "http://127.0.0.1:8080"
@@ -242,6 +340,7 @@ def _ejecutar_elevado(args_extra: list[str], runner=subprocess.run) -> dict:
         resultado = runner(
             ["powershell", "-NoProfile", "-Command", script],
             capture_output=True, text=True, timeout=60, check=False,
+            creationflags=SIN_VENTANA,
         )
         if resultado.returncode == CODIGO_UAC_CANCELADO:
             raise RuntimeError("No se concedio el permiso de administrador (aviso UAC cancelado).")
@@ -468,9 +567,12 @@ class OwnerApp(ttk.Window):
         valor = entry.get()
         if not valor:
             return
-        self.clipboard_clear()
-        self.clipboard_append(valor)
-        self.update()
+        # Secretos (limpiar=True): fuera del historial de Windows (Win+V) y de la
+        # nube. Si la API no esta disponible, el portapapeles normal de Tk.
+        if not (limpiar and copiar_sin_historial(valor)):
+            self.clipboard_clear()
+            self.clipboard_append(valor)
+            self.update()
         messagebox.showinfo(titulo, mensaje_ok, parent=self)
         if not limpiar:
             return
