@@ -25,8 +25,9 @@ condensada en `HistorialResumenes.md`.
 
 > Detalle completo para revisar con calma: **[`actualizacion-windows-11/`](actualizacion-windows-11/README.md)**
 > (cambios por archivo, verificación, cambios en la PC, pendientes).
-> Código: commit `5cb8768`. Solo en el repo `W11-JSConnect-Win-Coverage`;
-> el repo original no se tocó.
+> Código: commits `5cb8768` y `4fe66d3`. Release:
+> [`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11).
+> Solo en el repo `W11-JSConnect-Win-Coverage`; el repo original no se tocó.
 
 1. **Instalación de la PC oficina** (Windows 11 Pro 25H2, build 26200). Se instaló
    Git, Python 3.14.7 (todos los usuarios), el `.venv` y Chromium. Se clonó el
@@ -54,8 +55,15 @@ condensada en `HistorialResumenes.md`.
 5. **Los agentes siguen en Windows 10** con el Release `v2026.09.30` y no
    necesitan nada: la API del proxy no cambió y la huella en Windows 10 es
    idéntica.
-6. **Subida al repo `W11-JSConnect-Win-Coverage`**: el remoto `w11`, con el commit
-   de código `5cb8768` y este commit de documentación.
+6. **Subida al repo `W11-JSConnect-Win-Coverage`** (remoto `w11`): código
+   `5cb8768` y documentación `a40a0d5`.
+7. **Release `v2026.10.02-w11`** publicado en ese repo, con agente y owner
+   compilados desde `4fe66d3`. Antes se agregó a `build.ps1` el parámetro
+   `-RepoName`: el agente de este Release busca sus actualizaciones en W11 y no
+   ofrece "volver" a `v2026.09.30` del repo original. Lo verifiqué contra
+   GitHub: el actualizador no ofrece ninguna actualización falsa. Se instaló
+   `gh` 2.102 con sesión iniciada como sys-connectsolutionsjs. El repo original
+   sigue en `v2026.09.30`, sin cambios.
 
 ## Pendiente al iniciar
 
@@ -65,8 +73,9 @@ condensada en `HistorialResumenes.md`.
   renovación** (`actualizacion-windows-11/pendientes.md` §1).
 - Probar un **agente real con Windows 10** contra el proxy de la PC con Windows 11
   (`actualizacion-windows-11/verificacion.md`).
-- Decidir **dónde se publica el Release** (repo original o W11; `REPO_NAME` en
-  `build.ps1`).
+- Decidir si `W11-JSConnect-Win-Coverage` **reemplaza** al repo original o si
+  conviven. Hoy hay dos canales de actualización: los `.exe` de W11 se compilan
+  con `build.ps1 -RepoName "W11-JSConnect-Win-Coverage"`.
 - Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
   observación, no una tarea con pasos.
 - Escribir el runbook de la Etapa E (`docs/proxy-deploy.md`) en cuanto el

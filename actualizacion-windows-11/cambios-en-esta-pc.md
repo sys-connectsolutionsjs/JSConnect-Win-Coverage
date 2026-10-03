@@ -69,16 +69,35 @@ Smart App Control está **activo** (Windows 11) y bloquea
 - Consecuencia: en esta PC el agente corre el código del repo tal como esté
   (un `git pull` lo actualiza sin compilar).
 
-## Ejecutables generados (`dist\`, gitignored)
+## Ejecutables generados (`dist\`, gitignored) y Release
 
-- `JSConnect-Win-Owner.exe` — reconstruido con el código nuevo; corre.
-- `JSConnect-Win-Coverage.exe` — commit `5cb8768`, SHA-256
-  `9BB791F5A16DE0D0747B0C580E71546F8C619E1125038E4FFEC483F6BE224392`.
-  **No publicado** como Release.
-- `private_key.pem` — copiada por el owner (llave de activación; nunca a Git).
+Compilados desde el commit **`4fe66d3`** y publicados en el Release
+**[`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11)**
+de este repo:
+
+| Archivo | SHA-256 | Notas |
+|---|---|---|
+| `JSConnect-Win-Coverage.exe` | `9287A815F09AA69C7C979031E9E3311D0D40967A79FB702D6E32676E85D2EDCB` | `build.ps1 -RepoName "W11-JSConnect-Win-Coverage"`: su actualizador consulta **este** repo |
+| `JSConnect-Win-Owner.exe` | `B6493EEC0D6994377D8C67E48A16687DD6E3F91968C1BFE826A665312863482B` | `build-owner.ps1`; corre en esta PC (Smart App Control no lo bloqueó) |
+
+- Hubo builds intermedios (commits `7e800b0` y `5cb8768`) que **no** se publicaron; los
+  hashes que circularon en la sesión para esos builds ya no corresponden a nada.
+- `private_key.pem` — copiada por el owner junto al `.exe` del owner (llave de
+  activación; nunca a Git).
+
+## GitHub CLI
+
+- `gh` 2.102 instalado (`C:\Program Files\GitHub CLI\gh.exe`, winget) y con sesión
+  iniciada como `sys-connectsolutionsjs` (`gh auth login --web`). Con él se publicó el
+  Release; `publish-release.ps1` imprime el comando `gh release create` equivalente.
 
 ## Git
 
 - Identidad local del repo: `sys-connectsolutionsjs` / `sistemasconnectsolutionsjs@gmail.com`.
 - Remoto nuevo **`w11`** → `https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage.git`;
-  `main` sigue a `w11/main`. El remoto `origin` (repo original) **no** recibió nada.
+  `main` sigue a `w11/main`. El remoto `origin` (repo original) **no** recibió nada
+  (ni commits ni Releases: su último Release sigue siendo `v2026.09.30`).
+- Commits subidos a `w11/main` el 2026-10-02:
+  `5cb8768` (código Windows 11) → `a40a0d5` (documentación) → `4fe66d3`
+  (`build.ps1 -RepoName`) → commit de esta actualización de documentación.
+- Tag `v2026.10.02-w11` → `4fe66d3` (el commit embebido en los `.exe` del Release).

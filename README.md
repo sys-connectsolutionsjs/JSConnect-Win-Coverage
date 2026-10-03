@@ -114,6 +114,12 @@ Git. Este flujo ya fue validado manualmente de extremo a extremo.
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
 ```
+**Repo W11 (`W11-JSConnect-Win-Coverage`):** compilar el agente con
+`build.ps1 -RepoName "W11-JSConnect-Win-Coverage"` para que su actualizador consulte
+este repo (sin el parámetro apunta al repo original y ofrecería volver a su último
+Release). Último Release de este repo:
+[`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11).
+Ver `actualizacion-windows-11/README.md` → "Release publicado".
 El Release se publica con el .exe y su checksum SHA-256. La app detecta la nueva versión resolviendo el commit real al que apunta el tag del Release (vía `GET /commits/{tag}`, no `target_commitish` — ese campo trae la rama, no un SHA) y comparándolo con el embebido en el ejecutable.
 
 ### Instalación del Proxy (PC Oficina — una sola vez)
@@ -273,6 +279,12 @@ validated end to end.
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
 ```
+**W11 repo (`W11-JSConnect-Win-Coverage`):** build the agent with
+`build.ps1 -RepoName "W11-JSConnect-Win-Coverage"` so its updater checks this repo
+(without it, it points at the original repo and would offer to roll back to that
+repo's latest release). Latest release here:
+[`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11).
+See `actualizacion-windows-11/README.md` → "Release publicado".
 The release includes the .exe and its SHA-256 checksum. The app detects a new version by resolving the actual commit the release's tag points to (via `GET /commits/{tag}`, not `target_commitish` — that field holds the branch, not a SHA) and comparing it with the one embedded in the executable.
 
 ### Proxy Installation (Office PC — one time)

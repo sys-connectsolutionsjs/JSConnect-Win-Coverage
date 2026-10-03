@@ -43,6 +43,34 @@ health check que siempre decía "EXITO", ACL por nombre traducido de grupo, `pip
 y `pythonw` del intérprete equivocado. Y la **extensión de Chrome** ahora
 muestra un badge al hacer clic (antes no daba señal visible).
 
+## Release publicado
+
+**[`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11)**
+(2026-10-02): tag sobre el commit **`4fe66d3`**, con `JSConnect-Win-Coverage.exe`
+y `JSConnect-Win-Owner.exe` compilados desde ese mismo commit. Los SHA-256 van en
+las notas, en el formato que lee el actualizador (`## <archivo>` + `SHA-256: <hash>`).
+
+**Dos canales de actualización, uno por repo:**
+
+| Repo | Último Release | El actualizador del agente de ese Release consulta… |
+|---|---|---|
+| `JSConnect-Win-Coverage` (original) | `v2026.09.30` | el repo original |
+| `W11-JSConnect-Win-Coverage` (este) | `v2026.10.02-w11` | **este** repo |
+
+Para el próximo Release de este repo:
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1 -RepoName "W11-JSConnect-Win-Coverage"
+powershell -ExecutionPolicy Bypass -File build-owner.ps1
+git checkout -- validator_app/version.py   # build.ps1 lo reescribe
+powershell -ExecutionPolicy Bypass -File publish-release.ps1 -Tag "vAAAA.MM.DD-w11"
+# publish-release.ps1 imprime el `gh release create`: agregar
+#   --repo sys-connectsolutionsjs/W11-JSConnect-Win-Coverage --target <commit compilado>
+```
+**Sin `-RepoName`** el `.exe` apunta al repo original y su actualizador ofrecería
+"actualizar" a `v2026.09.30` (otro commit) — es decir, **volver a la versión
+vieja**. El tag debe apuntar **exactamente** al commit compilado; si no, el
+actualizador cree que hay una versión nueva cuando no la hay.
+
 ## Qué NO cambió
 
 - **La API del proxy** que usan los agentes (`/api/*`, `/health`, tokens). Un
@@ -50,12 +78,14 @@ muestra un badge al hacer clic (antes no daba señal visible).
 - **La huella en Windows 10**: con `wmic` presente se calcula exactamente igual.
 - **El flujo de activación**, la llave pública, el formato de `config.yaml`.
 - **El repo original** (`sys-connectsolutionsjs/JSConnect-Win-Coverage`): no se
-  le subió nada. Todo esto vive solo en `W11-JSConnect-Win-Coverage`.
+  le subió nada (ni commits ni Releases). Todo esto vive solo en
+  `W11-JSConnect-Win-Coverage`.
+- **`build.ps1` sin parámetros** se comporta igual que antes (repo original).
 
 ## Cómo revisarlo
 
 ```powershell
-# Los commits de esta adaptación
+# Los commits de esta adaptación (5cb8768 código, a40a0d5 docs, 4fe66d3 build -RepoName, + docs del Release)
 git log --oneline 7e800b0..HEAD
 
 # El diff completo del código (commit 5cb8768)

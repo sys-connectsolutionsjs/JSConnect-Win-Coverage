@@ -1167,9 +1167,14 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Smart App Control** (Windows 11) bloquea los `.exe` sin firma. En la PC oficina
   el agente corre desde el código con un lanzador local.
 - **Tests**: 264 → **287**, ruff limpio. Instalador re-ejecutado completo en la PC real.
+- **Release `v2026.10.02-w11`** publicado en el repo W11 (tag → `4fe66d3`, agente +
+  owner). `build.ps1` ganó `-RepoName` (por defecto el repo original): los `.exe` de
+  W11 se compilan con `-RepoName "W11-JSConnect-Win-Coverage"`; sin eso su
+  actualizador ofrecería "volver" a `v2026.09.30`. Verificado contra GitHub que no
+  ofrece una actualización falsa. `gh` 2.102 instalado y con sesión iniciada.
 - **Pendiente**:
   - revisar la adaptación con calma;
   - **la sesión de WinForce muere unos 10 min después de cada renovación** (sin investigar);
   - probar un agente con Windows 10 real;
-  - decidir dónde va el Release (`REPO_NAME` en `build.ps1`);
+  - decidir si el repo W11 reemplaza al original o si conviven (hoy hay dos canales de actualización);
   - la firma de código.

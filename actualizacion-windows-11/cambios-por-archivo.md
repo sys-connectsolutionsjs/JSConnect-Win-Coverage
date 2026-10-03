@@ -1,7 +1,7 @@
-# Cambios por archivo (commit `5cb8768`)
+# Cambios por archivo (commits `5cb8768` y `4fe66d3`)
 
-Base: `7e800b0` (último commit del repo original). 10 archivos de código, 9 de
-tests (1 nuevo). Para cada uno: **qué hacía**, **qué hace ahora**, **por qué**,
+Base: `7e800b0` (último commit del repo original). En `5cb8768`: 10 archivos de
+código, 9 de tests (1 nuevo). En `4fe66d3`: `build.ps1` (§11). Para cada uno: **qué hacía**, **qué hace ahora**, **por qué**,
 **riesgo**, **cómo revertir** y **qué test lo cubre**.
 
 ---
@@ -194,6 +194,22 @@ renovar de la consola owner (que llama `rotate_creds.main` en el mismo proceso).
 - `revisarEstado()` no cambió: cada 5 min deja el badge vacío si la sesión vive.
 - **Para que tome el cambio:** reconstruir `.extension_build` (lo hace
   `install_service.bat` paso 7) y recargar la extensión en `chrome://extensions`.
+
+## 11. `build.ps1` (commit `4fe66d3`, posterior a `5cb8768`)
+
+- **Antes:** `REPO_NAME = "JSConnect-Win-Coverage"` fijo en el `version.py` que
+  genera el build → el actualizador de **todo** `.exe` consultaba el repo original.
+- **Ahora:** parámetro `-RepoName` (por defecto `"JSConnect-Win-Coverage"`, igual
+  que antes) que se escribe en `validator_app/version.py`; el build imprime
+  "Repo de actualizaciones: ...".
+- **Por qué:** el actualizador (`validator_app/updater/check.py`) compara el commit
+  embebido con el commit del tag del último Release **del repo grabado**. Un `.exe`
+  publicado en W11 pero apuntando al original vería `v2026.09.30` (otro commit) y
+  ofrecería "actualizar" a la versión vieja.
+- **Uso en este repo:** `build.ps1 -RepoName "W11-JSConnect-Win-Coverage"` (así se
+  compiló el agente del Release `v2026.10.02-w11`).
+- **Riesgo:** ninguno para el repo original (el valor por defecto no cambió).
+- **Revertir:** `git revert 4fe66d3`.
 
 ---
 

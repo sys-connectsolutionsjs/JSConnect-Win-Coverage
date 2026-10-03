@@ -21,6 +21,11 @@ Nada de esto se resolvió en la sesión del 2026-10-02.
   sin reinstalar Windows).
 
 ## 3. Releases: dos repos, dos canales de actualización
+- **Publicado 2026-10-02:** Release
+  [`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11)
+  (tag → `4fe66d3`, agente + owner). Verificado que su actualizador no ofrece una
+  actualización falsa. **Queda pendiente** decidir si este repo reemplaza al
+  original como fuente oficial o conviven.
 - **Decidido 2026-10-02:** los `.exe` publicados en **este** repo se compilan con
   `powershell -ExecutionPolicy Bypass -File build.ps1 -RepoName "W11-JSConnect-Win-Coverage"`,
   así su actualizador busca Releases **aquí**. Sin el parámetro, `build.ps1` sigue

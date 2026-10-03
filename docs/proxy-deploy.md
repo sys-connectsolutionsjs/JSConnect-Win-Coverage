@@ -139,6 +139,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 powershell -ExecutionPolicy Bypass -File build-owner.ps1     # -> dist\JSConnect-Win-Owner.exe
 powershell -ExecutionPolicy Bypass -File build.ps1           # -> dist\JSConnect-Win-Coverage.exe (agente)
+# Repo W11: build.ps1 -RepoName "W11-JSConnect-Win-Coverage"  (actualizador -> repo W11)
 git checkout -- validator_app/version.py                     # build.ps1 lo reescribe con el SHA
 ```
 

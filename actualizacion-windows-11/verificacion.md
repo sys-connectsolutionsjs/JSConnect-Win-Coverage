@@ -22,6 +22,10 @@ Todo lo de "Probado" se ejecutó el **2026-10-02** en la PC de oficina real
 | `.exe` del owner | `dist\JSConnect-Win-Owner.exe` reconstruido y abierto | Corre; Smart App Control **no** lo bloqueó |
 | `.exe` del agente | `dist\JSConnect-Win-Coverage.exe` | **Bloqueado** por Smart App Control en esta PC (no es un fallo del código) |
 | Extensión de Chrome | 7 clics registrados en `logs/winsw.out.log` | `POST /local/renovar` 200 OK → la renovación siempre funcionó; lo que faltaba era una señal visible |
+| Release `v2026.10.02-w11` | `gh release view` | Publicado (no borrador ni prerelease), 2 assets: agente 33.3 MB y owner 69.9 MB |
+| Notas del Release | `extraer_checksum(notas, "JSConnect-Win-Coverage.exe")` vs `sha256_de(dist\...)` | El hash que lee el actualizador **coincide** con el `.exe` publicado |
+| Actualizador del agente del Release | `hay_actualizacion()` con `REPO_NAME="W11-JSConnect-Win-Coverage"` y `BUILD_COMMIT=4fe66d3` (contra GitHub real) | Último release `v2026.10.02-w11`, commit del tag `4fe66d3`, resultado `None` = **no ofrece actualización falsa** |
+| Repo original intacto | `gh release view --repo sys-connectsolutionsjs/JSConnect-Win-Coverage` | Último Release sigue siendo `v2026.09.30` |
 
 ## NO probado todavía
 
@@ -37,4 +41,8 @@ Todo lo de "Probado" se ejecutó el **2026-10-02** en la PC de oficina real
 - **Consola owner en uso real** sin ventanas de Terminal ("Actualizar estado",
   Reiniciar servicio, Mostrar / Rotar tokens).
 - **El badge nuevo de la extensión** después de recargarla en `chrome://extensions`.
-- **El actualizador** con un Release nuevo (no se publicó ninguno).
+- **El actualizador reemplazando el `.exe` de verdad**: hace falta un Release
+  *posterior* a `v2026.10.02-w11` para que un agente instalado desde éste vea una
+  versión nueva y se actualice (y comprobar que no abre ventanas).
+- **Que `JSConnect-Win-Coverage.exe` del Release abra** en un agente con Windows 10
+  (en esta PC Windows 11 lo bloquea Smart App Control).
