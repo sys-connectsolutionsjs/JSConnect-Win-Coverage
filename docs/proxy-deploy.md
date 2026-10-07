@@ -10,9 +10,97 @@
 |-----------|---------|-------|
 | Windows | 10/11 Pro/Enterprise | PC fija, encendida en horario laboral |
 | Python | 3.14.7 recomendado; mínimo 3.12 | En PATH del sistema (`python --version`) |
-| Git | Cualquiera | Para clonar repo |
+| Git | Opcional | Solo para clonar el repo en la PC owner; con el repo en pendrive no hace falta |
 | Puerto 8080 | Libre en firewall | `install_service.bat` verifica y permite cambiar |
 | Permisos | Administrador local | Para instalar servicio Windows |
+
+---
+
+## Instalación con pendrive
+
+Es la forma más corta de montar una PC owner nueva: sin Node, Claude ni entorno de
+build. Los `.exe` ya vienen compilados en el Release y el proxy corre desde el código
+del repo con el Python del sistema. Solo hay que instalar **Python 3.14.7**.
+
+### 1. Qué llevar en el pendrive
+
+| Llevar | Detalle |
+|---|---|
+| **Carpeta del repo** | `git clone` limpio de `main` hecho en tu PC (con `.git`). Git **no** hace falta en la PC owner: el instalador no lo usa. |
+| **`JSConnect-Win-Owner.exe` y `JSConnect-Win-Coverage.exe`** | Del Release más reciente. Evita compilar en la PC owner. |
+| **Instalador de Python 3.14.7** | Opcional si hay Internet (`winget install Python.Python.3.14 --scope machine`). |
+| **`private_key.pem`** | Lo único que no se puede regenerar. Pendrive protegido (BitLocker To Go o similar) y **una copia aparte**; no generar otra (los agentes verifican con la llave pública actual). Se borra del pendrive al terminar. |
+
+**No llevar** (se regeneran o son de cada PC): `.venv`, `build/`, `*.spec`, `logs/`,
+`config.yaml`, `proxy_token.txt`, `admin_key.txt` (el instalador crea tokens nuevos en
+esa PC; no reutilizar los de un ensayo), `winsw.exe` (se descarga), `.extension_build`
+y `extension.pem`/`.crx`/`updates.xml` (se regeneran), `.browser_profile/`,
+`activacion.dat` ni entradas del Credential Manager (`JSWinProxy`, `JSWinClient`).
+
+### 2. En la PC owner (en este orden)
+
+1. **Python 3.14.7 para todos los usuarios y con "Add to PATH".** El servicio corre como
+   LocalSystem con el Python del sistema (no usa `.venv`). Con una instalación por usuario
+   el servicio no vería los paquetes. Comprobar: `python --version`. El mínimo soportado
+   es 3.12, pero producción se estandariza en 3.14.7.
+2. **Copiar la carpeta del repo del pendrive a `C:\jsconnect`** y trabajar desde ahí.
+   *No* instalar desde el pendrive: `winsw.xml` se genera con rutas absolutas, así que el
+   servicio dejaría de funcionar al quitar la unidad. La ruta corta además evita el
+   `WinError 206` de pip.
+3. **Copiar `JSConnect-Win-Owner.exe` y `private_key.pem` a la misma carpeta**
+   (p. ej. `C:\jsconnect\dist\`), restringir la ACL de la llave al owner, SYSTEM y
+   Administradores, y **borrarla del pendrive**. Abrir `JSConnect-Win-Owner.exe`: debe decir
+   "Llave privada: disponible".
+4. **`install_service.bat` como Administrador** (click derecho → *Ejecutar como
+   administrador*) desde `C:\jsconnect\validator_app\proxy\`. Necesita Internet: pip,
+   Chromium (~150 MB) y `winsw.exe`. Ejecuta los 13 pasos y es re-ejecutable. Al final
+   muestra el **token del proxy** y la **admin key**: anota el token, que es el que se da
+   a los agentes. Los dos se pueden volver a ver y rotar desde la consola owner.
+   - No instalar paquetes a mano en ese Python sin elevar: `pip` sin Administrador
+     instala en el directorio del usuario y el servicio (LocalSystem) no los ve. Deja
+     que lo haga el instalador.
+5. **Red Pública:** si la red está como Pública y el PC no está en dominio, el instalador
+   pregunta si la pasa a Privada (por defecto **NO**, 60 s). No es necesario: la regla de
+   firewall ya funciona en Pública solo desde la LAN (ver "Firewall").
+6. **Extensión de Chrome:** en PC Home/WORKGROUP Chrome ignora la política y el instalador
+   lo avisa al final. Cargarla a mano una vez: `chrome://extensions` → Modo de
+   desarrollador → *Cargar descomprimida* → `C:\jsconnect\validator_app\proxy\.extension_build`.
+   Sin extensión también sirve el icono **"Renovar sesion WinForce"** del Escritorio.
+7. **Verificar:** `sc query JSWinProxy` (RUNNING), `curl http://localhost:8080/health`,
+   `Get-ChildItem C:\jsconnect\logs` y que ningún token aparezca en los logs. Luego iniciar
+   sesión en WinForce y renovar con la extensión o el icono.
+8. **IP para los agentes:** copiar la URL de "URL para los agentes" en la consola owner
+   (`http://<IP>:8080`; nunca `localhost`).
+
+### 3. En cada agente
+
+1. Copiar `JSConnect-Win-Coverage.exe` del pendrive a la PC y abrirlo. (Un `.exe` copiado
+   por USB no lleva la marca de descarga de internet, así que SmartScreen suele no
+   preguntar; no se probó aquí.)
+2. Menú de **Activación**: *Copiar huella* → pegarla en la consola owner → copiar el código
+   → *Pegar código* → *Activar*.
+3. **⚙️ Configuración → Configurar Proxy**: URL `http://<IP>:8080` y el token →
+   *Probar conexión* → *Guardar*.
+4. En **Windows 11 con Smart App Control** el `.exe` sin firma se bloquea; ahí el agente
+   se corre desde el código (ver "Construir los ejecutables…").
+
+Cuando el agente tiene red, se actualiza solo al último Release de GitHub; no hace falta
+volver a pasar el `.exe` por el pendrive.
+
+### 4. Si algo falla
+
+Ver la tabla de **Troubleshooting** al final (timeout, `WinError 10061`, etc.).
+
+### Qué está verificado y qué no
+- **Verificado** (contra `install_service.bat` y la instalación real de la PC oficina
+  Windows 11, 2026-10-02): los 13 pasos, Python 3.14.7 para todos los usuarios, que el
+  servicio usa el Python del sistema (no el `.venv`), que pip debe correr elevado, la
+  carga manual de la extensión y el firewall.
+- **No probado de punta a punta:** el recorrido completo desde un pendrive en una PC
+  recién instalada, y que el `.exe` copiado por USB evite SmartScreen.
+- **No existe todavía:** que el agente lea la URL y el token de un archivo del pendrive.
+  Hoy se escriben a mano en *Configurar Proxy* (o con la Opción B de abajo). Es una mejora
+  posible.
 
 ---
 
@@ -99,26 +187,9 @@ la consola owner (panel "Credenciales del proxy") sin volver a este resumen — 
 
 ## Qué llevar a la PC owner (pendrive)
 
-Casi todo se regenera solo desde Git/Internet. **Lo único imposible de regenerar es la
-llave privada.**
-
-| Llevar | Por qué |
-|---|---|
-| **`private_key.pem`** (obligatorio) | Firma los códigos de activación. Va en `dist\private_key.pem` junto a `JSConnect-Win-Owner.exe` (o `generator\private_key.pem`). **No** generar otra: los agentes ya construidos verifican con la llave pública actual. Copiarla por canal privado, restringir su ACL y **borrarla del pendrive** después. |
-| `JSConnect-Win-Owner.exe` (recomendado) | No se publica en Releases; evita instalar el entorno de build en esa PC. Se construye con `build-owner.ps1`. |
-| `JSConnect-Win-Coverage.exe` (opcional) | Para probar como agente en esa PC. Para las 15 PC usar el Release de GitHub (`publish-release.ps1`). |
-| Instalador de Python 3.14.7 (opcional) | Si la PC no tiene Internet estable. Con "Add to PATH". |
-
-**No llevar** (se regeneran o son específicos de cada PC): `config.yaml`,
-`proxy_token.txt`, `admin_key.txt` (el instalador crea tokens nuevos en esa PC; no
-reutilizar los de un ensayo), `winsw.exe` (se descarga), `extension.pem`/`.crx`/
-`updates.xml`/`.extension_build` (se regeneran), `.venv`, `build/`, `*.spec`, `logs/`,
-`.browser_profile/` (perfil de login: no compartir), `activacion.dat` (activación por
-PC) ni entradas del Credential Manager (`JSWinProxy`, `JSWinClient`, `JSWinCoverage`).
-La sesión de WinForce se inicia de nuevo en esa PC.
-
-Además de la carpeta del repo (`git clone` o copia): Git, Python 3.14.7 e Internet
-(Chromium ~150 MB y `winsw.exe` se descargan en la instalación).
+Ver **[Instalación con pendrive](#instalación-con-pendrive)** arriba: ahí está la lista de
+qué llevar y qué no, y el orden de instalación. **Lo único imposible de regenerar es la
+`private_key.pem`.** La sesión de WinForce se inicia de nuevo en cada PC owner.
 
 ---
 

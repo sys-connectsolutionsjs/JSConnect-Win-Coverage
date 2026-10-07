@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-09-30.
+Última actualización: 2026-10-07.
 
 ---
 
@@ -14,8 +14,11 @@ las máquinas de la oficina y el usuario reportó que funciona sin incidencias**
 (cuenta de WinForce de producción separada de la usada en desarrollo). El
 score de RUC y el auto-actualizador, ambos con bugs reales encontrados en el
 primer uso real del agente, quedaron corregidos y verificados en vivo antes del
-despliegue. Lo que sigue: monitorear la primera semana en producción y escribir
-el runbook de la Etapa E con el detalle real de esa instalación.
+despliegue. **Desde el 2026-10-07 hay un solo repo para Windows 10 y 11**
+(Release `v2026.10.07`, huella de activación estable) y el runbook de la Etapa E
+está escrito (instalación con pendrive). Lo que sigue: reactivar los agentes con la
+huella nueva, probar un agente W10 contra el owner W11 y monitorear la primera
+semana en producción.
 
 ---
 
@@ -53,6 +56,7 @@ el runbook de la Etapa E con el detalle real de esa instalación.
 | 2026-09-29 | **Icono nuevo de la extensión de Chrome** — reemplaza el cuadrado verde con flecha por un recuadro naranja con bordes redondeados y la "W" de Win | `136d225` |
 | 2026-09-29 | **Etapa D completada** — instalado en todas las máquinas de la oficina; el usuario reportó funcionando sin incidencias, con una cuenta de WinForce de producción distinta de la usada en desarrollo. RUC y CE confirmados funcionando en producción. Reportado por el usuario, no verificable contra código | (despliegue operativo, sin commit) |
 | 2026-09-30 | **Ventana del agente: logo, borrador y tabla comercial de scores** — logo junto a los campos, botones de limpiar con icono de borrador, rango de 100 puntos copiable + riesgo/color según la tabla de la empresa (el `NivelRiesgo` de WinForce ya no se muestra); Release `v2026.09.30`, 264 tests | `2e49cd2` |
+| 2026-10-07 | **Repos W10 + W11 unificados, huella estable y runbook de la Etapa E** — el repo W11 (4 commits por delante) se unió por fast-forward y se archivó; la huella de activación pasa a MachineGuid + CPU del registro (las activaciones antiguas siguen válidas en "transición"); el instalador del proxy ofrece pasar una red Pública a Privada (por defecto NO); runbook de instalación con pendrive en `docs/proxy-deploy.md`. Release `v2026.10.07`, 291 tests | `212f300` `ce3f60a` `57a42bc` `12a7960` |
 
 ---
 
@@ -69,13 +73,22 @@ seguidos en `PlanesAprobados.md` ("Etapa D — PC owner oficial"). Falta
 monitorear la primera semana en producción (no es una tarea con pasos, es
 observación).
 
-### 1. Etapa E — runbook de la PC owner
+### 1. Etapa E — runbook de la PC owner — COMPLETADA (2026-10-07)
 
-Ya no está bloqueada por la Etapa D (que se completó) — sí está pendiente de
-que el usuario comparta el detalle operativo real de esa instalación (qué
-pasos se siguieron, qué se ajustó) para poder escribir
-`docs/proxy-deploy.md` sin inventar contenido. Debe cubrir: Python 3.14.7,
-ACL, LocalSystem, firewall, alta de agentes y la renovación diaria de sesión.
+Escrito en `docs/proxy-deploy.md` → "Instalación con pendrive", con el procedimiento
+real del usuario: Python 3.14.7 para todos los usuarios, repo + `.exe` +
+`private_key.pem` por pendrive (copiados a `C:\jsconnect`), `install_service.bat`,
+extensión manual, firewall/red y alta de agentes. Falta probarlo de punta a punta
+desde un pendrive en una PC limpia; que el agente lea URL y token de un archivo del
+pendrive es una mejora posible (no existe).
+
+### 1b. Pendiente tras la unificación W10 + W11 (2026-10-07)
+
+Reactivar los agentes con la huella nueva (25 hoy, 41 a futuro), probar un agente
+W10 real contra el owner W11, investigar por qué la sesión de WinForce muere ~10 min
+después de renovar, firma de código de los `.exe` y pasar el repo W11 (archivado) a
+privado cuando sus `.exe` se hayan actualizado. `huellas_legacy()` no se borra salvo
+petición expresa.
 
 ### 2. Etapa C.12 — modo standalone, opcional
 
@@ -120,4 +133,4 @@ anteriores permanecen inmutables.
 
 | Etapa | Bloqueada por |
 |---|---|
-| E | que el usuario comparta el detalle operativo real de la instalación (Etapa D ya se completó) |
+| — | Ninguno (la Etapa E se completó el 2026-10-07) |

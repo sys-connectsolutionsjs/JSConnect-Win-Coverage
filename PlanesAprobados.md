@@ -425,16 +425,15 @@ idempotente, con fallback manual si el firewall está gobernado por dominio;
     Windows 11 dejó la red de la oficina como Pública y `Domain,Private` no aplicaba.
     Sigue siendo "solo LAN", ahora por rango de IP en vez de por perfil.
 
-### Etapa E — Runbook de la PC de oficina  [EN COLA — ya no bloqueada por acceso, falta el detalle operativo]
+### Etapa E — Runbook de la PC de oficina  [COMPLETADA 2026-10-07]
 
-La Etapa D ya se completó (2026-09-29, todas las máquinas, sin incidencias) —
-esta etapa ya no está bloqueada por acceso físico. Sigue pendiente de que el
-usuario comparta qué pasos siguió realmente en esa instalación (para no
-inventar contenido); con eso, dejar en `docs/proxy-deploy.md` el procedimiento
-**verificado**, no el teórico: prerrequisitos (**Python 3.14.7**, ver 0.6),
-instalador corregido, ACL, cuenta del servicio (LocalSystem), firewall, alta
-de los agentes y el ritual diario de renovación de la cookie del owner
-(extensión = principal; icono del Escritorio = fallback).
+El usuario compartió su procedimiento real (Python en la PC owner; repo, `.exe` y
+`private_key.pem` por pendrive; agentes con `.exe` + URL + token por pendrive). Quedó
+escrito en `docs/proxy-deploy.md` → "Instalación con pendrive", con Python 3.14.7 (ver
+0.6), copia a `C:\jsconnect`, ACL de la llave, `install_service.bat`, extensión manual,
+firewall/red y alta de agentes. Lo que **no** está probado de punta a punta (recorrido
+completo desde un pendrive en una PC limpia) y la mejora pendiente (que el agente lea
+URL y token de un archivo del pendrive) están anotados ahí mismo.
 
 ### 0.6 — Versión de Python (decisión registrada 2026-09-09)
 

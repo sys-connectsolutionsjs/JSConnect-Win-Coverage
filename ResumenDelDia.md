@@ -47,6 +47,16 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
    archivó con `gh repo archive`; sigue público (el usuario lo pondrá privado más adelante,
    cuando esos `.exe` ya se hayan actualizado).
 
+9. **Etapa E completada — runbook con pendrive.** El usuario contó su procedimiento
+   real (Python en la PC owner; repo, `.exe` y `private_key.pem` por pendrive; agentes
+   con `.exe` + URL + token por pendrive; Python **3.14.7**). Quedó en
+   `docs/proxy-deploy.md` → "Instalación con pendrive", verificado contra
+   `install_service.bat` (13 pasos): Python para todos los usuarios, copia a
+   `C:\jsconnect` (rutas absolutas en `winsw.xml`), pip siempre elevado, extensión
+   manual, red Pública. **No probado de punta a punta** desde un pendrive en una PC
+   limpia. Idea futura (no existe): que el agente lea URL y token de un archivo del
+   pendrive. También se puso al día el `Roadmap.md`.
+
 ## Pendiente al iniciar
 
 - **Reactivar los agentes** con la huella nueva (hoy 25: 18 + 7; a futuro 41). Funcionan
@@ -63,9 +73,9 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
 - Firma de código de los `.exe` (Smart App Control en Windows 11).
 - Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
   observación, no una tarea con pasos.
-- Escribir el runbook de la Etapa E (`docs/proxy-deploy.md`) en cuanto el usuario
-  comparta el detalle operativo real de la instalación.
-- Fase 5 (barrido final de documentación): última tarea del plan grande,
-  después de la Etapa E.
+- **Probar el recorrido del pendrive** en una PC owner limpia (Etapa E ya escrita) y
+  anotar lo que se ajuste en `docs/proxy-deploy.md`.
+- Fase 5 (barrido final de documentación): última tarea del plan grande; la Etapa E
+  ya está hecha.
 - Diferido a pedido del usuario: la duda de `Escalabilidad.md`, la decisión de
   `actualizar_score_cliente`/`newsearch.php`, y el backlog v1.1.
