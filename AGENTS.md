@@ -386,15 +386,29 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   (Python 3.14.7 para todos los usuarios, repo copiado a `C:\jsconnect`, `.exe` del
   Release, `private_key.pem` protegida, agentes con `.exe` + URL + token). Falta probarlo
   de punta a punta en una PC limpia. `Roadmap.md` puesto al día (estaba en 2026-09-30).
-- **Tests**: 287 → **291**, ruff limpio.
 - **Release `v2026.10.07`** (tag → `57a42bc`, agente + owner). El repo W11 recibió el mismo
   código, un aviso en su README y un release puente `v2026.10.07`; quedó **archivado**
   (público). Pasarlo a privado solo cuando los `.exe` del canal W11 ya se hayan actualizado.
+- **Punto 6 (sesión de WinForce)**: el "tope de 9.5 h" es **una medición no concluyente**
+  (hipótesis del dueño: login ajeno con la misma cuenta). Solo docs; protocolo en
+  `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión".
+- **Fase 5 completada** (barrido de docs; 13 de 19 hallazgos ya estaban resueltos) y 3 bugs de
+  la ventana del agente arreglados (URL sin `http://`, error real en "Probar conexión",
+  `None` del keyring). Dato: `/admin/*` es solo loopback, así que no hay renovación ni
+  discovery remoto por VPN (`ProxyClient.from_discovery()` no puede funcionar; sin tocar).
+- **La consola owner busca actualizaciones** (botón + aviso al abrir; compara SHA-256, ver
+  "Versionado y actualizaciones"). `build-owner.ps1` graba `version.py`.
+- **`AGENTS.md` dividido**: el historial pasó a `docs/historial-agents.md`; aquí solo el último
+  cierre (convención en "Reglas de trabajo").
+- **Release `v2026.10.07.1`** (tag → `154ba5e`, agente + owner), verificado contra GitHub.
+  Tests 287 → **318**, ruff limpio.
 - **Pendiente**:
   - reactivar los agentes. **NO borrar `huellas_legacy()`** hasta que el usuario lo pida
     expresamente (ver la REGLA en "Versionado y actualizaciones");
+  - **reemplazar a mano el `.exe` del owner instalado** (`v2026.10.07`, sin actualizador) por el
+    de `v2026.10.07.1`;
   - probar un agente W10 real contra el owner W11 y revisar en el owner
     `Get-NetConnectionProfile`;
-  - los de siempre: sesión de WinForce que muere ~10 min tras renovar, firma de código
-    (Smart App Control), monitoreo de producción, probar el pendrive en una PC limpia,
-    Fase 5.
+  - siguiente mejora acordada: que el agente lea la URL y el token de un archivo del pendrive;
+  - los de siempre: observar las muertes de sesión, firma de código (Smart App Control),
+    monitoreo de producción y probar el pendrive en una PC limpia.

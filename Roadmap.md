@@ -15,10 +15,12 @@ las máquinas de la oficina y el usuario reportó que funciona sin incidencias**
 score de RUC y el auto-actualizador, ambos con bugs reales encontrados en el
 primer uso real del agente, quedaron corregidos y verificados en vivo antes del
 despliegue. **Desde el 2026-10-07 hay un solo repo para Windows 10 y 11**
-(Release `v2026.10.07`, huella de activación estable) y el runbook de la Etapa E
-está escrito (instalación con pendrive). Lo que sigue: reactivar los agentes con la
-huella nueva, probar un agente W10 contra el owner W11 y monitorear la primera
-semana en producción.
+(Release `v2026.10.07.1`, huella de activación estable, consola owner con
+actualizaciones propias), el runbook de la Etapa E está escrito (instalación con
+pendrive) y la Fase 5 (barrido de documentación) terminó. Lo que sigue: reactivar
+los agentes con la huella nueva, reemplazar a mano el `.exe` del owner una vez,
+probar un agente W10 contra el owner W11 y monitorear la primera semana en
+producción.
 
 ---
 
@@ -57,6 +59,7 @@ semana en producción.
 | 2026-09-29 | **Etapa D completada** — instalado en todas las máquinas de la oficina; el usuario reportó funcionando sin incidencias, con una cuenta de WinForce de producción distinta de la usada en desarrollo. RUC y CE confirmados funcionando en producción. Reportado por el usuario, no verificable contra código | (despliegue operativo, sin commit) |
 | 2026-09-30 | **Ventana del agente: logo, borrador y tabla comercial de scores** — logo junto a los campos, botones de limpiar con icono de borrador, rango de 100 puntos copiable + riesgo/color según la tabla de la empresa (el `NivelRiesgo` de WinForce ya no se muestra); Release `v2026.09.30`, 264 tests | `2e49cd2` |
 | 2026-10-07 | **Repos W10 + W11 unificados, huella estable y runbook de la Etapa E** — el repo W11 (4 commits por delante) se unió por fast-forward y se archivó; la huella de activación pasa a MachineGuid + CPU del registro (las activaciones antiguas siguen válidas en "transición"); el instalador del proxy ofrece pasar una red Pública a Privada (por defecto NO); runbook de instalación con pendrive en `docs/proxy-deploy.md`. Release `v2026.10.07`, 291 tests | `212f300` `ce3f60a` `57a42bc` `12a7960` |
+| 2026-10-07 | **Fase 5, consola owner con actualizaciones y `AGENTS.md` dividido** — barrido de documentación (19 hallazgos revalidados), 3 bugs de Configurar Proxy del agente arreglados (URL sin `http://`, error real en Probar conexión, keyring), la consola owner busca actualizaciones por SHA-256, `AGENTS.md` 113 KB → 26 KB (historial en `docs/historial-agents.md`), "tope de 9.5 h" marcado como medición no concluyente. Release `v2026.10.07.1`, 318 tests | `5f382a5` `46e8a32` `154ba5e` |
 
 ---
 
@@ -84,22 +87,31 @@ pendrive es una mejora posible (no existe).
 
 ### 1b. Pendiente tras la unificación W10 + W11 (2026-10-07)
 
-Reactivar los agentes con la huella nueva (25 hoy, 41 a futuro), probar un agente
-W10 real contra el owner W11, observar por qué la sesión de WinForce muere ~10 min (hipótesis del dueño: un login ajeno con la misma cuenta; pasos en `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión")
-después de renovar, firma de código de los `.exe` y pasar el repo W11 (archivado) a
-privado cuando sus `.exe` se hayan actualizado. `huellas_legacy()` no se borra salvo
-petición expresa.
+- Reactivar los agentes con la huella nueva (25 hoy, 41 a futuro).
+- Reemplazar a mano el `.exe` del owner instalado (`v2026.10.07`) por el de
+  `v2026.10.07.1`; desde ahí se actualiza solo.
+- Probar un agente W10 real contra el owner W11.
+- Observar por qué la sesión de WinForce muere ~10 min después de renovar (hipótesis del
+  dueño: un login ajeno con la misma cuenta; el "tope de 9.5 h" es una medición no
+  concluyente). Pasos en `docs/rotacion-credenciales.md` → "Cómo investigar una muerte
+  de sesión".
+- Siguiente mejora acordada: que el agente lea la URL y el token de un archivo del
+  pendrive (con su propio Release).
+- Firma de código de los `.exe` y pasar el repo W11 (archivado) a privado cuando sus
+  `.exe` se hayan actualizado.
+- `huellas_legacy()` **no se borra** salvo petición expresa.
 
 ### 2. Etapa C.12 — modo standalone, opcional
 
 Probar pegando una `PHPSESSID` solo si se necesita el modo sin proxy. Hoy el modo
 proxy configurado gana y habría que limpiar `JSWinClient` del keyring.
 
-### 3. Fase 5 — barrido final de documentación
+### 3. Fase 5 — barrido final de documentación — COMPLETADA (2026-10-07)
 
-Resolver el checklist histórico que siga vigente después de E. En este cierre
-se actualizaron los documentos afectados por activación y handoff; los snapshots
-anteriores permanecen inmutables.
+Se revalidaron los 19 hallazgos contra el código (13 ya estaban resueltos), se
+corrigieron los restantes y los 3 bugs de código de la ventana del agente, y se
+dividió `AGENTS.md` (historial en `docs/historial-agents.md`). Detalle en
+`PlanesAprobados.md` (Fase 5). Los snapshots de `resumenes/` permanecen inmutables.
 
 ---
 

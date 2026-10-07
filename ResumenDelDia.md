@@ -56,6 +56,40 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
    manual, red Pública. **No probado de punta a punta** desde un pendrive en una PC
    limpia. Idea futura (no existe): que el agente lea URL y token de un archivo del
    pendrive. También se puso al día el `Roadmap.md`.
+10. **Punto 6 (sesión de WinForce) acordado con el usuario.** Su hipótesis (alguien inicia
+    sesión con la misma cuenta y eso invalida la `PHPSESSID`; al volver a iniciar sesión todo
+    se normaliza) es razonable y los datos no la descartan: el "tope de 9.5 h" salió de una
+    sola corrida (sábado 21:08 → ≈ 06:38 del domingo). Los docs pasaron de "hecho medido" a
+    "una medición, no concluyente" (`anotaciones.md` lleva la corrección; protocolo en
+    `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión"). Sin cambios
+    de código. El patrón de ~10 min tras renovar (593 y 603 s, mismo `cookie_id`) sigue sin
+    explicar.
+11. **Fase 5 completada** (barrido de documentación). La revisión contrastó los 19 hallazgos
+    de 2026-09-09 con el código actual: 13 ya estaban corregidos; se corrigieron el resto y
+    lo nuevo — `/admin/*` es solo loopback (no hay renovación/discovery remoto por VPN),
+    ejemplos de versión `"dev"`, URL del proxy con `http://`, conteos de agentes (25 hoy, 41
+    previstos), Python 3.14.7, avisos de "documento histórico" en `actualizacion-windows-11/`.
+    Dato para la duda diferida de `Escalabilidad.md` (no tocada): lo de "no hay que reescribir
+    nada" no se cumple para `/admin/*` remoto.
+12. **3 bugs de código del agente** (Configurar Proxy): `IP:puerto` sin `http://` se
+    normaliza (#14), "Probar conexión" muestra el motivo real (#19), guardar ya no revienta
+    si el keyring falla (#18); además el texto de `session_age` dice "última actividad".
+13. **La consola owner busca actualizaciones** (pedido del usuario): botón "Buscar
+    actualizaciones", chequeo silencioso al abrir y versión en pantalla. Compara el
+    **SHA-256** de su `.exe` con el del Release (no el commit, para no entrar en bucle si un
+    Release reutiliza un owner viejo). `build-owner.ps1` ahora graba `version.py`. La
+    ventana toma el tamaño de su contenido. **El owner ya instalado se reemplaza a mano una
+    sola vez.**
+14. **`AGENTS.md` dividido**: 113 KB → 26 KB. Las 43 tareas completadas y la bitácora por
+    fases + cierres de sesión (2026-08-18 → 2026-10-02) pasaron tal cual a
+    `docs/historial-agents.md` (verificado: ninguna línea perdida). `AGENTS.md` conserva
+    reglas vivas, tareas abiertas y solo el último cierre; las reglas de cierre y el mapa
+    de conocimiento reflejan la nueva convención.
+15. **Release `v2026.10.07.1`** (tag → `154ba5e`, agente + owner), publicado y verificado
+    contra GitHub: el agente `v2026.10.07` detecta la nueva y la nueva no se ofrece
+    actualización a sí misma; el owner por hash igual; la descarga del owner coincide con su
+    checksum. Tests 291 → **318**, ruff limpio. Los agentes en `v2026.09.30` saltan directo a
+    esta versión (el actualizador solo mira el último Release).
 
 ## Pendiente al iniciar
 
@@ -68,14 +102,17 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
   `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
 - Poner `W11-JSConnect-Win-Coverage` en privado (ya archivado) **solo después** de que
   los `.exe` del canal W11 se hayan actualizado a `v2026.10.07`; si no, pierden su canal.
-- **Investigar por qué la sesión de WinForce muere ~10 min después de cada renovación**
-  (`actualizacion-windows-11/pendientes.md` §1).
+- **Reemplazar a mano el `.exe` del owner** instalado (`v2026.10.07`) por el de
+  `v2026.10.07.1`; desde ahí se actualiza solo.
+- **Observar por qué la sesión de WinForce muere ~10 min después de renovar** (hipótesis del
+  usuario: login ajeno con la misma cuenta; `docs/rotacion-credenciales.md` → "Cómo
+  investigar una muerte de sesión").
+- **Archivo del pendrive con URL + token para el agente** (idea acordada; ahora que la
+  Fase 5 terminó, es lo siguiente a hacer si el usuario lo confirma; con su propio Release).
 - Firma de código de los `.exe` (Smart App Control en Windows 11).
 - Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
   observación, no una tarea con pasos.
 - **Probar el recorrido del pendrive** en una PC owner limpia (Etapa E ya escrita) y
   anotar lo que se ajuste en `docs/proxy-deploy.md`.
-- Fase 5 (barrido final de documentación): última tarea del plan grande; la Etapa E
-  ya está hecha.
-- Diferido a pedido del usuario: la duda de `Escalabilidad.md`, la decisión de
+- Diferido a pedido del usuario: Etapa C.12 (modo standalone),  la duda de `Escalabilidad.md`, la decisión de
   `actualizar_score_cliente`/`newsearch.php`, y el backlog v1.1.

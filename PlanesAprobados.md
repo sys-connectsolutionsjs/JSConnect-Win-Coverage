@@ -479,8 +479,14 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   `AGENTS.md` → "Versionado y actualizaciones").
 - **Probar un agente W10 real contra el owner W11** y revisar en el owner
   `Get-NetConnectionProfile` / la regla `JSWinProxy API` (repos unificados 2026-10-07).
+- **Reemplazar a mano el `.exe` del owner instalado** (`v2026.10.07`, sin actualizador) por el
+  de `v2026.10.07.1`; desde ahí la consola owner se actualiza sola.
 - **La sesión de WinForce muere ~10 min después de cada renovación**
-  (`actualizacion-windows-11/pendientes.md` §1) — sin investigar.
+  (`actualizacion-windows-11/pendientes.md` §1) — **solo observar**: hipótesis del dueño =
+  login ajeno con la misma cuenta; pasos en `docs/rotacion-credenciales.md` → "Cómo
+  investigar una muerte de sesión". El "tope de 9.5 h" es una medición no concluyente.
+- **Que el agente lea la URL y el token de un archivo del pendrive** — mejora acordada
+  2026-10-07, con su propio Release (ahora que la Fase 5 terminó).
 - **Firma de código de los `.exe`** (Smart App Control en Windows 11).
 - **Pasar `W11-JSConnect-Win-Coverage` a privado** (ya archivado) solo cuando los `.exe`
   de ese canal se hayan actualizado a `v2026.10.07`.
