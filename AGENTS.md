@@ -1198,6 +1198,9 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   dominio, OFRECE pasarla a Privada (`choice`, por defecto NO, 60 s); avisa si el perfil
   Público bloquea todo lo entrante. Nunca la cambia sin preguntar.
 - **Tests**: 287 → **291**, ruff limpio.
+- **Release `v2026.10.07`** (tag → `57a42bc`, agente + owner). El repo W11 recibió el mismo
+  código, un aviso en su README y un release puente `v2026.10.07`; quedó **archivado**
+  (público). Pasarlo a privado solo cuando los `.exe` del canal W11 ya se hayan actualizado.
 - **Pendiente**:
   - reactivar los agentes y, en la versión siguiente, **borrar `huellas_legacy()`** y su
     uso en `main_window.py`;

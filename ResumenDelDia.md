@@ -37,6 +37,15 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
 5. **Documentación**: README (es/en), `AGENTS.md` (cierre de sesión), `anotaciones.md`,
    `actualizacion-windows-11/` (banner + pendiente §3 resuelto) y `docs/proxy-config.md`.
 6. **Tests**: 287 → **291**, ruff limpio.
+7. **Release `v2026.10.07`** (tag → `57a42bc`, agente + owner) en este repo. Verificado
+   contra GitHub: el `.exe` nuevo no se ofrece una actualización falsa y el de
+   `v2026.09.30` sí detecta `v2026.10.07`. Prueba en esta PC (Windows 10): con la
+   activación real arranca en "transición" (la huella guardada está entre las antiguas).
+8. **Repo W11 archivado**: recibió el mismo código por fast-forward, un aviso en su README
+   (`e23c146`) y un release puente `v2026.10.07` (mismo `.exe`, que ya consulta este
+   repo) para que cualquier `.exe` del canal W11 se pase solo al oficial. Luego se
+   archivó con `gh repo archive`; sigue público (el usuario lo pondrá privado más adelante,
+   cuando esos `.exe` ya se hayan actualizado).
 
 ## Pendiente al iniciar
 
@@ -45,8 +54,8 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
   `huellas_legacy()`** y su uso en `validator_app/gui/main_window.py`.
 - **Probar un agente W10 real contra el owner W11** y revisar en el owner
   `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
-- Publicar el Release unificado `v2026.10.07` (y el puente en el repo W11 antes de
-  archivarlo) y archivar `W11-JSConnect-Win-Coverage` — ver el estado en el cierre.
+- Poner `W11-JSConnect-Win-Coverage` en privado (ya archivado) **solo después** de que
+  los `.exe` del canal W11 se hayan actualizado a `v2026.10.07`; si no, pierden su canal.
 - **Investigar por qué la sesión de WinForce muere ~10 min después de cada renovación**
   (`actualizacion-windows-11/pendientes.md` §1).
 - Firma de código de los `.exe` (Smart App Control en Windows 11).
