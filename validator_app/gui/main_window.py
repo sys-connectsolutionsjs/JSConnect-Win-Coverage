@@ -82,20 +82,28 @@ def _ruta_recurso(relativa: str) -> Path:
     return raiz / relativa
 
 
-def activacion_vigente(huella: str, alternativas=()) -> bool:
-    """True si esta PC tiene guardado un codigo de activacion valido para su huella.
+def activacion_vigente(huella: str, legacy=None) -> str | None:
+    """Estado de la activacion guardada en esta PC:
 
-    `alternativas`: otras huellas de ESTA misma PC que tambien se aceptan (la
-    calculada antes de quitar la dependencia de `wmic`, ver
-    fingerprint.huellas_compatibles)."""
+    - "vigente": codigo valido para la huella actual.
+    - "transicion": codigo valido pero hecho con la huella de versiones anteriores
+      (MAC/volumen/wmic); la app funciona y se pide reactivar.
+    - None: sin activacion valida.
+
+    `legacy`: funcion que devuelve las huellas antiguas de ESTA PC (ver
+    fingerprint.huellas_legacy). Solo se llama si la huella guardada no es la actual,
+    asi el arranque normal no lanza `wmic` ni PowerShell."""
     guardado = activation_state.leer()
     if not guardado:
-        return False
+        return None
     huella_guardada = guardado.get("huella")
-    return bool(
-        (huella_guardada == huella or huella_guardada in alternativas)
-        and signer.validar_codigo(huella_guardada, guardado.get("codigo", ""))
-    )
+    if not signer.validar_codigo(huella_guardada, guardado.get("codigo", "")):
+        return None
+    if huella_guardada == huella:
+        return "vigente"
+    if legacy is not None and huella_guardada in legacy():
+        return "transicion"
+    return None
 
 
 class App(ttk.Window):
@@ -335,7 +343,13 @@ class App(ttk.Window):
             self.lbl_estado.config(text="Estado: modo desarrollo (activacion pendiente)")
             return
         huella = fingerprint.obtener_huella()
-        if activacion_vigente(huella, fingerprint.huellas_compatibles()):
+        estado = activacion_vigente(huella, fingerprint.huellas_legacy)
+        if estado == "vigente":
+            return
+        if estado == "transicion":
+            self.lbl_estado.config(
+                text=f"Estado: activado (reactivar cuando puedas; nueva huella {huella})"
+            )
             return
         self._mostrar_activacion(huella)
 
@@ -354,8 +368,11 @@ class App(ttk.Window):
         frame = ttk.Frame(dialog, padding=16)
         frame.pack(fill="both", expand=True)
         if not requerida:
-            vigente = activacion_vigente(huella, fingerprint.huellas_compatibles())
-            estado = "ACTIVADA" if vigente else "PENDIENTE de activar"
+            vigente = activacion_vigente(huella, fingerprint.huellas_legacy)
+            estado = {
+                "vigente": "ACTIVADA",
+                "transicion": "ACTIVADA (reactivar con esta huella)",
+            }.get(vigente, "PENDIENTE de activar")
             ttk.Label(frame, text=f"Estado de esta PC: {estado}", font=("", 10, "bold")).pack(
                 anchor="w", pady=(0, 8)
             )

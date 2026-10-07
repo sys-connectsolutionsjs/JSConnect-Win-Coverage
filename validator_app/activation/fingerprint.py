@@ -1,4 +1,14 @@
-"""Huella de la maquina para la activacion."""
+"""Huella de la maquina para la activacion.
+
+La huella actual usa solo dos datos que no cambian con la red, los discos USB ni la
+version de Windows: el MachineGuid y el identificador del CPU, ambos leidos del
+registro (sin `wmic`, sin PowerShell, sin lanzar procesos).
+
+La huella de versiones anteriores (MachineGuid|MAC|CPU|volumen) cambiaba con una VPN,
+un USB o la falta de `wmic`, y por eso se perdia el estado "activado". Sigue
+disponible en `huellas_legacy()` solo para que las activaciones ya hechas funcionen
+mientras el agente se reactiva.
+"""
 
 import hashlib
 import os
@@ -7,20 +17,7 @@ import subprocess
 import uuid
 import winreg
 
-# Windows 11 lanza las consolas en Windows Terminal: sin este flag, cada
-# subprocess de la app con ventana abre una ventana visible que roba el foco.
-_SIN_VENTANA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-
-# Windows 11 24H2+ ya no trae `wmic`. Sin el, se leen los MISMOS valores de WMI
-# por PowerShell/CIM (mismo proveedor y mismo orden que `wmic`), asi que una PC
-# de Windows 10 que pasa a Windows 11 conserva su huella y su activacion.
-_PS_CIM = (
-    "$c = Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty ProcessorId; "
-    "$v = Get-CimInstance Win32_Volume | Where-Object { $_.DriveLetter -and "
-    "$null -ne $_.SerialNumber } | Select-Object -First 1 -ExpandProperty SerialNumber; "
-    "Write-Output \"$c|$v\""
-)
-_cim_cache: tuple[str, str] | None = None
+_CPU_REG = r"HARDWARE\DESCRIPTION\System\CentralProcessor\0"
 
 
 def _machine_guid():
@@ -29,6 +26,46 @@ def _machine_guid():
             return winreg.QueryValueEx(key, "MachineGuid")[0]
     except Exception:
         return ""
+
+
+def _cpu_registro():
+    """Identifier + nombre del primer CPU segun el registro. Windows lo arma al
+    arrancar; no depende de `wmic` ni de PowerShell."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _CPU_REG) as key:
+            ident = winreg.QueryValueEx(key, "Identifier")[0]
+            nombre = winreg.QueryValueEx(key, "ProcessorNameString")[0]
+        return f"{ident}|{nombre}".strip()
+    except Exception:
+        return os.environ.get("PROCESSOR_IDENTIFIER", "")
+
+
+def _formatear(material: str) -> str:
+    digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16].upper()
+    return "-".join(digest[i : i + 4] for i in range(0, 16, 4))
+
+
+def obtener_huella() -> str:
+    return _formatear("|".join([_machine_guid(), _cpu_registro()]))
+
+
+# --- Huella de versiones anteriores ------------------------------------------------
+# BORRAR todo lo que sigue (y el uso de `huellas_legacy` en la ventana principal)
+# en la version siguiente a v2026.10.07, cuando los agentes ya se hayan reactivado.
+
+# Windows 11 lanza las consolas en Windows Terminal: sin este flag, cada
+# subprocess de la app con ventana abre una ventana visible que roba el foco.
+_SIN_VENTANA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+# Windows 11 24H2+ ya no trae `wmic`. Sin el, se leen los MISMOS valores de WMI
+# por PowerShell/CIM (mismo proveedor y mismo orden que `wmic`).
+_PS_CIM = (
+    "$c = Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty ProcessorId; "
+    "$v = Get-CimInstance Win32_Volume | Where-Object { $_.DriveLetter -and "
+    "$null -ne $_.SerialNumber } | Select-Object -First 1 -ExpandProperty SerialNumber; "
+    "Write-Output \"$c|$v\""
+)
+_cim_cache: tuple[str, str] | None = None
 
 
 def _mac():
@@ -52,11 +89,18 @@ def _cim() -> tuple[str, str]:
     if _cim_cache is None:
         try:
             out = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS_CIM],
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    _PS_CIM,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=30,
                 check=False,
+                stdin=subprocess.DEVNULL,
                 creationflags=_SIN_VENTANA,
             )
             lineas = [line.strip() for line in out.stdout.splitlines() if line.strip()]
@@ -67,7 +111,7 @@ def _cim() -> tuple[str, str]:
     return _cim_cache
 
 
-def _cpu():
+def _cpu_legacy():
     if not _hay_wmic():
         cpu = _cim()[0]
         return cpu or os.environ.get("PROCESSOR_IDENTIFIER", "")
@@ -78,6 +122,7 @@ def _cpu():
             text=True,
             timeout=10,
             check=False,
+            stdin=subprocess.DEVNULL,
             creationflags=_SIN_VENTANA,
         )
         lines = [line.strip() for line in out.stdout.splitlines() if line.strip()]
@@ -86,7 +131,7 @@ def _cpu():
         return os.environ.get("PROCESSOR_IDENTIFIER", "")
 
 
-def _volume_serial():
+def _volume_serial_legacy():
     if not _hay_wmic():
         return _cim()[1]
     try:
@@ -96,6 +141,7 @@ def _volume_serial():
             text=True,
             timeout=15,
             check=False,
+            stdin=subprocess.DEVNULL,
             creationflags=_SIN_VENTANA,
         )
         for line in out.stdout.splitlines():
@@ -107,28 +153,12 @@ def _volume_serial():
     return ""
 
 
-def _formatear(material: str) -> str:
-    digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16].upper()
-    return "-".join(digest[i : i + 4] for i in range(0, 16, 4))
-
-
-def obtener_huella() -> str:
-    return _formatear("|".join([_machine_guid(), _mac(), _cpu(), _volume_serial()]))
-
-
-def _huella_legacy_sin_wmic() -> str:
-    """La huella que calculaban las versiones anteriores en una PC SIN `wmic`
-    (Windows 11 24H2+): CPU = PROCESSOR_IDENTIFIER y volumen vacio."""
-    return _formatear(
-        "|".join([_machine_guid(), _mac(), os.environ.get("PROCESSOR_IDENTIFIER", ""), ""])
-    )
-
-
-def huellas_compatibles() -> set[str]:
-    """Huellas que se aceptan para una activacion ya guardada: la actual y, en
-    una PC sin `wmic`, la que calculaban las versiones anteriores (asi no se
-    pierden las activaciones hechas antes de este cambio)."""
-    huellas = {obtener_huella()}
-    if not _hay_wmic():
-        huellas.add(_huella_legacy_sin_wmic())
-    return huellas
+def huellas_legacy() -> set[str]:
+    """Huellas (MachineGuid|MAC|CPU|volumen) que calculaban las versiones anteriores
+    en ESTA PC: la leida con `wmic` o CIM, y la que salia en una PC sin `wmic`
+    (CPU = PROCESSOR_IDENTIFIER y volumen vacio)."""
+    guid, mac = _machine_guid(), _mac()
+    return {
+        _formatear("|".join([guid, mac, _cpu_legacy(), _volume_serial_legacy()])),
+        _formatear("|".join([guid, mac, os.environ.get("PROCESSOR_IDENTIFIER", ""), ""])),
+    }
