@@ -1,5 +1,13 @@
 # Actualización Windows 11 — PC owner/proxy
 
+> **Actualización 2026-10-07:** esta adaptación se unió al repo oficial
+> `JSConnect-Win-Coverage`; `W11-JSConnect-Win-Coverage` está archivado y ya no hay dos
+> canales de actualización (las menciones de abajo a `-RepoName`/repo W11 son historia).
+> La huella de `wmic`/CIM descrita aquí se **reemplazó** por una huella estable
+> (MachineGuid + CPU del registro) que no lanza procesos; la antigua solo se acepta
+> durante la transición (`huellas_legacy()`). El instalador además **ofrece** (NO por
+> defecto) pasar una red Pública a Privada y avisa si el perfil Público bloquea todo.
+
 > Registro de la adaptación hecha el **2026-10-02** para que la **PC de oficina
 > (owner + proxy)** funcione en **Windows 11 Pro 25H2** (build 26200, español).
 > Los **agentes siguen en Windows 10** y no necesitan cambiar nada.

@@ -1178,3 +1178,30 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   - probar un agente con Windows 10 real;
   - decidir si el repo W11 reemplaza al original o si conviven (hoy hay dos canales de actualización);
   - la firma de código.
+
+### Cierre de la sesión 2026-10-07 [CONTEXTO PARA LA SIGUIENTE — repos unificados, huella estable]
+
+- **Un solo repo**: `W11-JSConnect-Win-Coverage` se unió a este repo por fast-forward
+  (los 4 commits `5cb8768`, `a40a0d5`, `4fe66d3`, `84aa745` + tag `v2026.10.02-w11`).
+  Este repo es el único oficial para Windows 10 y 11; el repo W11 se archiva (el
+  usuario lo pondrá privado más adelante). `build.ps1 -RepoName` queda solo para forks.
+- **Por qué fallaba un owner W11 con agentes W10**: la regla de firewall solo cubría
+  `Domain,Private` y Windows 11 deja la red en Pública (agentes con timeout). La regla
+  `-Profile Any` limitada a la LAN (del repo W11) lo resuelve sin tocar la red.
+- **Huella estable** (`fingerprint.py`): `obtener_huella()` = MachineGuid + CPU del
+  registro; sin `wmic`, PowerShell, MAC ni volumen. La antigua (`huellas_legacy()`) se
+  acepta durante la **transición**: el agente arranca "activado (reactivar cuando
+  puedas)" y muestra la huella nueva. `activacion_vigente()` ahora devuelve
+  `"vigente"` / `"transicion"` / `None`. **Hay que reactivar los agentes con la huella
+  nueva** (hoy 25: 18 + 7; a futuro 41).
+- **Red del owner** (`install_service.bat`): si la red es Pública y el PC no está en
+  dominio, OFRECE pasarla a Privada (`choice`, por defecto NO, 60 s); avisa si el perfil
+  Público bloquea todo lo entrante. Nunca la cambia sin preguntar.
+- **Tests**: 287 → **291**, ruff limpio.
+- **Pendiente**:
+  - reactivar los agentes y, en la versión siguiente, **borrar `huellas_legacy()`** y su
+    uso en `main_window.py`;
+  - probar un agente W10 real contra el owner W11 y revisar en el owner
+    `Get-NetConnectionProfile`;
+  - los de siempre: sesión de WinForce que muere ~10 min tras renovar, firma de código
+    (Smart App Control), monitoreo de producción, runbook de la Etapa E, Fase 5.

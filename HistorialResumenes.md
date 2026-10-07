@@ -13,6 +13,19 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-10-02 — Sesión — PC oficina en Windows 11 (owner + proxy) + Release v2026.10.02-w11 (repo W11, hoy unificado)
+- **Snapshot completo**: `resumenes/2026-10-02.md`.
+- **Windows 11**: la PC oficina (Windows 11 Pro 25H2) quedó como owner + proxy. Seis
+  problemas reales corregidos: firewall `-Profile Any` limitado a la LAN (la red era
+  Pública), huella sin `wmic` por CIM, renovar sesión sin elevar, `CREATE_NO_WINDOW`,
+  secretos fuera del historial Win+V y bugs de `install_service.bat` (puerto, health
+  check, ACL por SID, Python real). El popup "sesión caducada" ahora sale
+  (`ReportEventW` en vez de `eventcreate`). Smart App Control bloquea el `.exe` sin firma.
+- **Repo W11**: el trabajo se hizo en `W11-JSConnect-Win-Coverage` (commits `5cb8768`,
+  `a40a0d5`, `4fe66d3`, `84aa745`; Release `v2026.10.02-w11`). El 2026-10-07 se unió a
+  este repo por fast-forward (ver `ResumenDelDia.md`).
+- **Plugin `documentation`** (tarea 43): repo `AngelSanchezDev/Documentation-plugin`
+  v1.0.1, instalado en esta PC (nota del 2026-10-06).
 ### 2026-09-30 — Sesión — logo, botones de borrador y tabla comercial de scores + Release v2026.09.30
 - **Snapshot completo**: `resumenes/2026-09-30.md`.
 - **Ventana del agente**: logo de la empresa a la derecha de los campos (margen

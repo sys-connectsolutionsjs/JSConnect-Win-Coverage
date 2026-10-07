@@ -20,7 +20,10 @@ Nada de esto se resolvió en la sesión del 2026-10-02.
   desactivar Smart App Control (en muchas versiones no se puede volver a activar
   sin reinstalar Windows).
 
-## 3. Releases: dos repos, dos canales de actualización
+## 3. Releases: dos repos, dos canales de actualización  ✅ RESUELTO 2026-10-07
+- **Resuelto:** los dos repos se unieron en `JSConnect-Win-Coverage` (fast-forward de
+  los 4 commits de W11). `W11-JSConnect-Win-Coverage` queda archivado; el único canal
+  de actualización es este repo. Lo de abajo es el historial de la decisión.
 - **Publicado 2026-10-02:** Release
   [`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11)
   (tag → `4fe66d3`, agente + owner). Verificado que su actualizador no ofrece una

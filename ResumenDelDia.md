@@ -1,85 +1,59 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: (se fija al abrir la próxima sesión)
+Fecha: 2026-10-07
 
 ## Rotación del resumen anterior
 
-El detalle íntegro del 2026-09-30 quedó en `resumenes/2026-09-30.md` y su entrada
-condensada en `HistorialResumenes.md`.
+El detalle íntegro del 2026-10-02 (PC oficina en Windows 11 + nota del plugin
+`documentation` del 2026-10-06) quedó en `resumenes/2026-10-02.md` y su entrada
+condensada en `HistorialResumenes.md`. El repo `W11-JSConnect-Win-Coverage` tenía ese
+mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
 
 ## Qué se hizo hoy
 
-- (nada todavía)
+### 2026-10-07 — Unificación W10 + W11, huella estable y red del owner
 
-- **Plugin `documentation`** (tarea 43 de AGENTS.md): repo
-  `AngelSanchezDev/Documentation-plugin` v1.0.1, con hook `SessionStart` +
-  `/documentation:cerrar-sesion` + `doc_sync.py` (21 tests en ese repo). Instalado
-  en esta PC desde GitHub. Probado: proyecto nuevo (el hook crea los 7 archivos) y
-  cierre completo con snapshot/historial/rotación. Commits con la identidad
-  noreply de AngelSanchezDev; la cuenta `gh` activa se devolvió a
-  `sys-connectsolutionsjs`. Dato: en este repo, `ResumenDelDia.md` dice
-  "(se fija al abrir la proxima sesion)" y el hook lo sellará con la fecha del
-  día en la próxima sesión.
-
-### 2026-10-02 — PC oficina en Windows 11 (owner + proxy)
-
-> Detalle completo para revisar con calma: **[`actualizacion-windows-11/`](actualizacion-windows-11/README.md)**
-> (cambios por archivo, verificación, cambios en la PC, pendientes).
-> Código: commits `5cb8768` y `4fe66d3`. Release:
-> [`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11).
-> Solo en el repo `W11-JSConnect-Win-Coverage`; el repo original no se tocó.
-
-1. **Instalación de la PC oficina** (Windows 11 Pro 25H2, build 26200). Se instaló
-   Git, Python 3.14.7 (todos los usuarios), el `.venv` y Chromium. Se clonó el
-   repo y se ejecutó `install_service.bat`: servicio `JSWinProxy` en el
-   puerto 8080, tokens nuevos, tarea de aviso e icono del Escritorio. También se
-   compilaron `JSConnect-Win-Owner.exe` y `JSConnect-Win-Coverage.exe`.
-2. **Smart App Control** (Windows 11) bloquea `JSConnect-Win-Coverage.exe` porque
-   no está firmado. En esta PC el agente corre desde el código con el lanzador
-   `%LOCALAPPDATA%\JSConnect-Win-Coverage\lanzar_agente.pyw` y accesos directos
-   con AppUserModelID propio, anclables a la barra de tareas.
-3. **El popup "sesión caducada" nunca salía.** `eventcreate` rechaza el origen
-   `JSWinProxy` registrado con `New-EventLog`, y el error se perdía en silencio.
-   Se corrigió con `ReportEventW` (ctypes). Verificado en producción: la sesión
-   caducó de verdad a las 18:29 y la tarea mostró el popup (resultado 0). La
-   extensión de Chrome ahora pone un badge al hacer clic (…, ✓, X, !, ?).
-4. **Adaptación a Windows 11** (6 problemas reales, ver la carpeta):
-   - firewall con perfil Any, limitado a la LAN, porque la red es Pública;
-   - huella sin `wmic`, por CIM, compatible hacia atrás;
-   - renovar la sesión sin elevar, porque `config.yaml` tiene ACL de administrador;
-   - `CREATE_NO_WINDOW` para que Windows Terminal no robe el foco;
-   - secretos fuera del historial Win+V;
-   - bugs de `install_service.bat`: puerto, health check, ACL por SID y Python real.
-
-   Resultado: 287 tests en verde y el instalador re-ejecutado completo en la PC.
-5. **Los agentes siguen en Windows 10** con el Release `v2026.09.30` y no
-   necesitan nada: la API del proxy no cambió y la huella en Windows 10 es
-   idéntica.
-6. **Subida al repo `W11-JSConnect-Win-Coverage`** (remoto `w11`): código
-   `5cb8768` y documentación `a40a0d5`.
-7. **Release `v2026.10.02-w11`** publicado en ese repo, con agente y owner
-   compilados desde `4fe66d3`. Antes se agregó a `build.ps1` el parámetro
-   `-RepoName`: el agente de este Release busca sus actualizaciones en W11 y no
-   ofrece "volver" a `v2026.09.30` del repo original. Lo verifiqué contra
-   GitHub: el actualizador no ofrece ninguna actualización falsa. Se instaló
-   `gh` 2.102 con sesión iniciada como sys-connectsolutionsjs. El repo original
-   sigue en `v2026.09.30`, sin cambios.
+1. **Un solo repo.** El repo W11 estaba exactamente 4 commits por delante de este
+   (`5cb8768`, `a40a0d5`, `4fe66d3`, `84aa745`), en línea recta: se trajo con
+   `git merge --ff-only` desde un clon local (sin conflictos) y se trajo también el tag
+   `v2026.10.02-w11`. `ResumenDelDia.md` se conservó con `git stash`.
+2. **Diagnóstico de "owner W11 + agentes W10 se rompe".** La activación no depende de
+   la versión de Windows (la huella se firma en cada agente). Lo que rompía es el PC
+   owner, que además hospeda el proxy: la regla de firewall solo cubría `Domain,Private`
+   y Windows 11 deja la red en **Pública** → agentes con timeout. Ya estaba corregido en
+   la rama W11 (`-Profile Any` limitado a la LAN).
+3. **Huella estable** (`validator_app/activation/fingerprint.py`): la huella antigua
+   (`MachineGuid|MAC|CPU|volumen`) cambiaba con VPN/Wi-Fi aleatorio, un USB o la falta de
+   `wmic`, y por eso se perdía el estado "activado". La nueva usa solo MachineGuid + CPU
+   del registro (sin subprocess). `activacion_vigente()` devuelve `"vigente"`,
+   `"transicion"` (activación hecha con la huella antigua: sigue funcionando y pide
+   reactivar) o `None`. `huellas_legacy()` solo se calcula si la guardada no es la
+   actual. Commit `212f300`.
+4. **Red del owner** (`install_service.bat`, commit `ce3f60a`): si la red es Pública y
+   el PC no está en dominio, **ofrece** pasarla a Privada (`choice`, por defecto NO, 60 s)
+   y avisa si el perfil Público bloquea todo lo entrante. Nunca cambia nada sin
+   preguntar, para que otros call centers instalen sin tocar su red. Documentado en
+   `docs/proxy-deploy.md`.
+5. **Documentación**: README (es/en), `AGENTS.md` (cierre de sesión), `anotaciones.md`,
+   `actualizacion-windows-11/` (banner + pendiente §3 resuelto) y `docs/proxy-config.md`.
+6. **Tests**: 287 → **291**, ruff limpio.
 
 ## Pendiente al iniciar
 
-- **Revisar con calma la adaptación a Windows 11** (`actualizacion-windows-11/`)
-  antes de darla por buena.
-- **Investigar por qué la sesión de WinForce muere unos 10 min después de cada
-  renovación** (`actualizacion-windows-11/pendientes.md` §1).
-- Probar un **agente real con Windows 10** contra el proxy de la PC con Windows 11
-  (`actualizacion-windows-11/verificacion.md`).
-- Decidir si `W11-JSConnect-Win-Coverage` **reemplaza** al repo original o si
-  conviven. Hoy hay dos canales de actualización: los `.exe` de W11 se compilan
-  con `build.ps1 -RepoName "W11-JSConnect-Win-Coverage"`.
+- **Reactivar los agentes** con la huella nueva (hoy 25: 18 + 7; a futuro 41). Funcionan
+  en "transición" hasta entonces. En la versión siguiente a `v2026.10.07`, **borrar
+  `huellas_legacy()`** y su uso en `validator_app/gui/main_window.py`.
+- **Probar un agente W10 real contra el owner W11** y revisar en el owner
+  `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
+- Publicar el Release unificado `v2026.10.07` (y el puente en el repo W11 antes de
+  archivarlo) y archivar `W11-JSConnect-Win-Coverage` — ver el estado en el cierre.
+- **Investigar por qué la sesión de WinForce muere ~10 min después de cada renovación**
+  (`actualizacion-windows-11/pendientes.md` §1).
+- Firma de código de los `.exe` (Smart App Control en Windows 11).
 - Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
   observación, no una tarea con pasos.
-- Escribir el runbook de la Etapa E (`docs/proxy-deploy.md`) en cuanto el
-  usuario comparta el detalle operativo real de la instalación.
+- Escribir el runbook de la Etapa E (`docs/proxy-deploy.md`) en cuanto el usuario
+  comparta el detalle operativo real de la instalación.
 - Fase 5 (barrido final de documentación): última tarea del plan grande,
   después de la Etapa E.
 - Diferido a pedido del usuario: la duda de `Escalabilidad.md`, la decisión de

@@ -114,12 +114,11 @@ Git. Este flujo ya fue validado manualmente de extremo a extremo.
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
 ```
-**Repo W11 (`W11-JSConnect-Win-Coverage`):** compilar el agente con
-`build.ps1 -RepoName "W11-JSConnect-Win-Coverage"` para que su actualizador consulte
-este repo (sin el parámetro apunta al repo original y ofrecería volver a su último
-Release). Último Release de este repo:
-[`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11).
-Ver `actualizacion-windows-11/README.md` → "Release publicado".
+**Un solo repo para Windows 10 y 11:** desde el 2026-10-07 este repo incluye la
+adaptación a Windows 11 (antes vivía en `W11-JSConnect-Win-Coverage`, ya archivado).
+El mismo `.exe` sirve en ambos; el actualizador consulta siempre este repo.
+`build.ps1 -RepoName` solo hace falta para un fork de pruebas.
+Ver `actualizacion-windows-11/README.md` para el detalle de la adaptación.
 El Release se publica con el .exe y su checksum SHA-256. La app detecta la nueva versión resolviendo el commit real al que apunta el tag del Release (vía `GET /commits/{tag}`, no `target_commitish` — ese campo trae la rama, no un SHA) y comparándolo con el embebido en el ejecutable.
 
 ### Instalación del Proxy (PC Oficina — una sola vez)
@@ -279,12 +278,11 @@ validated end to end.
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-release.ps1
 ```
-**W11 repo (`W11-JSConnect-Win-Coverage`):** build the agent with
-`build.ps1 -RepoName "W11-JSConnect-Win-Coverage"` so its updater checks this repo
-(without it, it points at the original repo and would offer to roll back to that
-repo's latest release). Latest release here:
-[`v2026.10.02-w11`](https://github.com/sys-connectsolutionsjs/W11-JSConnect-Win-Coverage/releases/tag/v2026.10.02-w11).
-See `actualizacion-windows-11/README.md` → "Release publicado".
+**One repo for Windows 10 and 11:** since 2026-10-07 this repo includes the Windows 11
+adaptation (it used to live in `W11-JSConnect-Win-Coverage`, now archived). The same
+`.exe` works on both and the updater always checks this repo. `build.ps1 -RepoName`
+is only needed for a test fork.
+See `actualizacion-windows-11/README.md` for the adaptation details.
 The release includes the .exe and its SHA-256 checksum. The app detects a new version by resolving the actual commit the release's tag points to (via `GET /commits/{tag}`, not `target_commitish` — that field holds the branch, not a SHA) and comparing it with the one embedded in the executable.
 
 ### Proxy Installation (Office PC — one time)
