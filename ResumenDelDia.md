@@ -50,8 +50,10 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
 ## Pendiente al iniciar
 
 - **Reactivar los agentes** con la huella nueva (hoy 25: 18 + 7; a futuro 41). Funcionan
-  en "transición" hasta entonces. En la versión siguiente a `v2026.10.07`, **borrar
-  `huellas_legacy()`** y su uso en `validator_app/gui/main_window.py`.
+  en "transición" hasta entonces. **NO borrar `huellas_legacy()`** (ni su uso en
+  `validator_app/gui/main_window.py`) salvo que el usuario lo pida expresamente: el
+  actualizador salta directo al último Release, y quien se salte la transición perdería
+  la activación. Regla completa en `AGENTS.md` → "Versionado y actualizaciones".
 - **Probar un agente W10 real contra el owner W11** y revisar en el owner
   `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
 - Poner `W11-JSConnect-Win-Coverage` en privado (ya archivado) **solo después** de que

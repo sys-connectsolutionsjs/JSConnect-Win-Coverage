@@ -461,6 +461,17 @@ Es **la última** — después de 0.5 / C.12 / D / E.
   en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
+- **Reactivar los agentes con la huella estable** (Release `v2026.10.07`, 2026-10-07):
+  25 hoy (18 + 7), 41 a futuro. Funcionan en "transición" mientras tanto.
+  `huellas_legacy()` **NO se borra salvo petición expresa del usuario** (regla en
+  `AGENTS.md` → "Versionado y actualizaciones").
+- **Probar un agente W10 real contra el owner W11** y revisar en el owner
+  `Get-NetConnectionProfile` / la regla `JSWinProxy API` (repos unificados 2026-10-07).
+- **La sesión de WinForce muere ~10 min después de cada renovación**
+  (`actualizacion-windows-11/pendientes.md` §1) — sin investigar.
+- **Firma de código de los `.exe`** (Smart App Control en Windows 11).
+- **Pasar `W11-JSConnect-Win-Coverage` a privado** (ya archivado) solo cuando los `.exe`
+  de ese canal se hayan actualizado a `v2026.10.07`.
 - **"Dos logins en paralelo" invalidan la sesión** (hipótesis abierta desde
   2026-09-18) — recontextualizada 2026-09-29: producción usa una cuenta de
   WinForce distinta de la de desarrollo, así que el escenario que se

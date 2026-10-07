@@ -50,8 +50,9 @@ def obtener_huella() -> str:
 
 
 # --- Huella de versiones anteriores ------------------------------------------------
-# BORRAR todo lo que sigue (y el uso de `huellas_legacy` en la ventana principal)
-# en la version siguiente a v2026.10.07, cuando los agentes ya se hayan reactivado.
+# NO BORRAR esto (ni el uso de `huellas_legacy` en la ventana principal) salvo que el
+# usuario lo pida expresamente: el actualizador salta directo al ultimo Release, y un
+# agente que se salte la transicion perderia su activacion (ver AGENTS.md).
 
 # Windows 11 lanza las consolas en Windows Terminal: sin este flag, cada
 # subprocess de la app con ventana abre una ventana visible que roba el foco.

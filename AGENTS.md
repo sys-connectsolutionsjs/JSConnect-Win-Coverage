@@ -158,6 +158,16 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
   extraer_checksum()` recorta las notas al bloque del archivo pedido antes de
   buscar el hash — evita que el agente se autoactualice con el `.exe` del owner
   o cruce checksums entre ambos.
+- **El agente salta directo al último Release**, sin pasar por los intermedios (el
+  actualizador solo mira `releases/latest`). Un agente en el Release 1 que ve el 3
+  descarga el 3; no instala el 2.
+- **REGLA — NO borrar `huellas_legacy()` (ni su uso en `main_window.py`) por iniciativa
+  propia.** Solo se hace si el usuario lo pide **expresamente**. Por qué: la huella
+  antigua solo se acepta mientras exista; un agente que salte de `v2026.09.30` directo a
+  un Release sin ella pierde la activación sin pasar por la "transición" y tiene que
+  reactivar. Antes de pedirlo, el usuario debe confirmar que **todos** los agentes ya
+  abrieron `v2026.10.07` (o posterior) y se reactivaron. Aplica igual a cualquier otro
+  código de compatibilidad con activaciones antiguas.
 
 ## Implementaciones futuras
 ### 1. Mapa interactivo de cobertura
@@ -1202,8 +1212,8 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   código, un aviso en su README y un release puente `v2026.10.07`; quedó **archivado**
   (público). Pasarlo a privado solo cuando los `.exe` del canal W11 ya se hayan actualizado.
 - **Pendiente**:
-  - reactivar los agentes y, en la versión siguiente, **borrar `huellas_legacy()`** y su
-    uso en `main_window.py`;
+  - reactivar los agentes. **NO borrar `huellas_legacy()`** hasta que el usuario lo pida
+    expresamente (ver la REGLA en "Versionado y actualizaciones");
   - probar un agente W10 real contra el owner W11 y revisar en el owner
     `Get-NetConnectionProfile`;
   - los de siempre: sesión de WinForce que muere ~10 min tras renovar, firma de código
