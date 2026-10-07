@@ -222,7 +222,9 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   dividió `AGENTS.md` (el historial vive en `docs/historial-agents.md`). La auditoría
   original queda abajo solo como trazabilidad.
 
-  _Hallazgos del 2026-09-09 (todos resueltos al 2026-10-07):_
+  _Hallazgos del 2026-09-09 (todos resueltos al 2026-10-07; los `archivo:línea` son de esa
+  fecha y ya no coinciden — p. ej. `AGENTS.md` se dividió el 2026-10-07 y su historial
+  vive en `docs/historial-agents.md`):_
   1. Rotación por usuario/contraseña inexistente — `docs/rotacion-credenciales.md:3,10,190`,
      `anotaciones.md:344,346` vs `server.py:120-121,686,692-694` (`server.py:12`).
   2. `version="dev"` vs commit SHA — `server.py:655,681,506` (y `:604` dice `1.0.0`)
