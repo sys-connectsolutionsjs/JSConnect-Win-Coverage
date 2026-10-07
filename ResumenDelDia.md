@@ -114,5 +114,6 @@ mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
   observación, no una tarea con pasos.
 - **Probar el recorrido del pendrive** en una PC owner limpia (Etapa E ya escrita) y
   anotar lo que se ajuste en `docs/proxy-deploy.md`.
-- Diferido a pedido del usuario: Etapa C.12 (modo standalone),  la duda de `Escalabilidad.md`, la decisión de
-  `actualizar_score_cliente`/`newsearch.php`, y el backlog v1.1.
+- Diferido a pedido del usuario: Etapa C.12 (modo standalone), la duda de
+  `Escalabilidad.md`, la decisión de `actualizar_score_cliente`/`newsearch.php` y el
+  backlog v1.1.
