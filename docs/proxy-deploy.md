@@ -139,7 +139,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 powershell -ExecutionPolicy Bypass -File build-owner.ps1     # -> dist\JSConnect-Win-Owner.exe
 powershell -ExecutionPolicy Bypass -File build.ps1           # -> dist\JSConnect-Win-Coverage.exe (agente)
-# Repo W11: build.ps1 -RepoName "W11-JSConnect-Win-Coverage"  (actualizador -> repo W11)
+# Repo unico (W10 y W11): el actualizador apunta a JSConnect-Win-Coverage por defecto
+# (build.ps1 -RepoName solo sirve para un fork de pruebas)
 git checkout -- validator_app/version.py                     # build.ps1 lo reescribe con el SHA
 ```
 
@@ -261,6 +262,31 @@ Set-NetFirewallRule -DisplayName "JSWinProxy API" -Profile Any -RemoteAddress 19
 
 Para ver cómo clasificó Windows la red: `Get-NetConnectionProfile` (columna
 `NetworkCategory`).
+
+### ¿Red Pública o Privada? (no hace falta cambiarla)
+
+El proxy funciona con la red **Pública** o **Privada**: la regla acepta solo IP de LAN
+en el puerto 8080 y el proxy además exige el token. Otro call center puede instalar
+sin tocar su red. Si el PC está en una red Pública, `install_service.bat`:
+
+- **Ofrece** pasarla a Privada (`choice`, **por defecto NO**, 60 s). Solo en PCs sin
+  dominio/Azure AD. El instalador nunca la cambia sin preguntar.
+- **Avisa** (`[WARN]`) si el perfil Público del firewall bloquea *todas* las entrantes
+  (`AllowInboundRules = False`): eso anula cualquier regla y los agentes dan timeout.
+
+Qué cambia al pasar una red a Privada: el perfil es **por red** (otra Wi-Fi sigue
+Pública); no toca IP, DNS, puerta de enlace ni internet; Windows aplica las reglas del
+perfil Privado (el PC es más visible en la LAN: detección de redes, compartir
+archivos si estaban activados). A mano, como Administrador, y se revierte igual:
+
+```powershell
+Get-NetConnectionProfile                                   # ver InterfaceIndex y categoría
+Set-NetConnectionProfile -InterfaceIndex <N> -NetworkCategory Private   # o Public
+# Si el perfil Público bloquea todo lo entrante:
+Set-NetFirewallProfile -Name Public -AllowInboundRules True
+```
+
+`uninstall_service.bat` no toca el perfil de red.
 
 `uninstall_service.bat` quita la regla (`Remove-NetFirewallRule -DisplayName
 "JSWinProxy API"`) al desinstalar.

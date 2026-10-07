@@ -474,6 +474,50 @@ if !errorLevel! equ 0 (
 )
 :firewall_listo
 
+REM Perfil de la red del owner. La regla de arriba ya funciona en red Publica o
+REM Privada, asi que NO hace falta cambiarlo. Solo se OFRECE pasarla a Privada
+REM (por defecto NO) y se avisa si el perfil Publico bloquea TODO lo entrante,
+REM lo que anula cualquier regla de permitir. Nunca se cambia nada sin preguntar.
+set "NET_IDX="
+set "NET_CAT="
+set "NET_LINE="
+powershell -NoProfile -Command "$i=(Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Sort-Object RouteMetric | Select-Object -First 1).InterfaceIndex; $p=Get-NetConnectionProfile -InterfaceIndex $i -ErrorAction SilentlyContinue; if ($p) { Write-Output ($i.ToString() + ' ' + $p.NetworkCategory) }" > netprofile.tmp 2>nul
+if exist netprofile.tmp set /p NET_LINE=<netprofile.tmp
+del netprofile.tmp 2>nul
+for /f "tokens=1,2" %%a in ("!NET_LINE!") do (
+    set "NET_IDX=%%a"
+    set "NET_CAT=%%b"
+)
+if /i "!NET_CAT!"=="Public" (
+    echo.
+    echo [INFO] La red de esta PC esta como PUBLICA. El proxy funciona igual: la regla
+    echo        de firewall acepta solo IP de LAN en el puerto !PROXY_PORT!.
+    powershell -NoProfile -Command "if ((Get-NetFirewallProfile -Name Public).AllowInboundRules -eq 'False') { exit 1 } else { exit 0 }" >nul 2>&1
+    if !errorLevel! neq 0 (
+        echo [WARN] El perfil Publico del Firewall BLOQUEA todas las conexiones entrantes
+        echo        ^(incluso las permitidas^): los agentes daran timeout. Solucion, como
+        echo        Administrador: Set-NetFirewallProfile -Name Public -AllowInboundRules True
+        echo        O pasa esta red a Privada ^(ver la pregunta de abajo^).
+    )
+    if "!PC_GESTIONADA!"=="0" (
+        echo        Pasarla a PRIVADA solo cambia ESTA red: no toca IP, DNS ni internet; Windows
+        echo        aplica las reglas del perfil Privado ^(mas visible en la LAN^). Se revierte en
+        echo        Configuracion ^> Red ^> Propiedades.
+        choice /C SN /D N /T 60 /M "Pasar esta red a Privada"
+        if !errorLevel! equ 1 (
+            powershell -NoProfile -Command "Set-NetConnectionProfile -InterfaceIndex !NET_IDX! -NetworkCategory Private -ErrorAction Stop" >nul 2>&1
+            if !errorLevel! equ 0 (
+                echo [OK] Red cambiada a Privada.
+            ) else (
+                echo [WARN] No se pudo cambiar la red a Privada. Puedes hacerlo a mano en
+                echo        Configuracion ^> Red ^> Propiedades.
+            )
+        ) else (
+            echo [INFO] La red se queda como esta.
+        )
+    )
+)
+
 REM Tarea programada: popup al owner cuando el proxy avise que la sesion murio.
 REM El servicio corre como LocalSystem (sesion 0, sin escritorio) y escribe un
 REM evento de Windows (origen JSWinProxy, ID 101); esta tarea lo convierte en un

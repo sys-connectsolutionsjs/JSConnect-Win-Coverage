@@ -78,6 +78,18 @@ def test_firewall_cubre_red_publica_de_windows_11_solo_desde_lan():
     assert "Set-NetFirewallRule" in texto
 
 
+def test_red_publica_solo_se_ofrece_pasar_a_privada_y_por_defecto_no():
+    """El instalador nunca cambia el perfil de red sin preguntar (otros call
+    centers deben poder instalar sin tocar su red): choice con default N, y avisa
+    si el perfil Publico bloquea todo lo entrante."""
+    texto = BAT.read_text(encoding="utf-8")
+    assert "choice /C SN /D N /T 60" in texto
+    assert texto.count("Set-NetConnectionProfile") == 1
+    assert "AllowInboundRules" in texto
+    # solo se ofrece en PCs no gestionadas (en dominio el perfil no se puede cambiar)
+    assert texto.index("Pasarla a PRIVADA") > texto.index('set "PC_GESTIONADA=0"')
+
+
 def test_acl_por_sid_independiente_del_idioma():
     texto = BAT.read_text(encoding="utf-8")
     assert "BUILTIN\\Administr" not in texto
