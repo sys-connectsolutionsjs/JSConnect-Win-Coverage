@@ -20,6 +20,9 @@ import requests
 ESPERA_MAXIMA_SEGUNDOS = 30
 REINTENTOS_MOVE = 10
 
+# Asset por defecto cuando `info` no trae "nombre_asset" (el agente).
+NOMBRE_EXE_AGENTE = "JSConnect-Win-Coverage.exe"
+
 
 def descargar(url: str, destino: Path) -> None:
     with requests.get(url, stream=True, timeout=120) as resp:
@@ -105,13 +108,15 @@ def aplicar_actualizacion(info: dict) -> bool:
     if not url:
         raise ValueError("El release no tiene un asset .exe.")
 
+    # El agente y la consola owner comparten este flujo: cada uno pide su asset.
+    nombre = info.get("nombre_asset") or NOMBRE_EXE_AGENTE
     temp_dir = Path(tempfile.gettempdir()) / "jsconnect_update"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    nuevo = temp_dir / "JSConnect-Win-Coverage.exe"
+    nuevo = temp_dir / nombre
 
     descargar(url, nuevo)
 
-    checksum = extraer_checksum(info.get("notes", ""), nombre_archivo="JSConnect-Win-Coverage.exe")
+    checksum = extraer_checksum(info.get("notes", ""), nombre_archivo=nombre)
     if checksum and sha256_de(nuevo) != checksum:
         raise ValueError("Checksum no coincide: el archivo esta corrupto o fue manipulado.")
 

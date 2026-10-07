@@ -59,6 +59,39 @@ def test_activacion_legacy_con_codigo_invalido_no_vale(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "escrito, esperado",
+    [
+        ("192.168.1.50:8080", "http://192.168.1.50:8080"),
+        ("  192.168.1.50:8080  ", "http://192.168.1.50:8080"),
+        ("http://192.168.1.50:8080", "http://192.168.1.50:8080"),
+        ("https://proxy.local:8443/", "https://proxy.local:8443"),
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_normalizar_url_proxy(escrito, esperado):
+    assert main_window.normalizar_url_proxy(escrito) == esperado
+
+
+def test_normalizar_url_proxy_acepta_none():
+    assert main_window.normalizar_url_proxy(None) == ""
+
+
+def test_resumir_error_deja_una_sola_linea():
+    exc = RuntimeError("fallo\n  de   conexion\r\ncon espacios")
+    assert main_window.resumir_error(exc) == "fallo de conexion con espacios"
+
+
+def test_resumir_error_recorta_los_mensajes_largos():
+    resumen = main_window.resumir_error(RuntimeError("x" * 500), limite=40)
+    assert len(resumen) == 40 and resumen.endswith("…")
+
+
+def test_resumir_error_sin_mensaje_usa_el_nombre_de_la_excepcion():
+    assert main_window.resumir_error(TimeoutError()) == "TimeoutError"
+
+
+@pytest.mark.parametrize(
     "valor, rango, riesgo, categoria",
     [
         (0, "SCORE: 0 - 200", "MUY ALTO", "MUY MALO"),

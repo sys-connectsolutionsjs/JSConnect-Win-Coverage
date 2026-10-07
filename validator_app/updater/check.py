@@ -1,10 +1,12 @@
 """Verificacion de actualizaciones contra GitHub Releases."""
 
 import logging
+from pathlib import Path
 
 import requests
 
 from validator_app import version
+from validator_app.updater import download
 
 log = logging.getLogger(__name__)
 
@@ -12,6 +14,7 @@ log = logging.getLogger(__name__)
 # que ambos se publican juntos): elegir por nombre exacto, nunca por posicion
 # ni por "termina en .exe" - lo segundo puede devolver el .exe equivocado.
 NOMBRE_ASSET_AGENTE = "JSConnect-Win-Coverage.exe"
+NOMBRE_ASSET_OWNER = "JSConnect-Win-Owner.exe"
 
 
 def version_actual() -> str:
@@ -74,4 +77,53 @@ def hay_actualizacion():
         "notes": release.get("body", ""),
         "asset": asset,
         "url_descarga": asset["browser_download_url"] if asset else None,
+        "nombre_asset": NOMBRE_ASSET_AGENTE,
+    }
+
+
+def hay_actualizacion_owner(ruta_exe):
+    """Release nuevo para la consola owner, o None si esta al dia / no se sabe.
+
+    A diferencia del agente (que compara commits), el owner compara el SHA-256 del
+    .exe en ejecucion con el que el Release publica para JSConnect-Win-Owner.exe.
+    Un Release puede reutilizar un owner viejo (solo se recompilo el agente): por
+    commit el owner creeria SIEMPRE que hay una version nueva y se actualizaria en
+    bucle. Por hash, si ya tiene ese mismo .exe no hay nada que hacer. Sin asset del
+    owner o sin su hash en las notas, mejor None que ofrecer una descarga sin
+    verificar."""
+    try:
+        release = consultar_ultimo_release()
+    except Exception as exc:
+        log.warning("Error consultando actualizaciones del owner: %s", exc)
+        return None
+    if not release:
+        return None
+
+    tag_name = release.get("tag_name") or ""
+    asset = next(
+        (a for a in release.get("assets", []) if a.get("name") == NOMBRE_ASSET_OWNER),
+        None,
+    )
+    if not tag_name or not asset:
+        return None
+
+    notas = release.get("body", "")
+    hash_remoto = download.extraer_checksum(notas, nombre_archivo=NOMBRE_ASSET_OWNER)
+    if not hash_remoto:
+        return None
+    try:
+        hash_local = download.sha256_de(Path(ruta_exe))
+    except OSError as exc:
+        log.warning("No se pudo leer el .exe del owner para comparar: %s", exc)
+        return None
+    if hash_local.lower() == hash_remoto.lower():
+        return None
+
+    return {
+        "tag": tag_name,
+        "commit": None,
+        "notes": notas,
+        "asset": asset,
+        "url_descarga": asset["browser_download_url"],
+        "nombre_asset": NOMBRE_ASSET_OWNER,
     }

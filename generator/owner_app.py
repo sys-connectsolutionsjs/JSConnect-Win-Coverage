@@ -22,6 +22,9 @@ import httpx
 import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
 
 from generator import generar
+from validator_app import version
+from validator_app.updater import check as update_check
+from validator_app.updater import download
 
 
 def normalizar_huella(valor: str) -> str:
@@ -405,10 +408,15 @@ class OwnerApp(ttk.Window):
     def __init__(self):
         super().__init__(themename="superhero")
         self.title("JSConnect Win Coverage — Owner")
-        self.geometry("590x620")
         self.resizable(False, False)
         self._build_ui()
+        # Tamano segun el contenido (minimo 590x620): con escala de pantalla > 100 % un
+        # tamano fijo recortaba los botones de abajo.
+        self.update_idletasks()
+        self.geometry(f"{max(590, self.winfo_reqwidth())}x{max(620, self.winfo_reqheight())}")
         self.actualizar_estado()
+        # Chequeo silencioso de version: solo avisa en la etiqueta, no abre ventanas.
+        self.after(1500, self._buscar_actualizacion_silenciosa)
 
     def _build_ui(self) -> None:
         main = ttk.Frame(self, padding=16)
@@ -529,6 +537,105 @@ class OwnerApp(ttk.Window):
 
         self.lbl_llave = ttk.Label(main, text="", bootstyle="secondary")
         self.lbl_llave.pack(anchor="w", pady=(14, 0))
+
+        pie = ttk.Frame(main)
+        pie.pack(fill="x", pady=(10, 0))
+        ttk.Label(pie, text=f"Version: {version.BUILD_TAG}", bootstyle="secondary").pack(
+            side="left"
+        )
+        self.btn_actualizar = ttk.Button(
+            pie, text="Buscar actualizaciones", command=self.buscar_actualizacion,
+            bootstyle="secondary",
+        )
+        self.btn_actualizar.pack(side="right")
+        # ambar por contraste sobre el fondo oscuro (ver nota de lbl_url_agentes_aviso)
+        self.lbl_update_aviso = ttk.Label(pie, text="", bootstyle="warning")
+        self.lbl_update_aviso.pack(side="right", padx=(0, 10))
+
+    # --- Actualizaciones de la propia consola (mismo flujo que el agente) ---------
+
+    def _es_exe(self) -> bool:
+        return bool(getattr(sys, "frozen", False))
+
+    def buscar_actualizacion(self) -> None:
+        if not self._es_exe():
+            messagebox.showinfo(
+                "Actualizaciones",
+                "La consola solo se actualiza sola cuando corre como .exe compilado.",
+                parent=self,
+            )
+            return
+        self.btn_actualizar.config(state="disabled")
+        self.lbl_update_aviso.config(text="Buscando...")
+        threading.Thread(target=self._buscar_update_hilo, args=(False,), daemon=True).start()
+
+    def _buscar_actualizacion_silenciosa(self) -> None:
+        if self._es_exe():
+            threading.Thread(target=self._buscar_update_hilo, args=(True,), daemon=True).start()
+
+    def _buscar_update_hilo(self, silencioso: bool) -> None:
+        info = update_check.hay_actualizacion_owner(sys.executable)
+        self.after(0, lambda: self._mostrar_update(info, silencioso))
+
+    def _mostrar_update(self, info, silencioso: bool) -> None:
+        self.btn_actualizar.config(state="normal")
+        if info is None:
+            self.lbl_update_aviso.config(text="" if silencioso else "Estas al dia")
+            return
+        if silencioso:
+            self.lbl_update_aviso.config(
+                text=f"Nueva version {info['tag']}: pulsa Buscar actualizaciones"
+            )
+            return
+        self.lbl_update_aviso.config(text="")
+        texto = (
+            f"Nueva version {info['tag']} de la consola owner.\n\n"
+            "¿Descargar e instalar ahora? La consola se cerrara y se abrira sola; "
+            "private_key.pem no se toca."
+        )
+        if messagebox.askyesno("Actualizacion disponible", texto, parent=self):
+            self._abrir_progreso_actualizacion()
+            threading.Thread(target=self._aplicar_update_hilo, args=(info,), daemon=True).start()
+
+    def _abrir_progreso_actualizacion(self) -> None:
+        dialog = tk.Toplevel(self)
+        dialog.title("Actualizando")
+        dialog.geometry("340x110")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.protocol("WM_DELETE_WINDOW", lambda: None)
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Descargando e instalando la actualización...").pack(pady=(0, 10))
+        barra = ttk.Progressbar(frame, mode="indeterminate", bootstyle="info-striped")
+        barra.pack(fill="x")
+        barra.start(12)
+        self._dialogo_actualizacion = dialog
+
+    def _cerrar_progreso_actualizacion(self) -> None:
+        dialog = getattr(self, "_dialogo_actualizacion", None)
+        if dialog is not None:
+            dialog.grab_release()
+            dialog.destroy()
+            self._dialogo_actualizacion = None
+
+    def _aplicar_update_hilo(self, info) -> None:
+        try:
+            download.aplicar_actualizacion(info)
+        except Exception as exc:
+            msg = str(exc)
+            self.after(0, self._cerrar_progreso_actualizacion)
+            self.after(0, lambda m=msg: messagebox.showerror("Actualizacion", m, parent=self))
+            return
+        self.after(0, self._actualizacion_lista)
+
+    def _actualizacion_lista(self) -> None:
+        """El updater.bat quedo esperando a que este proceso cierre para reemplazar
+        el .exe y reabrirlo solo (ver validator_app/updater/download.py)."""
+        self._cerrar_progreso_actualizacion()
+        self.lbl_update_aviso.config(text="Actualizacion lista, reiniciando...")
+        self.after(1200, self.destroy)
 
     def generar_codigo(self) -> None:
         try:

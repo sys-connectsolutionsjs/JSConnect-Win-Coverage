@@ -106,6 +106,21 @@ def activacion_vigente(huella: str, legacy=None) -> str | None:
     return None
 
 
+def normalizar_url_proxy(texto: str) -> str:
+    """URL lista para ProxyClient: sin espacios ni '/' final y con `http://` si se
+    escribio solo IP:puerto (el cliente exige esquema)."""
+    url = (texto or "").strip().rstrip("/")
+    if url and "://" not in url:
+        url = "http://" + url
+    return url
+
+
+def resumir_error(exc: Exception, limite: int = 80) -> str:
+    """Motivo corto de un error, en una sola linea, para una etiqueta de la ventana."""
+    texto = " ".join(str(exc).split()) or exc.__class__.__name__
+    return texto if len(texto) <= limite else texto[: limite - 1] + "…"
+
+
 class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="cosmo")
@@ -616,8 +631,10 @@ class App(ttk.Window):
         frame = ttk.Frame(dialog, padding=16)
         frame.pack(fill="both", expand=True)
 
-        # IP:puerto
-        ttk.Label(frame, text="IP:puerto del proxy:").grid(row=0, column=0, sticky="w", pady=(0, 4))
+        # URL del proxy (se acepta IP:puerto; normalizar_url_proxy agrega http://)
+        ttk.Label(frame, text="URL del proxy (ej. 192.168.1.50:8080):").grid(
+            row=0, column=0, sticky="w", pady=(0, 4)
+        )
         self.txt_proxy_url = ttk.Entry(frame, width=40)
         self.txt_proxy_url.grid(row=1, column=0, columnspan=2, sticky="we", pady=(0, 12))
         if self._proxy_client:
@@ -671,10 +688,12 @@ class App(ttk.Window):
 
     def _test_proxy_connection(self, dialog: tk.Toplevel) -> None:
         """Prueba conexion al proxy en hilo separado."""
-        url = self.txt_proxy_url.get().strip()
+        url = normalizar_url_proxy(self.txt_proxy_url.get())
         token = self.txt_proxy_token.get().strip()
         if not url or not token:
-            self.lbl_test_result.config(text="Completa IP:puerto y token", foreground="red")
+            self.lbl_test_result.config(
+                text="Completa la URL del proxy y el token", foreground="red"
+            )
             return
 
         self.btn_test.config(state="disabled")
@@ -688,7 +707,8 @@ class App(ttk.Window):
                 if health.status != "ok":
                     self.after(0, lambda: self._on_test_result("mal", f"Status: {health.status}"))
                 elif health.session_alive:
-                    msg = f"OK (sesion WinForce viva, {health.session_age}s)"
+                    # session_age = segundos desde la ultima actividad, no la edad de la sesion
+                    msg = f"OK (sesion WinForce viva, ultima actividad hace {health.session_age}s)"
                     self.after(0, lambda: self._on_test_result("ok", msg))
                 elif health.logged_in:
                     msg = "proxy vivo, pero la sesion WinForce esta caida"
@@ -696,8 +716,9 @@ class App(ttk.Window):
                 else:
                     msg = "proxy vivo, sin sesion WinForce configurada"
                     self.after(0, lambda: self._on_test_result("aviso", msg))
-            except Exception:
-                self.after(0, lambda: self._on_test_result("mal", "Error de conexion"))
+            except Exception as exc:
+                msg = f"Error: {resumir_error(exc)}"
+                self.after(0, lambda m=msg: self._on_test_result("mal", m))
 
         threading.Thread(target=do_test, daemon=True).start()
 
@@ -709,10 +730,12 @@ class App(ttk.Window):
 
     def _save_proxy_config(self, dialog: tk.Toplevel) -> None:
         """Guarda configuracion de proxy en keyring y recarga cliente."""
-        url = self.txt_proxy_url.get().strip()
+        url = normalizar_url_proxy(self.txt_proxy_url.get())
         token = self.txt_proxy_token.get().strip()
         if not url or not token:
-            messagebox.showerror("Error", "IP:puerto y token son obligatorios", parent=dialog)
+            messagebox.showerror(
+                "Error", "La URL del proxy y el token son obligatorios", parent=dialog
+            )
             return
 
         # Validar formato URL
@@ -736,12 +759,19 @@ class App(ttk.Window):
             if not messagebox.askyesno("Error", msg, parent=dialog):
                 return
 
-        # Guardar en keyring
+        # Guardar en keyring y usar ese mismo cliente: from_keyring() devuelve None si
+        # el keyring falla y el .base_url de abajo reventaba la ventana.
         client = ProxyClient(base_url=url, token=token)
-        client.save_to_keyring()
-
-        # Recargar cliente en memoria
-        self._proxy_client = ProxyClient.from_keyring()
+        try:
+            client.save_to_keyring()
+        except Exception as exc:
+            messagebox.showerror(
+                "Error",
+                f"No se pudo guardar en el Administrador de credenciales de Windows:\n{exc}",
+                parent=dialog,
+            )
+            return
+        self._proxy_client = client
         self.lbl_estado.config(text=f"Estado: listo (proxy: {self._proxy_client.base_url})")
         dialog.destroy()
         messagebox.showinfo("Guardado", "Configuracion de proxy guardada correctamente.")

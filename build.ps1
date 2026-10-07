@@ -1,8 +1,7 @@
 # build.ps1 - empaqueta la app con PyInstaller y embebe el commit SHA actual
 # -RepoName: repo de GitHub donde el actualizador del agente busca Releases.
-#   Por defecto el original; la variante Windows 11 se compila con
-#   -RepoName "W11-JSConnect-Win-Coverage" para que sus agentes no "actualicen"
-#   al Release del otro repo (que tiene otro commit y seria volver atras).
+#   Por defecto JSConnect-Win-Coverage (repo unico para Windows 10 y 11 desde
+#   2026-10-07); solo cambiarlo en un fork de pruebas.
 param(
     [string]$RepoName = "JSConnect-Win-Coverage"
 )

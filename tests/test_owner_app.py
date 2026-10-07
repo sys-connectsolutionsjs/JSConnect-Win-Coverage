@@ -415,3 +415,121 @@ def test_copiar_sin_historial_devuelve_false_si_no_abre_el_portapapeles(monkeypa
 
     assert owner_app.copiar_sin_historial("secreto") is False
     assert destruidas == [77]  # la ventana propia se libera igual
+
+
+class _EtiquetaFalsa:
+    def __init__(self):
+        self.texto = None
+        self.estado = None
+
+    def config(self, **kwargs):
+        self.texto = kwargs.get("text", self.texto)
+        self.estado = kwargs.get("state", self.estado)
+
+
+def _app_falsa(**extra):
+    """OwnerApp sin Tk: solo los atributos que tocan los metodos de actualizacion."""
+    import types
+
+    app = types.SimpleNamespace(
+        btn_actualizar=_EtiquetaFalsa(),
+        lbl_update_aviso=_EtiquetaFalsa(),
+        after=lambda ms, fn=None, *a: fn() if fn else None,
+    )
+    for nombre, valor in extra.items():
+        setattr(app, nombre, valor)
+    return app
+
+
+def test_owner_busca_actualizacion_con_su_propio_exe(monkeypatch):
+    llamadas = {}
+
+    def hay(ruta):
+        llamadas["ruta"] = ruta
+        return {"tag": "v9"}
+
+    monkeypatch.setattr(owner_app.update_check, "hay_actualizacion_owner", hay)
+    mostrados = []
+    app = _app_falsa(_mostrar_update=lambda info, silencioso: mostrados.append((info, silencioso)))
+
+    owner_app.OwnerApp._buscar_update_hilo(app, True)
+
+    assert llamadas["ruta"] == owner_app.sys.executable
+    assert mostrados == [({"tag": "v9"}, True)]
+
+
+def test_owner_chequeo_silencioso_solo_avisa_en_la_etiqueta(monkeypatch):
+    preguntas = []
+    monkeypatch.setattr(owner_app.messagebox, "askyesno", lambda *a, **k: preguntas.append(a))
+    app = _app_falsa()
+
+    owner_app.OwnerApp._mostrar_update(app, {"tag": "v9"}, True)
+
+    assert "v9" in app.lbl_update_aviso.texto
+    assert app.btn_actualizar.estado == "normal"
+    assert preguntas == []  # nunca interrumpe con una ventana
+
+
+def test_owner_sin_actualizacion_silencioso_deja_la_etiqueta_vacia_y_manual_dice_al_dia():
+    app = _app_falsa()
+    owner_app.OwnerApp._mostrar_update(app, None, True)
+    assert app.lbl_update_aviso.texto == ""
+
+    owner_app.OwnerApp._mostrar_update(app, None, False)
+    assert app.lbl_update_aviso.texto == "Estas al dia"
+
+
+def test_owner_manual_pregunta_y_aplica_solo_si_acepta(monkeypatch):
+    aplicadas = []
+    abiertos = []
+
+    class _Hilo:
+        def __init__(self, target, args=(), daemon=None):
+            self.target, self.args = target, args
+
+        def start(self):
+            self.target(*self.args)
+
+    monkeypatch.setattr(owner_app.threading, "Thread", _Hilo)
+    monkeypatch.setattr(owner_app.download, "aplicar_actualizacion", aplicadas.append)
+    app = _app_falsa(
+        _abrir_progreso_actualizacion=lambda: abiertos.append(True),
+        _aplicar_update_hilo=lambda info: aplicadas.append(info),
+    )
+    info = {"tag": "v9"}
+
+    monkeypatch.setattr(owner_app.messagebox, "askyesno", lambda *a, **k: False)
+    owner_app.OwnerApp._mostrar_update(app, info, False)
+    assert aplicadas == [] and abiertos == []
+
+    monkeypatch.setattr(owner_app.messagebox, "askyesno", lambda *a, **k: True)
+    owner_app.OwnerApp._mostrar_update(app, info, False)
+    assert aplicadas == [info] and abiertos == [True]
+
+
+def test_owner_en_codigo_fuente_no_se_actualiza(monkeypatch):
+    avisos = []
+    monkeypatch.setattr(owner_app.messagebox, "showinfo", lambda *a, **k: avisos.append(a))
+    monkeypatch.delattr(owner_app.sys, "frozen", raising=False)
+    app = _app_falsa(_es_exe=lambda: False)
+
+    owner_app.OwnerApp.buscar_actualizacion(app)
+
+    assert avisos and app.btn_actualizar.estado is None  # no deshabilito el boton
+
+
+def test_owner_error_al_aplicar_muestra_el_motivo(monkeypatch):
+    errores = []
+    cerrados = []
+
+    def falla(info):
+        raise ValueError("Checksum no coincide")
+
+    monkeypatch.setattr(owner_app.download, "aplicar_actualizacion", falla)
+    monkeypatch.setattr(owner_app.messagebox, "showerror", lambda *a, **k: errores.append(a))
+    app = _app_falsa(_cerrar_progreso_actualizacion=lambda: cerrados.append(True))
+
+    owner_app.OwnerApp._aplicar_update_hilo(app, {"tag": "v9"})
+
+    assert cerrados == [True]
+    assert errores and "Checksum no coincide" in errores[0][1]
