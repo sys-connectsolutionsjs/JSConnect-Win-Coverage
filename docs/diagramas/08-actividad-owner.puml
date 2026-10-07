@@ -32,7 +32,7 @@ partition "Credenciales del proxy" {
   note right: UAC -> subproceso elevado\n(_FLAG_LEER / _FLAG_ROTAR) -> secretos.py
   if (¿Rotar proxy_token o admin_key?) then (sí)
     :rotar_secreto()\n_aplicar_acl() en el archivo de secretos;
-    :Redistribuir el nuevo token\na los 20 agentes;
+    :Redistribuir el nuevo token\na todos los agentes;
   endif
   :auto-ocultar tras timeout\n(_reprogramar_ocultar / _ocultar_secreto);
 }

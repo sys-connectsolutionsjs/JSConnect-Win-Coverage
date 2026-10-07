@@ -16,7 +16,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 ### Arquitectura Actual (2026-08-25)
 ```
 ┌─────────────┐     LAN/VPN      ┌──────────────┐     HTTPS      ┌─────────────┐
-│  20 Agentes │ ◄──────────────► │  Proxy Local │ ◄────────────► │  WinForce   │
+│  25 Agentes │ ◄──────────────► │  Proxy Local │ ◄────────────► │  WinForce   │
 │   (.exe)    │  Token compartido │  (PC Oficina)│  1 sesión      │  + Equifax  │
 └─────────────┘                  └──────────────┘                └─────────────┘
                                     │
@@ -25,7 +25,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
                               Puerto 8080
 ```
 - **Proxy Local (Opción B)**: Decidida tras detectar que WinForce redirige a Microsoft 2FA, haciendo inviable la concurrencia multi-máquina.
-- 20 agentes LAN → 1 proxy → 1-2 sesiones WinForce desde una sola IP → sin riesgo de bloqueo.
+- ~25 agentes LAN (41 previstos) → 1 proxy → 1-2 sesiones WinForce desde una sola IP → sin riesgo de bloqueo.
 - Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring). Renovarla (≈1 vez por jornada, por el tope de sesión) = **doble clic en el icono "Renovar sesion WinForce" del Escritorio** → el encargado inicia sesión en la ventana que se abre y el script captura la cookie solo (sin F12, sin copiar/pegar). El login programático usuario/contraseña es inviable por el 2FA de Microsoft.
 - Escalable a agentes remotos vía **Tailscale VPN** (mismo token, misma arquitectura, cero cambios de código).
 
@@ -33,7 +33,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 - Consulta directa a la API interna (rápido y ligero).
 - Entrada de coordenadas en formato `-11.956037627741102, -77.04065381800075`.
 - Detección automática del tipo de documento (DNI/RUC/CE).
-- Sesión automática: el proxy revalida y recarga la cookie del keyring cuando lleva >120s inactivo, mantiene la sesión viva con un *keepalive* "latido perezoso" (pinga WinForce solo si no hubo tráfico real de los agentes) y **verifica la cookie al arrancar**. Si la sesión muere pese al keepalive (tope absoluto ≈ 9.5 h por login): el owner recibe un **aviso automático** (popup en su escritorio vía tarea programada + toast de la extensión de Chrome), y los agentes reciben un **HTTP 503 claro** ("reintenta en unos minutos") en vez de un error opaco — el proxy no martillea WinForce mientras tanto.
+- Sesión automática: el proxy revalida y recarga la cookie del keyring cuando lleva >120s inactivo, mantiene la sesión viva con un *keepalive* "latido perezoso" (pinga WinForce solo si no hubo tráfico real de los agentes) y **verifica la cookie al arrancar**. Si la sesión muere pese al keepalive (posible tope absoluto ≈ 9.5 h por login, medido una vez; o un login ajeno con la misma cuenta): el owner recibe un **aviso automático** (popup en su escritorio vía tarea programada + toast de la extensión de Chrome), y los agentes reciben un **HTTP 503 claro** ("reintenta en unos minutos") en vez de un error opaco — el proxy no martillea WinForce mientras tanto.
 - Credenciales guardadas cifradas con el Administrador de Credenciales de Windows (keyring).
 - Sistema de activación por código RSA (solo personal autorizado).
 - Botón de actualizaciones contra GitHub Releases.
@@ -44,12 +44,12 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 - **Agentes**: Windows 10 (probado). En Windows 11 con Smart App Control activo, el `.exe` sin firma se bloquea (ver Seguridad y avisos).
 - **PC oficina (owner + proxy)**: Windows 10 o **Windows 11 Pro** (probado en 25H2, ver [`actualizacion-windows-11/`](actualizacion-windows-11/README.md)).
 - Python 3.12+ (solo para desarrollo; el .exe final no necesita Python).
-- **Para proxy (PC oficina)**: Python 3.12+, puerto 8080 libre, permisos de Administrador.
+- **Para proxy (PC oficina)**: Python 3.12+ (producción estandarizada en **3.14.7**, instalado para todos los usuarios y con "Add to PATH"), puerto 8080 libre, permisos de Administrador. Pasos completos con pendrive en [`docs/proxy-deploy.md`](docs/proxy-deploy.md#instalación-con-pendrive).
 
 ### Uso (Agentes)
 1. Ejecuta `JSConnect-Win-Coverage.exe` (o `python main.py` en desarrollo).
 2. Actívalo con el código proporcionado por el encargado.
-3. **Primera vez**: Menú **⚙️ Configuración** → **Configurar Proxy** → ingresa IP:puerto del proxy + token → Probar conexión → Guardar.
+3. **Primera vez**: Menú **⚙️ Configuración** → **Configurar Proxy** → ingresa la URL del proxy (`http://<IP>:8080`; si escribes solo `IP:puerto` se agrega `http://` sola) + token → Probar conexión → Guardar.
 4. Ingresa las coordenadas y/o el documento del cliente — **son independientes**:
    solo coordenadas valida cobertura, solo documento valida score, y ambos hace
    el flujo combinado de siempre (cobertura y, si hay, score).
@@ -64,7 +64,7 @@ usuario/contraseña es inviable por el 2FA de Microsoft: Menú **⚙️ Configur
 Configurar Sesión (standalone)** → pega la cookie `PHPSESSID` de un login manual
 en el navegador (F12 → Application → Cookies) → **Probar y guardar**. Se valida
 contra WinForce y se guarda cifrada en el keyring. Cuando expire, vuelve a pegarla.
-**No usar en los 20 agentes** (riesgo de bloqueo por sesiones concurrentes).
+**No usar en todos los agentes a la vez** (riesgo de bloqueo por sesiones concurrentes).
 
 ### Desarrollo
 ```powershell
@@ -119,6 +119,10 @@ adaptación a Windows 11 (antes vivía en `W11-JSConnect-Win-Coverage`, ya archi
 El mismo `.exe` sirve en ambos; el actualizador consulta siempre este repo.
 `build.ps1 -RepoName` solo hace falta para un fork de pruebas.
 Ver `actualizacion-windows-11/README.md` para el detalle de la adaptación.
+
+**La consola owner también se actualiza sola** (desde `v2026.10.07.1`): botón
+**Buscar actualizaciones** y aviso al abrir. Compara el hash SHA-256 de su `.exe` con el
+del Release. El owner ya instalado (`v2026.10.07`) se reemplaza a mano una sola vez.
 El Release se publica con el .exe y su checksum SHA-256. La app detecta la nueva versión resolviendo el commit real al que apunta el tag del Release (vía `GET /commits/{tag}`, no `target_commitish` — ese campo trae la rama, no un SHA) y comparándolo con el embebido en el ejecutable.
 
 ### Instalación del Proxy (PC Oficina — una sola vez)
@@ -179,7 +183,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 ### Current Architecture (2026-08-25)
 ```
 ┌─────────────┐     LAN/VPN      ┌──────────────┐     HTTPS      ┌─────────────┐
-│  20 Agents  │ ◄──────────────► │  Local Proxy │ ◄────────────► │  WinForce   │
+│  25 Agents  │ ◄──────────────► │  Local Proxy │ ◄────────────► │  WinForce   │
 │   (.exe)    │  Shared token    │  (Office PC) │  1 session     │  + Equifax  │
 └─────────────┘                  └──────────────┘                └─────────────┘
                                     │
@@ -196,7 +200,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 - Direct internal API calls (fast and lightweight).
 - Coordinates input as `-11.956037627741102, -77.04065381800075`.
 - Automatic document type detection (DNI/RUC/CE).
-- Automatic session management: the proxy revalidates and reloads the keyring cookie when idle >120s, keeps the session warm with a "lazy heartbeat" keepalive (it pings WinForce only when agents produced no real traffic), and **verifies the cookie on startup**. If the session dies despite the keepalive (absolute ≈9.5 h cap per login): the owner gets an **automatic alert** (desktop popup via a scheduled task + Chrome-extension toast), and agents get a **clear HTTP 503** ("retry in a few minutes") instead of an opaque error — the proxy stops hammering WinForce meanwhile.
+- Automatic session management: the proxy revalidates and reloads the keyring cookie when idle >120s, keeps the session warm with a "lazy heartbeat" keepalive (it pings WinForce only when agents produced no real traffic), and **verifies the cookie on startup**. If the session dies despite the keepalive (a possible ≈9.5 h absolute cap per login, measured once; or someone else logging in with the same account): the owner gets an **automatic alert** (desktop popup via a scheduled task + Chrome-extension toast), and agents get a **clear HTTP 503** ("retry in a few minutes") instead of an opaque error — the proxy stops hammering WinForce meanwhile.
 - Credentials stored encrypted via Windows Credential Manager (keyring).
 - Activation-code licensing (authorized staff only).
 - Update button against GitHub Releases.
@@ -207,7 +211,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 - **Agents**: Windows 10 (tested). On Windows 11 with Smart App Control on, the unsigned `.exe` is blocked (see Security & notices).
 - **Office PC (owner + proxy)**: Windows 10 or **Windows 11 Pro** (tested on 25H2, see [`actualizacion-windows-11/`](actualizacion-windows-11/README.md)).
 - Python 3.12+ (development only; the final .exe does not need Python).
-- **For proxy (office PC)**: Python 3.12+, port 8080 free, Administrator permissions.
+- **For proxy (office PC)**: Python 3.12+ (production is standardized on **3.14.7**, installed for all users and added to PATH), port 8080 free, Administrator permissions. Full USB-drive steps in [`docs/proxy-deploy.md`](docs/proxy-deploy.md#instalación-con-pendrive).
 
 ### Usage (Agents)
 1. Run `JSConnect-Win-Coverage.exe` (or `python main.py` in development).
@@ -227,7 +231,7 @@ username/password login is unfeasible (Microsoft 2FA): menu **⚙️ Configuraci
 Configurar Sesión (standalone)** → paste the `PHPSESSID` cookie from a manual
 browser login (F12 → Application → Cookies) → **Probar y guardar**. It is
 validated against WinForce and stored encrypted in the keyring; re-paste it when
-it expires. **Do not use on the 20 agents** (concurrent-session block risk).
+it expires. **Do not use on all the agents at once** (concurrent-session block risk).
 
 ### Development
 ```powershell
@@ -283,6 +287,10 @@ adaptation (it used to live in `W11-JSConnect-Win-Coverage`, now archived). The 
 `.exe` works on both and the updater always checks this repo. `build.ps1 -RepoName`
 is only needed for a test fork.
 See `actualizacion-windows-11/README.md` for the adaptation details.
+
+**The owner console also self-updates** (since `v2026.10.07.1`): **Buscar actualizaciones**
+button plus a notice on startup. It compares its `.exe`'s SHA-256 with the one in the
+release. An already-installed owner (`v2026.10.07`) must be replaced by hand once.
 The release includes the .exe and its SHA-256 checksum. The app detects a new version by resolving the actual commit the release's tag points to (via `GET /commits/{tag}`, not `target_commitish` — that field holds the branch, not a SHA) and comparing it with the one embedded in the executable.
 
 ### Proxy Installation (Office PC — one time)

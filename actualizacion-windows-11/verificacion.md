@@ -1,5 +1,9 @@
 # Verificación
 
+> **Documento histórico (2026-10-02).** Lo de `wmic`/CIM es de la huella anterior: desde el
+> 2026-10-07 la huella usa MachineGuid + CPU del registro y no depende de `wmic` ni de
+> PowerShell (ver [`README.md`](README.md)).
+
 Todo lo de "Probado" se ejecutó el **2026-10-02** en la PC de oficina real
 (Windows 11 Pro 25H2, build 26200, español; IP de LAN `192.168.18.107`).
 

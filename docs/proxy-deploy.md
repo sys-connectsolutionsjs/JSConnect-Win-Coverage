@@ -84,8 +84,11 @@ y `extension.pem`/`.crx`/`updates.xml` (se regeneran), `.browser_profile/`,
 4. En **Windows 11 con Smart App Control** el `.exe` sin firma se bloquea; ahí el agente
    se corre desde el código (ver "Construir los ejecutables…").
 
-Cuando el agente tiene red, se actualiza solo al último Release de GitHub; no hace falta
-volver a pasar el `.exe` por el pendrive.
+Cuando el agente tiene red, se actualiza solo al último Release de GitHub (menú
+**Buscar actualizaciones**); no hace falta volver a pasar el `.exe` por el pendrive. La
+consola owner hace lo mismo desde `v2026.10.07.1` (botón **Buscar actualizaciones**, y
+avisa al abrir); un owner `v2026.10.07` o anterior se reemplaza a mano **una sola vez**
+con el `.exe` del pendrive o del Release.
 
 ### 4. Si algo falla
 
@@ -223,7 +226,7 @@ código → activar).
 Notas:
 - Hay que **clonar** (no bajar un zip): `build.ps1` embebe `git rev-parse HEAD`; sin `.git`
   queda `unknown` y la comprobación de actualizaciones no coincide con el Release.
-- El `.exe` que se distribuya a las 15 PC debe ser el que se publique en el Release
+- El `.exe` que se distribuya a los agentes (25 hoy, 41 previstos) debe ser el que se publique en el Release
   (SHA-256 incluido): la app resuelve el commit real del tag del Release (`GET
   /commits/{tag}`, no `target_commitish` — ese campo es la rama, no un SHA; bug
   corregido 2026-09-25) y lo compara con el embebido. `publish-release.ps1` solo
@@ -266,7 +269,7 @@ Get-ChildItem .\logs\
 
 ---
 
-## Configuración de Agentes (20 máquinas)
+## Configuración de Agentes (25 hoy, 41 previstos)
 
 ### Cómo consigue el trabajador el `.exe`
 

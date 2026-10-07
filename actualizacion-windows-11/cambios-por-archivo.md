@@ -1,5 +1,11 @@
 # Cambios por archivo (commits `5cb8768` y `4fe66d3`)
 
+> **Documento histórico (2026-10-02).** Desde el 2026-10-07 el repo es uno solo para
+> Windows 10 y 11: `-RepoName`/"repo W11" (§11) ya no son un canal activo, y la huella
+> descrita en §2 (`wmic`/CIM/`huellas_compatibles`) fue **reemplazada** por MachineGuid +
+> CPU del registro, con `huellas_legacy()` solo para la transición. Ver el aviso de
+> [`README.md`](README.md).
+
 Base: `7e800b0` (último commit del repo original). En `5cb8768`: 10 archivos de
 código, 9 de tests (1 nuevo). En `4fe66d3`: `build.ps1` (§11). Para cada uno: **qué hacía**, **qué hace ahora**, **por qué**,
 **riesgo**, **cómo revertir** y **qué test lo cubre**.

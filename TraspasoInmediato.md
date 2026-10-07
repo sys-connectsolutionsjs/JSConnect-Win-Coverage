@@ -105,7 +105,7 @@ Aunque los tokens estén sincronizados, cada agente tiene configurada la **IP**
 del proxy (`ProxyConfig.proxy_url`, guardada en el keyring de cada agente vía
 `⚙ Configuración → Configurar Proxy`). Si el proxy se muda de la PC A a la PC B
 — que casi seguro tiene otra IP en la LAN — **hay que reconfigurar cada agente**
-(15 PC hoy, meta 35). Eso es mucho más lento que el problema de los tokens, y es
+(25 PC hoy, 41 previstas; cuando se escribió este documento eran 15, meta 35). Eso es mucho más lento que el problema de los tokens, y es
 el verdadero cuello de botella de un "traspaso inmediato".
 
 Opciones evaluadas para una LAN de oficina de este tamaño (sin gastar en

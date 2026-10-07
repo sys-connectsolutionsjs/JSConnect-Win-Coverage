@@ -32,7 +32,7 @@ cd JSConnect-Win-Coverage
 
 ```
 ========================================
-TOKEN PROXY (distribuir a 20 agentes):
+TOKEN PROXY (distribuir a los agentes):
 a1b2c3d4e5f6... (64 chars)
 ========================================
 ADMIN KEY (solo owner - para /admin/*):
@@ -62,7 +62,7 @@ http://localhost:8080/docs
 
 ---
 
-## Configuración de los 20 Agentes
+## Configuración de los Agentes (25 hoy, 41 previstos)
 
 ### Opción A: Via GUI (usuario final)
 1. Activar la PC con el código que genera `JSConnect-Win-Owner.exe` para la

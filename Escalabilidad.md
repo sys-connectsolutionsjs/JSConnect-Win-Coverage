@@ -1,7 +1,7 @@
 # Escalabilidad - Guía para Futuros Programadores
 
 > **LEER ESTO PRIMERO** si estás retomando el proyecto o te unes al equipo.
-> Este documento explica el camino preparado para que la app escale de 20 agentes LAN a N agentes remotos.
+> Este documento explica el camino preparado para que la app escale de ~25 agentes LAN (41 previstos) a N agentes remotos.
 
 ---
 
@@ -9,10 +9,10 @@
 
 | Hoy (2026-08-25) | Futuro (Cuando pidan remoto) |
 |------------------|------------------------------|
-| 20 agentes en LAN oficina | N agentes en campo / home office |
+| ~25 agentes en LAN oficina (41 previstos) | N agentes en campo / home office |
 | 1 proxy en PC fija oficina | Mismo proxy + **Tailscale VPN** |
 | Token compartido LAN | **Mismo token** funciona via VPN |
-| Owner renueva sesión por extensión/consola | Owner renueva via **VPN + endpoint `/admin/rotar`** |
+| Owner renueva sesión por extensión/consola | Owner renueva por **escritorio remoto (RDP)** a la PC del proxy; `/admin/*` solo responde desde esa PC (loopback) |
 | Config manual por agente | Provisionamiento administrado por GUI/script |
 
 **No hay que reescribir nada**. La arquitectura ya está preparada. Solo activar VPN y configurar DNS.
@@ -41,9 +41,11 @@ copiar esa llave a sus máquinas.
 ```http
 GET /admin/config  →  {proxy_url, token, timeouts, version}
 ```
-- Requiere `X-Admin-Key` porque entrega el token en claro
-- `ProxyClient.from_discovery()` existe, pero su uso debe quedar dentro de una
-  herramienta administrada que aporte esa clave
+- Requiere `X-Admin-Key` porque entrega el token en claro, **y solo responde a
+  conexiones desde la propia PC del proxy (loopback)**
+- `ProxyClient.from_discovery()` existe, pero hoy **no puede funcionar** desde un
+  agente remoto: no envía la clave y el servidor rechaza cualquier origen que no
+  sea local. Usarlo exigiría cambiar esa restricción del servidor
 
 ### 4. Cliente Proxy con Retries y Timeouts
 ```python
@@ -168,7 +170,7 @@ flowchart TB
 | **VPN (Tailscale)** | AnyDesk, Ngrok, VPS público | Gratis ≤100 devices, zero-config, mesh auto, seguro |
 | **Token único compartido** | API key por máquina | Simplicidad operativa; rotación = 1 vez en proxy + redistribuir |
 | **Proxy local (no cloud)** | API pública en AWS/Azure | Costo $0, credenciales nunca salen de la oficina, offline-first |
-| **winsw service** | systemd, NSSM, Task Scheduler | Nativo Windows, logs eventos, auto-restart, `sc` remoto |
+| **winsw service** | systemd, NSSM, Task Scheduler | Nativo Windows, logs rotados en `<repo>\logs`, auto-restart, `sc` remoto |
 | **config.yaml gitignored** | Env vars / Azure Key Vault | Simple, portable, owner lo ve y controla |
 
 ---

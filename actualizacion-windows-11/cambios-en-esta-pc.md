@@ -1,5 +1,9 @@
 # Cambios hechos en la PC de oficina (fuera del repo)
 
+> **Documento histórico (2026-10-02).** El Release `v2026.10.02-w11` y el remoto `w11`
+> que se mencionan abajo pertenecen al repo `W11-JSConnect-Win-Coverage`, **archivado**
+> el 2026-10-07 al unificarse con este repo (ver [`README.md`](README.md)).
+
 Todo esto se hizo en la PC real el **2026-10-02** y **no** está en Git. Sirve para
 saber qué hay instalado y cómo deshacerlo. **No contiene tokens ni secretos**:
 están en `validator_app/proxy/config.yaml`, `proxy_token.txt` y `admin_key.txt`

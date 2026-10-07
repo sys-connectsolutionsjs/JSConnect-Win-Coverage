@@ -125,7 +125,7 @@ Usuario/contraseña del sistema del ISP. **Rotan cada 1-2 meses** (desactivan cu
 
 ### DNS Interno (Tailnet)
 En Tailscale: nombre `proxy.oficina.local` → IP Tailscale del proxy (ej. `100.64.12.34`).
-Permite auto-discovery: agentes usan `http://proxy.oficina.local:8080/admin/config` para auto-configurarse.
+Idea de auto-discovery (hoy **no funciona**: `/admin/config` exige `X-Admin-Key` y solo responde desde la propia PC del proxy, así que un agente no puede usarlo para auto-configurarse; ver `docs/escalabilidad-remota.md`).
 
 ---
 
@@ -339,7 +339,21 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
   de `medir_sesion.py`.
 
 ### Dos límites de sesión: idle-timeout + tope absoluto (idle medido 2026-09-04, tope medido 2026-09-08)
-> **ESTADO 2026-09-08 — investigación CERRADA.** El punto 2 de abajo ("tope
+> **CORRECCIÓN 2026-10-07 — el "tope absoluto ≈ 9.5 h" es UNA medición, no un hecho.**
+> La corrida v3 arrancó el sábado 2026-09-05 a las 21:08 (sesión con 70 s de edad) y
+> murió a las 9 h 31 m, es decir hacia las 06:38 del domingo, en una cuenta que casi no
+> se usaba. El dueño del proyecto señala que pudo ser **alguien iniciando sesión con la
+> misma cuenta por la mañana** (eso invalida la `PHPSESSID` anterior; al volver a iniciar
+> sesión todo vuelve a la normalidad). Con un solo dato **no se puede distinguir** un
+> tope real de esa interrupción, ni confirmarlo ni descartarlo. Tampoco se resuelve con
+> el patrón de ~10 min tras renovar visto el 2026-10-02 (593 y 603 s, mismo `cookie_id`;
+> ver `actualizacion-windows-11/pendientes.md` §1). **Consecuencia práctica: ninguna** —
+> el owner igual tiene que renovar la cookie (2FA: no hay re-login programático) y el
+> keepalive sigue siendo necesario. Solo cambia que no hay que dar por hecho un límite
+> de 9.5 h. Cómo averiguarlo: `docs/rotacion-credenciales.md` → "Cómo investigar una
+> muerte de sesión". Lo de abajo se conserva como estaba, leído con esta corrección.
+>
+> **ESTADO 2026-09-08 — investigación CERRADA (ver la corrección de arriba).** El punto 2 de abajo ("tope
 > absoluto a ~40 min") queda **descartado**: ese 404 de v1 era un transitorio,
 > no la sesión muriendo. Pero la corrida final de v3 (37 pings cada 15 min a lo
 > largo de 9 h) **sí midió un tope absoluto real**: la sesión vivió confirmada
@@ -459,7 +473,7 @@ Servidor intermedio en PC oficina que:
 2. Valida token + IP
 3. Reenvía a WinForce usando **SU propia sesión** (cookies en keyring)
 4. Devuelve respuesta a agente
-- Evita: 20 sesiones concurrentes, rotación credenciales en 20 máquinas, bloqueo por IP
+- Evita: una sesión concurrente por agente, rotación de credenciales máquina por máquina, bloqueo por IP
 - Stack: FastAPI + uvicorn + winsw service
 - Puerto: 8080 (configurable)
 

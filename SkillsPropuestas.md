@@ -50,7 +50,7 @@ archivo lo ya usado.
 - Build: `powershell -ExecutionPolicy Bypass -File build.ps1`.
 - Verificar: `pytest` y `ruff check .`.
 
-## Entrada: Errores típicos de ruff (py314)
+## Entrada: Errores típicos de ruff (py312)
 - `UP006/UP035/UP045/UP037` → typing moderno: `dict` en vez de `Dict`, `X | None`
   en vez de `Optional`, sin comillas en anotaciones → `from __future__ import
   annotations` + `dict[str, ...]` + `Any | None`.

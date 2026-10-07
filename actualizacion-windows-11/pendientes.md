@@ -1,11 +1,20 @@
 # Pendientes y decisiones abiertas
 
-Nada de esto se resolvió en la sesión del 2026-10-02.
+Nada de esto se resolvió en la sesión del 2026-10-02. (Actualización 2026-10-07: el §3
+—dos repos, dos canales— quedó resuelto al unificarlos; el resto sigue abierto salvo
+que se indique lo contrario.)
 
 ## 1. La sesión de WinForce muere ~10 min después de cada renovación  ⚠️
 - Observado: renovada a las ~18:08 y 18:19, declarada muerta a las 18:18 y 18:29
   (`edad_cookie_s` 603 y 593 en `logs/sesion_eventos.jsonl`). Misma cookie
   (`cookie_id f7d11867`) reenviada por la extensión.
+- **[2026-10-07]** El dueño del proyecto considera lo más probable que **alguien inicie
+  sesión con la misma cuenta desde otro lado** y eso invalide la `PHPSESSID` (al volver
+  a iniciar sesión todo regresa a la normalidad). Sin cambios de código: se observa con
+  `logs/sesion_eventos.jsonl` siguiendo `docs/rotacion-credenciales.md` → "Cómo
+  investigar una muerte de sesión". Ojo: las dos muertes del 2026-10-02 ocurrieron a
+  593 y 603 s con el **mismo** `cookie_id`, lo que también encaja con un límite fijo o
+  con una cookie ya muerta reinyectada.
 - No se investigó. Hipótesis: (a) WinForce corta por inactividad antes de los 900 s
   del keepalive (`keepalive_interval_seconds`); (b) la sesión se cerró en el
   navegador del owner; (c) reenviar la misma cookie no la "revive".

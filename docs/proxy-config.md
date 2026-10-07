@@ -1,6 +1,6 @@
 # Configuración de Agentes (Cliente Proxy)
 
-> Cómo configurar cada una de las 20 máquinas agente para usar el proxy local.
+> Cómo configurar cada máquina agente (25 hoy, 41 previstas) para usar el proxy local.
 
 ---
 
@@ -27,7 +27,7 @@
    ┌─────────────────────────────────────┐
    │ Configurar Proxy                    │
    ├─────────────────────────────────────┤
-   │ IP:puerto del proxy:                │
+   │ URL del proxy (ej. 192.168.1.50:8080)│
    │ [ http://192.168.1.50:8080     ]    │
    │                                     │
    │ Token:                              │
@@ -37,8 +37,11 @@
    └─────────────────────────────────────┘
    ```
 4. Click **Probar conexión** → espera 2-3 segundos
-   - ✅ Verde/ámbar: proxy conectado; muestra si la sesión WinForce está viva
-   - ❌ Rojo: "Error: ..." → revisar IP, token, firewall, servicio proxy
+   - ✅ Verde/ámbar: proxy conectado; muestra si la sesión WinForce está viva y hace
+     cuántos segundos fue su última actividad
+   - ❌ Rojo: "Error: <motivo>" (el motivo real, resumido a una línea: timeout,
+     conexión rechazada, 401…) → revisar IP, token, firewall, servicio proxy
+   - Si escribes solo `IP:puerto`, la ventana agrega `http://` sola al probar y al guardar
 5. Click **Guardar** → credenciales guardadas en **Windows Keyring** local
 6. La app usa proxy automáticamente en siguiente validación
 
@@ -146,7 +149,13 @@ Si **no hay configuración de proxy** guardada en keyring:
 
 Cuando haya agentes remotos (VPN), no querrán configurar IP/token manualmente.
 
-**Preparado en código**:
+> **Estado 2026-10-07: NO funciona hoy.** `GET /admin/config` exige `X-Admin-Key` **y**
+> solo responde a conexiones desde la propia PC del proxy (loopback), y
+> `ProxyClient.from_discovery()` lo llama desde el agente, sin clave y desde otra PC:
+> el servidor lo rechaza (401/403). Activarlo exige cambiar el servidor, no solo
+> configurar DNS. Lo de abajo es el diseño previsto, no algo usable.
+
+**Preparado en código** (esqueleto):
 ```python
 # validator_app/proxy/client.py
 class ProxyClient:
@@ -164,7 +173,7 @@ class ProxyClient:
   "proxy_url": "http://192.168.1.50:8080",
   "token": "a1b2c3d4e5f6...",
   "timeouts": {"connect": 5, "read": 30},
-  "version": "commit-sha"
+  "version": "dev"
 }
 ```
 

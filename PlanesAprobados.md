@@ -14,9 +14,12 @@ https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 login muerto) COMPLETA y con la visibilidad de fallos añadida encima (`5506ed4`);
 Fase 0 (medir vida de sesión) COMPLETA. **Investigación de keepalive CERRADA**
 (reporte final de la corrida v3 recibido 2026-09-08): el keepalive de 15 min
-funciona (37 pings VIVA hasta ≈ 9 h 16 m de edad de sesión) y **existe un tope
-absoluto de sesión ≈ 9.5 h desde el login** (muerte limpia a ≈ 9 h 31 m,
-confirmada por `validar_cookie_sesion()`); idle-timeout, anti-bot acumulativo y
+funciona (37 pings VIVA hasta ≈ 9 h 16 m de edad de sesión) y **hubo una muerte
+limpia a ≈ 9 h 31 m** (confirmada por `validar_cookie_sesion()`), que se interpretó
+como un tope absoluto de ≈ 9.5 h. **[Corrección 2026-10-07]** es una sola medición (la
+corrida arrancó el sábado 21:08 y murió ≈ 06:38 del domingo) y **no descarta que un
+login ajeno con la misma cuenta invalidara la `PHPSESSID`**; ver `anotaciones.md`.
+Idle-timeout, anti-bot acumulativo y
 "tope a 40 min" quedan **descartados**. **Fases 2A (keepalive) y 2.5 (renovación de
 sesión) COMPLETADAS 2026-09-08** — el proxy mantiene la sesión viva y el owner la
 renueva con **un clic en una extensión de su Chrome de siempre** (fallbacks:
@@ -141,8 +144,9 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   34 270s (≈ 9 h 31 m) con patrón HTTP 200 + HTML de login, confirmado por
   `validar_cookie_sesion()`. Lecturas: idle-timeout **descartado** como causa
   (ping real cada 900s), anti-bot acumulativo **descartado** (37 pings variados,
-  0 fallos), "tope a 40 min" **descartado** (era el 404 ambiguo de v1); **sí
-  existe un tope absoluto de sesión ≈ 9.5 h desde el login**, por encima de la
+  0 fallos), "tope a 40 min" **descartado** (era el 404 ambiguo de v1); **posible
+  tope absoluto de sesión ≈ 9.5 h desde el login** (una medición; **no concluyente**,
+  puede haber sido un login ajeno — corrección 2026-10-07), por encima de la
   jornada de 8 h con ~1.5 h de margen. `keepalive_interval_seconds` fijado en
   **900** para la Fase 2.
 - **Fase 1 (C) — limpiar login muerto del proxy. [COMPLETADA 2026-09-04]** Helper
@@ -170,7 +174,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   de los agentes** (`_last_activity`). Ping fallido → se confirma con
   `validar_cookie_sesion()`: endpoint caído = transitorio; **sesión muerta =
   `log.error` con aviso al owner + `session_dead_since` en `/admin/status`, sin
-  reintentar en silencio** (tope absoluto ≈ 9.5 h; re-login programado inviable
+  reintentar en silencio** (posible tope de ≈ 9.5 h, no concluyente; re-login programado inviable
   por 2FA → el owner renueva la cookie ~1 vez por jornada). Fix de prerrequisito:
   `_get_client()` neutraliza el guard idle de 120 s del cliente-core (el proxy ya
   gestiona la frescura). **12 tests nuevos en `tests/test_proxy.py`** (abre el
@@ -205,13 +209,20 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   `/admin/*`, middleware token/IP/admin-key, exception handlers). 14 tests nuevos,
   104 pasando, ruff limpio. `tests/test_session_config.py` (Fase 3) y
   `tests/test_login_asistido.py` / `tests/test_instalar_extension.py` (Fase 2.5).
-- **Fase 5 — barrido final de la documentación. [LA ÚLTIMA del plan]** El
-  checklist siguiente conserva la auditoría del 2026-09-09 como trazabilidad.
-  El cierre 2026-09-16 corrigió las instrucciones afectadas por activación,
-  URLs, keyring, `/admin/config`, logs y renovación. Tras D/E se revalidan las
-  referencias restantes contra el código y se elimina de la cola lo resuelto.
+- **Fase 5 — barrido final de la documentación. [COMPLETADA 2026-10-07]**
+  El 2026-10-07 se revalidaron los 19 hallazgos contra el código y los docs de ese día:
+  13 ya estaban corregidos; se corrigieron los restantes — #2 (ejemplos de versión →
+  `"dev"`), #5/#13 (`README.md`, `docs/arquitectura.md`), #8 (`/admin/*` es solo
+  loopback: `docs/rotacion-credenciales.md`, `docs/arquitectura.md`,
+  `docs/escalabilidad-remota.md`, `docs/proxy-config.md`, `Escalabilidad.md`,
+  `anotaciones.md`), #7 (`Escalabilidad.md`), #10-12 (`SkillsPropuestas.md`), #15 y #16 —
+  y los 3 bugs de código (#14, #18, #19) se arreglaron con tests (Release
+  `v2026.10.07.1`). Además se actualizaron conteos de agentes (25 hoy, 41 previstos),
+  Python 3.14.7, el tope de sesión de 9.5 h (ahora "una medición, no concluyente") y se
+  dividió `AGENTS.md` (el historial vive en `docs/historial-agents.md`). La auditoría
+  original queda abajo solo como trazabilidad.
 
-  _Hallazgos del 2026-09-09 (varios ya corregidos el 2026-09-16):_
+  _Hallazgos del 2026-09-09 (todos resueltos al 2026-10-07):_
   1. Rotación por usuario/contraseña inexistente — `docs/rotacion-credenciales.md:3,10,190`,
      `anotaciones.md:344,346` vs `server.py:120-121,686,692-694` (`server.py:12`).
   2. `version="dev"` vs commit SHA — `server.py:655,681,506` (y `:604` dice `1.0.0`)
@@ -266,7 +277,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
 | Persistir la cookie del proxy en keyring | `_load_session_cookies()` / `_save_session_cookies()` (`server.py:148`/`:133`, clave `credentials_cookies`) | `set_session_cookie` reusa `_save_session_cookies` |
 | Flujo de cookie manual en la PC del proxy | `rotate_creds.py` completo (pega → valida → keyring → verifica `/admin/status`) | Sigue siendo el camino oficial; solo cambia su validador interno |
 | Diálogo modal de configuración en la GUI | `_abrir_config_proxy()` (`main_window.py:206`) — Entry con `show`, checkbox "Mostrar", "Probar" en hilo, guardar en keyring | Plantilla exacta para `_abrir_config_sesion()` |
-| Keyring del lado cliente | `ProxyClient.from_keyring()` / `save_to_keyring()` (servicio `JSWinClient`) | Mismo patrón para `session_config.py` (usuario `win_sessid`) |
+| Keyring del lado cliente | `ProxyClient.from_keyring()` / `save_to_keyring()` (servicio `JSWinClient`) | Mismo patrón para `session_config.py` (usuario `session_cookie`) |
 | Códigos de error de sesión | `ERR_SESSION_EXPIRED`, `ERR_SESSION_COOKIES` ya en `ERROR_CODES` | Se reutilizan, no se crean nuevos |
 | Prueba end-to-end cookie→cobertura→score | `tools/probar_con_cookie.py` (`_diagnosticar_score` incluido) | Base para `tools/medir_sesion.py` |
 
@@ -442,14 +453,14 @@ no una versión fijada** — un seguro barato para la PC de oficina, cuya versi�
 controlamos aún (si subiéramos a `>=3.14` y esa PC tuviera 3.12,
 `install_service.bat` abortaría en `[1/12]`). Pero **producción se estandariza en
 Python 3.14.7**, igual que desarrollo, para que dev y prod no diverjan — anotarlo
-en `docs/proxy-deploy.md` (hoy dice "3.12+"). Cabos para la Fase 5: `TestingLog.md`
-y `SkillsPropuestas.md:53` dicen `py314` vs `pyproject.toml:10` (`py312`); y
-`>=3.12` está sin verificar desde 2026-08-27 (~40 tests entonces, 124 hoy).
+en `docs/proxy-deploy.md`. **[HECHO 2026-10-07]** `docs/proxy-deploy.md`, `README.md` y
+`AGENTS.md` ya dicen "3.14.7 en producción, mínimo 3.12"; `TestingLog.md` y
+`SkillsPropuestas.md` ya dicen `py312`. Sigue sin verificarse `>=3.12` con una
+instalación real de 3.12 (desde 2026-08-27: ~40 tests entonces, 318 hoy).
 
-### Luego — Fase 5
+### Luego — Fase 5  [COMPLETADA 2026-10-07]
 
-**Barrido de docs** (checklist de las 19 incoherencias, arriba en este archivo).
-Es **la última** — después de 0.5 / C.12 / D / E.
+Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba).
 
 ## Fuera de alcance de la sesión actual — próxima fase
 
@@ -500,7 +511,7 @@ Es **la última** — después de 0.5 / C.12 / D / E.
 - ~~`resumenes/2026-09-04.md` y `2026-09-05.md` sin crear~~ → **RESUELTO
   2026-09-08**: recuperados verbatim de git.
 - ~~Corrida de keepalive v3~~ → **CERRADA 2026-09-08**: `keepalive_interval_seconds
-  = 900` fijado; tope absoluto de sesión ≈ 9.5 h confirmado. Ver Fase 0 (act.
+  = 900` fijado; tope absoluto de sesión ≈ 9.5 h medido una vez (no concluyente, ver corrección 2026-10-07 en `anotaciones.md`). Ver Fase 0 (act.
   2026-09-08) y `anotaciones.md`.
 
 ## Notas de seguridad

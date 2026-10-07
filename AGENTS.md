@@ -9,8 +9,10 @@ llamadas HTTP (JSON) a la API interna del sistema de validación, devolviendo la
 información en milisegundos, sin cargar página, sin mapa ni navegador.
 
 ## Stack
-- Python 3.12+ (probado en 3.12 y 3.14; `requires-python = ">=3.12"`)
-- HTTP: `requests` · GUI: `tkinter` (incluido) · Credenciales: `keyring`
+- Python 3.12+ (`requires-python = ">=3.12"` es el piso; **producción y desarrollo
+  estandarizados en 3.14.7**, instalado para todos los usuarios y en el PATH)
+- HTTP: `requests` (agente) y `httpx` (cliente del proxy y consola owner) · Proxy:
+  `fastapi` + `uvicorn` · GUI: `tkinter` + `ttkbootstrap` · Credenciales: `keyring`
 - Licencias/activación: `cryptography` (RSA, firma asimétrica)
 - Empaquetado: `PyInstaller` (un único .exe portable)
 - Dev: `playwright` (solo captura, NO va en el .exe) · Tests: `pytest` · Lint: `ruff`
@@ -88,8 +90,8 @@ JS-Win-Coverage/              (raíz del proyecto)
     ├── core/                 # api.py (login, score, cobertura) + session.py
     ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone)
     ├── activation/           # fingerprint.py, signer.py, state.py
-    ├── updater/              # check.py, download.py
-    └── proxy/                # NUEVO: proxy local para 20 agentes LAN
+    ├── updater/              # check.py, download.py (agente por commit; owner por SHA-256)
+    └── proxy/                # proxy local para los agentes de la LAN (25 hoy, 41 previstos)
         ├── __init__.py
         ├── config.py         # Pydantic Settings (lee config.yaml + env)
         ├── config.yaml       # GITIGNORED (secretos reales)
@@ -158,6 +160,17 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
   extraer_checksum()` recorta las notas al bloque del archivo pedido antes de
   buscar el hash — evita que el agente se autoactualice con el `.exe` del owner
   o cruce checksums entre ambos.
+- **La consola owner también busca actualizaciones** (desde `v2026.10.07.1`): botón
+  "Buscar actualizaciones" en `generator/owner_app.py`, más un chequeo silencioso al
+  abrir que solo avisa en una etiqueta. A diferencia del agente (que compara el commit
+  embebido con el del tag), el owner compara el **SHA-256 de su propio `.exe`** con el que
+  el Release publica para `JSConnect-Win-Owner.exe` (`check.hay_actualizacion_owner`):
+  por commit entraría en bucle si un Release reutiliza un owner viejo. Sin asset del owner
+  o sin su hash en las notas no ofrece nada. El flujo de descarga/reemplazo es el mismo
+  (`download.aplicar_actualizacion`, que toma el asset de `info["nombre_asset"]`) y la
+  `private_key.pem` junto al `.exe` no se toca. `build-owner.ps1` ahora también graba
+  `validator_app/version.py`. **El owner `v2026.10.07` ya instalado no trae este
+  actualizador: hay que reemplazar su `.exe` a mano una sola vez.**
 - **El agente salta directo al último Release**, sin pasar por los intermedios (el
   actualizador solo mira `releases/latest`). Un agente en el Release 1 que ve el 3
   descarga el 3; no instala el 2.

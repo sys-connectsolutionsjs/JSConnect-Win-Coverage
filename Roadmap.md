@@ -85,7 +85,7 @@ pendrive es una mejora posible (no existe).
 ### 1b. Pendiente tras la unificación W10 + W11 (2026-10-07)
 
 Reactivar los agentes con la huella nueva (25 hoy, 41 a futuro), probar un agente
-W10 real contra el owner W11, investigar por qué la sesión de WinForce muere ~10 min
+W10 real contra el owner W11, observar por qué la sesión de WinForce muere ~10 min (hipótesis del dueño: un login ajeno con la misma cuenta; pasos en `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión")
 después de renovar, firma de código de los `.exe` y pasar el repo W11 (archivado) a
 privado cuando sus `.exe` se hayan actualizado. `huellas_legacy()` no se borra salvo
 petición expresa.

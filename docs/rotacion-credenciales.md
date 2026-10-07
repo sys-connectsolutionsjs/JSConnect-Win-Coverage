@@ -10,15 +10,17 @@
 - WinForce **rota credenciales cada 1-2 meses**: desactiva cuenta anterior + entrega nuevo user/pass al responsable
 - El proxy persiste **solo la cookie `PHPSESSID`** en el keyring de LocalSystem
   (`JSWinProxy`/`credentials_cookies`); no guarda usuario ni contraseña
-- 20 agentes **no tienen credenciales WinForce** — solo token proxy LAN
+- Los agentes (25 hoy, 41 previstos) **no tienen credenciales WinForce** — solo token proxy LAN
 - Rotación = actualizar 1 sola PC (la del proxy)
 
 ---
 
 ## Procedimiento — Extensión de Chrome (vía principal)
 
-> Renovación diaria de la sesión (por el tope absoluto de sesión ≈ 9.5 h). El
-> owner no necesita saber nada técnico y **no sale de su navegador de siempre**.
+> Renovación diaria de la sesión (WinForce usa 2FA, así que el proxy no puede volver a
+> iniciar sesión solo; además hay un posible tope de ≈ 9.5 h, medido una vez y **no
+> concluyente**). El owner no necesita saber nada técnico y **no sale de su navegador
+> de siempre**.
 
 `install_service.bat` fuerza-instala en el Chrome de la PC del proxy la extensión
 **"Renovar sesion WinForce"** (política de Chrome — el owner no puede quitarla por
@@ -117,27 +119,29 @@ terminal, cuadro "no se guardo nada"). **No** toca el keyring ni necesita
 
 ---
 
-## Procedimiento Futuro (v2 — Remoto via VPN)
+## Renovación remota (no disponible hoy)
 
-Cuando haya agentes remotos y VPN (Tailscale):
+`/admin/*` (incluido `POST /admin/rotar`) **solo responde a conexiones desde la propia
+PC del proxy** (loopback) **y** exige `X-Admin-Key`; desde otra PC da 403 aunque la
+clave sea correcta (`validator_app/proxy/server.py`, `_es_local`). Por eso no se puede
+renovar la sesión por VPN con `curl` desde otra máquina.
 
-1. Owner hace login manual en el navegador (incluye 2FA Microsoft) y copia la
-   cookie `PHPSESSID` (igual que en v1)
-2. Con VPN conectada, llama el endpoint protegido:
-   ```bash
-   curl -X POST http://proxy.oficina.local:8080/admin/rotar \
-     -H "X-Admin-Key: <admin_key>" \
-     -H "Content-Type: application/json" \
-     -d '{"php_sessid":"<valor de la cookie>"}'
-   ```
-3. Proxy valida `X-Admin-Key` → valida la cookie contra WinForce → guarda en
-   keyring → responde OK. `/admin/login` hace exactamente lo mismo, con el
-   mismo body — ambos endpoints son intercambiables.
+Para renovar sin estar en la oficina: conectarse por escritorio remoto (RDP) a la PC
+del proxy y ahí usar la extensión de Chrome o el icono "Renovar sesion WinForce"; o,
+desde esa misma PC:
 
-**Requisitos v2**:
-- VPN configurada (Tailscale gratis 100 devices)
-- HTTPS en proxy (self-signed cert + `uvicorn --ssl-keyfile --ssl-certfile`)
-- `admin_key` conocido solo por owner (generado en `install_service.bat`)
+```powershell
+curl.exe -X POST http://localhost:8080/admin/rotar `
+  -H "X-Admin-Key: <admin_key>" -H "Content-Type: application/json" `
+  -d '{\"php_sessid\":\"<valor de la cookie>\"}'
+```
+
+El proxy valida la `X-Admin-Key`, valida la cookie contra WinForce, la guarda en el
+keyring y responde OK (`/admin/login` es equivalente).
+
+Un acceso remoto real (VPN tipo Tailscale + HTTPS) exigiría **cambiar esa restricción**
+de loopback en el servidor: es una decisión de diseño pendiente, no una configuración.
+Ver `docs/escalabilidad-remota.md`.
 
 ---
 
@@ -150,14 +154,14 @@ curl.exe -H "X-Admin-Key: <admin_key>" http://localhost:8080/admin/status
 #   "logged_in": true,
 #   "session_age": 45,
 #   "creds_updated": "2026-08-25T14:30:00",
-#   "proxy_version": "c0d2f2a"
+#   "proxy_version": "dev"
 # }
 
 # Health check completo
 curl http://localhost:8080/health
 # {
 #   "status": "ok",
-#   "version": "c0d2f2a",
+#   "version": "dev",
 #   "session_age": 45,
 #   "logged_in": true
 # }
@@ -186,7 +190,7 @@ ver si dos eventos hablan de la misma cookie o de una distinta. Cómo leerla:
 
 | Lo que ves en la bitácora | Causa probable |
 |---|---|
-| `evento: "muerta"`, `edad_cookie_s` ≈ 34200 (≈9.5h) | Tope absoluto de sesión — normal, toca renovar una vez por turno. |
+| `evento: "muerta"`, `edad_cookie_s` ≈ 34200 (≈9.5h) | Posible tope absoluto de sesión (una sola medición, 2026-09-05/06) **o** un login ajeno con la misma cuenta. En ambos casos toca renovar. Ver "Cómo investigar una muerte de sesión" abajo. |
 | `evento: "muerta"` a los pocos minutos de un `"renovada"` con **otro** `cookie_id` | Alguien inició sesión con la misma cuenta desde otro lado (Chrome cotidiano vs. ventana del icono, u otra PC) invalidó la sesión — hipótesis abierta desde 2026-09-18, aún no confirmada de forma controlada. |
 | `evento: "muerta"`, `origen` menciona `/health` o `/admin/status`, `detalle` con `Timeout`/`ConnectionError` | WinForce estuvo lento o caído, no la cookie — el proxy ya reconfirma antes de declarar muerte (ver más abajo), pero si el segundo intento *también* falló, puede seguir siendo un corte de red largo, no la cookie. |
 | `evento: "falso_positivo_evitado"` | El proxy vio una respuesta fallida puntual, reconfirmó, y la sesión seguía viva — no pasó nada, es solo el registro de que el mecanismo funcionó. |
@@ -211,7 +215,31 @@ falso positivo real visto ese día: un `ReadTimeout` de 30s en `/health` marcó
 - Pulsar "Cerrar sesión" dentro de WinForce en el Chrome del owner (comparte
   la misma `PHPSESSID` que usa el proxy).
 - Iniciar sesión con la misma cuenta desde otra PC o otro navegador al mismo
-  tiempo (la hipótesis de "dos logins en paralelo" del 2026-09-18).
+  tiempo (la hipótesis de "dos logins en paralelo" del 2026-09-18). **Es la
+  explicación que el dueño del proyecto considera más probable** para las muertes de
+  sesión (2026-10-07): alguien entra con esa cuenta, la `PHPSESSID` anterior queda
+  invalidada y, al volver a iniciar sesión, todo regresa a la normalidad.
+
+### Cómo investigar una muerte de sesión
+
+No hay un tope de 9.5 h demostrado (ver la corrección del 2026-10-07 en
+`anotaciones.md`), así que cada muerte se mira con estos pasos:
+
+1. `Get-Content logs\sesion_eventos.jsonl -Tail 20` y anotar `ts`, `evento`, `origen`,
+   `cookie_id` y `edad_cookie_s` de la muerte y de la renovación anterior.
+2. Preguntar **a quién usa esa cuenta**: ¿alguien inició sesión en WinForce a esa hora
+   (otro PC, el celular, otro navegador)? Es el dato que falta para confirmar la
+   hipótesis; el proxy no lo puede saber.
+3. Distinguir los patrones:
+   - **Muere a una hora "rara" y con edad variable** → apunta a un login ajeno.
+   - **Muere siempre a la misma edad** (p. ej. ≈ 34 200 s, o ≈ 600 s tras renovar, como
+     el 2026-10-02: 603 y 593 s con el mismo `cookie_id`) → apunta a un límite del
+     servidor o a un temporizador del propio proxy.
+   - **El mismo `cookie_id` en dos renovaciones seguidas** → la segunda reinyectó una
+     cookie que ya estaba muerta; no es una sesión nueva.
+4. Una prueba controlada barata: renovar en un momento en que **nadie más usa la
+   cuenta** (p. ej. antes de la hora de entrada) y mirar si la sesión llega a las ≈ 10
+   min y a las ≈ 9.5 h. Si sobrevive, el culpable era un login ajeno.
 
 ---
 

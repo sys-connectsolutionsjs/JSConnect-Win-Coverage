@@ -37,11 +37,11 @@ Vistas detalladas (clases, componentes, estados, secuencias) en
 
 ## Componentes
 
-### Agentes (20 máquinas LAN)
+### Agentes (25 máquinas LAN hoy, 41 previstas)
 - **Ejecutable**: `JSConnect-Win-Coverage.exe` (PyInstaller, portable)
 - **Comunicación**: HTTP POST a `http://<proxy-ip>:8080/api/cobertura` y `/api/score`
 - **Autenticación**: Header `X-Proxy-Token` (token compartido)
-- **Configuración**: IP:puerto proxy + token guardados en **Windows Keyring** (`JSWinClient`/`proxy_token`)
+- **Configuración**: URL del proxy (`http://<IP>:8080`) + token guardados en **Windows Keyring** (`JSWinClient`/`proxy_url` y `JSWinClient`/`proxy_token`)
 - **Modo standalone**: Si no hay config proxy → usa `validator_app.core.api` directo (desarrollo/pruebas)
 
 ### Consola del owner (estación autorizada)
@@ -64,20 +64,20 @@ Vistas detalladas (clases, componentes, estados, secuencias) en
   - `GET /health` — Health check + info sesión
   - `GET /admin/config` — Configuración protegida por `X-Admin-Key`; incluye token
   - `POST /admin/login` — Owner inyecta la cookie `PHPSESSID` obtenida de un login manual en navegador (via RDP)
-  - `POST /admin/rotar` — Owner rota la cookie `PHPSESSID` (via RDP/VPN); idéntico a `/admin/login`
+  - `POST /admin/rotar` — Owner rota la cookie `PHPSESSID` (via RDP; `/admin/*` solo responde desde la propia PC del proxy); idéntico a `/admin/login`
   - **Nota**: el login programático (usuario/password) es inviable — WinForce redirige a Microsoft 2FA. La cookie `PHPSESSID` se obtiene siempre de un login manual en navegador y se inyecta por estos endpoints o con `tools/probar_con_cookie.py` / `validator_app/proxy/rotate_creds.py`.
   - `GET /admin/status` — Estado sesión proxy + bloque `keepalive` (`enabled`, `last_ping_at`, `last_ping_ok`, `consecutive_failures`, `session_dead_since`)
 - **Keepalive ("latido perezoso")**: un loop `asyncio` en el `lifespan` pinga
   `validar_cobertura` (coordenada pública rotada) cada `keepalive_interval_seconds`
   (**900s**), **pero solo si no hubo tráfico real de los agentes en ese intervalo**
-  (`ProxyValidatorAPI._last_activity`). Con 20 agentes el trabajo normal ya
+  (`ProxyValidatorAPI._last_activity`). Con ~25 agentes el trabajo normal ya
   mantiene la sesión; el ping cubre los huecos (almuerzo, primera hora). Si un
   ping falla, se confirma contra WinForce con `validar_cookie_sesion()`: fallo del
   endpoint → transitorio; sesión muerta → `log.error` con **aviso al owner** +
   `session_dead_since` en `/admin/status`, **sin reintentar en silencio**. El
-  keepalive vence al idle-timeout (~20 min) pero **no** al tope absoluto de sesión
-  ≈ 9.5 h desde el login (ahí el owner renueva la cookie ~1 vez por jornada;
-  re-login programático inviable por 2FA). Config: `keepalive_enabled`,
+  keepalive vence al idle-timeout (~20 min) pero **no** a un posible tope absoluto de
+  sesión ≈ 9.5 h desde el login (medido una vez, no concluyente; ahí el owner renueva
+  la cookie ~1 vez por jornada; re-login programático inviable por 2FA). Config: `keepalive_enabled`,
   `keepalive_interval_seconds`.
 - **Autenticación**:
   - `/api/*`: `X-Proxy-Token` + IP en rangos LAN permitidos (loopback siempre)
@@ -151,14 +151,14 @@ Agente                    Proxy                        WinForce              Equ
 | # | Decisión | Rationale | Impacto si cambia |
 |---|----------|-----------|-------------------|
 | 1 | **Proxy = Stateless** (salvo sesión WinForce) | Permite múltiples proxies detrás de load balancer futuro | Requiere session store compartido (Redis) |
-| 2 | **Token único compartido** (no por máquina) | Simplicidad operativa; seguridad por LAN + VPN | Si se filtra token → rotar en proxy + redistribuir a 20 agentes |
+| 2 | **Token único compartido** (no por máquina) | Simplicidad operativa; seguridad por LAN + VPN | Si se filtra token → rotar en proxy + redistribuir a todos los agentes |
 | 3 | **FastAPI + uvicorn** (no stdlib) | Concurrencia real, validación automática, docs Swagger | Más deps (+~10MB .exe proxy), pero cero bugs de concurrencia |
 | 4 | **config.yaml gitignored** + `config.yaml.example` en repo | Cero secretos en GitHub público | Owner debe generar config.yaml en instalación |
 | 5 | **Requirements separados** (`requirements-proxy.txt`) | .exe agentes no arrastra fastapi/uvicorn | Dos archivos requirements; documentado en README_PROXY.md |
 | 6 | **Endpoints `/admin/*` preparados** para v2 remota | Hoy solo via RDP; futuro VPN + HTTPS | Requiere cert TLS + VPN para exponer seguro |
 | 7 | **Auto-recuperación de sesión** en proxy (120s idle) | Agentes no ven errores de sesión expirada mientras la cookie del keyring siga viva | Lógica en `ProxyValidatorAPI.auto_relogin_if_needed()` / `_relogin_silent()` (`server.py`); revalida la última `PHPSESSID` del keyring y **deja rastro en el log** de cada fallo (cookie expirada vs. fallo de red) |
 | 8 | **Geodata vacíos en score_cliente** | Servidor WinForce los rellena o no son obligatorios | Si WinForce cambia y exige geodata → replicar Equifax OAuth |
-| 9 | **Keepalive "latido perezoso"** (ping solo tras N min sin tráfico real) | Mantiene la sesión viva en huecos sin martillear la cuenta de Win con consultas fantasma | `_keepalive_loop` / `ProxyValidatorAPI._keepalive_tick` (`server.py`). No vence el tope absoluto ≈ 9.5h → aviso al owner, sin re-login programático (2FA) |
+| 9 | **Keepalive "latido perezoso"** (ping solo tras N min sin tráfico real) | Mantiene la sesión viva en huecos sin martillear la cuenta de Win con consultas fantasma | `_keepalive_loop` / `ProxyValidatorAPI._keepalive_tick` (`server.py`). No vence un posible tope absoluto ≈ 9.5h (medido una vez) → aviso al owner, sin re-login programático (2FA) |
 
 ---
 

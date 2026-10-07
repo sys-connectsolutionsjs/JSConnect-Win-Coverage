@@ -95,19 +95,24 @@ curl http://100.64.12.34:8080/health
 
 ### Endpoint Ya Preparado en Proxy
 ```
-GET /admin/config  (requiere X-Admin-Key)
+GET /admin/config  (requiere X-Admin-Key, y solo responde desde la propia PC del proxy)
 ```
+> **Limitación actual (2026-10-07):** `/admin/*` rechaza (403) cualquier conexión que no
+> venga de loopback, aunque la clave sea correcta. Para provisionar agentes remotos hay
+> que **cambiar esa restricción en el servidor** (p. ej. permitir la red VPN con la
+> clave); no basta con configurar DNS o VPN.
+
 Respuesta:
 ```json
 {
   "proxy_url": "http://100.64.12.34:8080",
   "token": "a1b2c3d4e5f6...",
   "timeouts": {"connect": 5, "read": 30},
-  "version": "c0d2f2a"
+  "version": "dev"
 }
 ```
 
-### Cliente disponible
+### Cliente disponible (no funciona remotamente hoy: ver la limitación de arriba)
 ```python
 # validator_app/proxy/client.py
 @classmethod
