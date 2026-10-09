@@ -1,119 +1,150 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: 2026-10-07
+Fecha: 2026-10-09
 
 ## Rotación del resumen anterior
 
-El detalle íntegro del 2026-10-02 (PC oficina en Windows 11 + nota del plugin
-`documentation` del 2026-10-06) quedó en `resumenes/2026-10-02.md` y su entrada
-condensada en `HistorialResumenes.md`. El repo `W11-JSConnect-Win-Coverage` tenía ese
-mismo resumen sin rotar; al unirse, se rotó una sola vez aquí.
+El detalle íntegro del 2026-10-07 (repos unificados, huella estable, Fase 5, owner con
+actualizador, Releases `v2026.10.07` y `v2026.10.07.1`) quedó en `resumenes/2026-10-07.md`
+y su entrada condensada en `HistorialResumenes.md`. Ese resumen había quedado sin cerrar
+hasta hoy (no hubo sesión el 2026-10-08).
 
 ## Qué se hizo hoy
 
-### 2026-10-07 — Unificación W10 + W11, huella estable y red del owner
+### 2026-10-09 — Mapa de cobertura y reglas de venta (en curso)
 
-1. **Un solo repo.** El repo W11 estaba exactamente 4 commits por delante de este
-   (`5cb8768`, `a40a0d5`, `4fe66d3`, `84aa745`), en línea recta: se trajo con
-   `git merge --ff-only` desde un clon local (sin conflictos) y se trajo también el tag
-   `v2026.10.02-w11`. `ResumenDelDia.md` se conservó con `git stash`.
-2. **Diagnóstico de "owner W11 + agentes W10 se rompe".** La activación no depende de
-   la versión de Windows (la huella se firma en cada agente). Lo que rompía es el PC
-   owner, que además hospeda el proxy: la regla de firewall solo cubría `Domain,Private`
-   y Windows 11 deja la red en **Pública** → agentes con timeout. Ya estaba corregido en
-   la rama W11 (`-Profile Any` limitado a la LAN).
-3. **Huella estable** (`validator_app/activation/fingerprint.py`): la huella antigua
-   (`MachineGuid|MAC|CPU|volumen`) cambiaba con VPN/Wi-Fi aleatorio, un USB o la falta de
-   `wmic`, y por eso se perdía el estado "activado". La nueva usa solo MachineGuid + CPU
-   del registro (sin subprocess). `activacion_vigente()` devuelve `"vigente"`,
-   `"transicion"` (activación hecha con la huella antigua: sigue funcionando y pide
-   reactivar) o `None`. `huellas_legacy()` solo se calcula si la guardada no es la
-   actual. Commit `212f300`.
-4. **Red del owner** (`install_service.bat`, commit `ce3f60a`): si la red es Pública y
-   el PC no está en dominio, **ofrece** pasarla a Privada (`choice`, por defecto NO, 60 s)
-   y avisa si el perfil Público bloquea todo lo entrante. Nunca cambia nada sin
-   preguntar, para que otros call centers instalen sin tocar su red. Documentado en
-   `docs/proxy-deploy.md`.
-5. **Documentación**: README (es/en), `AGENTS.md` (cierre de sesión), `anotaciones.md`,
-   `actualizacion-windows-11/` (banner + pendiente §3 resuelto) y `docs/proxy-config.md`.
-6. **Tests**: 287 → **291**, ruff limpio.
-7. **Release `v2026.10.07`** (tag → `57a42bc`, agente + owner) en este repo. Verificado
-   contra GitHub: el `.exe` nuevo no se ofrece una actualización falsa y el de
-   `v2026.09.30` sí detecta `v2026.10.07`. Prueba en esta PC (Windows 10): con la
-   activación real arranca en "transición" (la huella guardada está entre las antiguas).
-8. **Repo W11 archivado**: recibió el mismo código por fast-forward, un aviso en su README
-   (`e23c146`) y un release puente `v2026.10.07` (mismo `.exe`, que ya consulta este
-   repo) para que cualquier `.exe` del canal W11 se pase solo al oficial. Luego se
-   archivó con `gh repo archive`; sigue público (el usuario lo pondrá privado más adelante,
-   cuando esos `.exe` ya se hayan actualizado).
+**Por qué.** Cada consulta de score gasta una petición de Equifax; consultar a clientes que
+no terminan en venta pone en riesgo la cuenta. Además, "sin cobertura" en un punto hace
+perder ventas que se resuelven trayendo un cable desde un vecino con cobertura. Se pidió un
+mapa en el agente, con la cobertura antes que el score.
 
-9. **Etapa E completada — runbook con pendrive.** El usuario contó su procedimiento
-   real (Python en la PC owner; repo, `.exe` y `private_key.pem` por pendrive; agentes
-   con `.exe` + URL + token por pendrive; Python **3.14.7**). Quedó en
-   `docs/proxy-deploy.md` → "Instalación con pendrive", verificado contra
-   `install_service.bat` (13 pasos): Python para todos los usuarios, copia a
-   `C:\jsconnect` (rutas absolutas en `winsw.xml`), pip siempre elevado, extensión
-   manual, red Pública. **No probado de punta a punta** desde un pendrive en una PC
-   limpia. Idea futura (no existe): que el agente lea URL y token de un archivo del
-   pendrive. También se puso al día el `Roadmap.md`.
-10. **Punto 6 (sesión de WinForce) acordado con el usuario.** Su hipótesis (alguien inicia
-    sesión con la misma cuenta y eso invalida la `PHPSESSID`; al volver a iniciar sesión todo
-    se normaliza) es razonable y los datos no la descartan: el "tope de 9.5 h" salió de una
-    sola corrida (sábado 21:08 → ≈ 06:38 del domingo). Los docs pasaron de "hecho medido" a
-    "una medición, no concluyente" (`anotaciones.md` lleva la corrección; protocolo en
-    `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión"). Sin cambios
-    de código. El patrón de ~10 min tras renovar (593 y 603 s, mismo `cookie_id`) sigue sin
-    explicar.
-11. **Fase 5 completada** (barrido de documentación). La revisión contrastó los 19 hallazgos
-    de 2026-09-09 con el código actual: 13 ya estaban corregidos; se corrigieron el resto y
-    lo nuevo — `/admin/*` es solo loopback (no hay renovación/discovery remoto por VPN),
-    ejemplos de versión `"dev"`, URL del proxy con `http://`, conteos de agentes (25 hoy, 41
-    previstos), Python 3.14.7, avisos de "documento histórico" en `actualizacion-windows-11/`.
-    Dato para la duda diferida de `Escalabilidad.md` (no tocada): lo de "no hay que reescribir
-    nada" no se cumple para `/admin/*` remoto.
-12. **3 bugs de código del agente** (Configurar Proxy): `IP:puerto` sin `http://` se
-    normaliza (#14), "Probar conexión" muestra el motivo real (#19), guardar ya no revienta
-    si el keyring falla (#18); además el texto de `session_age` dice "última actividad".
-13. **La consola owner busca actualizaciones** (pedido del usuario): botón "Buscar
-    actualizaciones", chequeo silencioso al abrir y versión en pantalla. Compara el
-    **SHA-256** de su `.exe` con el del Release (no el commit, para no entrar en bucle si un
-    Release reutiliza un owner viejo). `build-owner.ps1` ahora graba `version.py`. La
-    ventana toma el tamaño de su contenido. **El owner ya instalado se reemplaza a mano una
-    sola vez.**
-14. **`AGENTS.md` dividido**: 113 KB → 26 KB. Las 43 tareas completadas y la bitácora por
-    fases + cierres de sesión (2026-08-18 → 2026-10-02) pasaron tal cual a
-    `docs/historial-agents.md` (verificado: ninguna línea perdida). `AGENTS.md` conserva
-    reglas vivas, tareas abiertas y solo el último cierre; las reglas de cierre y el mapa
-    de conocimiento reflejan la nueva convención.
-15. **Release `v2026.10.07.1`** (tag → `154ba5e`, agente + owner), publicado y verificado
-    contra GitHub: el agente `v2026.10.07` detecta la nueva y la nueva no se ofrece
-    actualización a sí misma; el owner por hash igual; la descarga del owner coincide con su
-    checksum. Tests 291 → **318**, ruff limpio. Los agentes en `v2026.09.30` saltan directo a
-    esta versión (el actualizador solo mira el último Release).
+**Reglas de venta (las dio el usuario):**
+- Zona **bloqueada / fraude**: no se vende ni con score 999 → no se debe consultar el score.
+- Zona **Preferente 2** (azul): solo score ≥ **401**. Cualquier otra zona: ≥ **201**.
+- Todo lo anterior solo aplica si hay cobertura. Sin cobertura en el punto, se puede
+  extender si hay cobertura a ≤ **~300 m**, por calles y **sin cruzar una avenida grande de
+  doble vía** (tipo Av. Universitaria); las avenidas chicas sí se cruzan.
+
+**Fuentes de datos:**
+- Reglas de venta: Google My Maps público "PARAMETROS VENTAS" (KML): `PREFERENTE 2` (129
+  polígonos) y `CODIGOS BLOQUEADOS` (9).
+- Cobertura de internet: **no sale de WinForce**. Su mapa son tiles PNG de
+  `tiles*.equifax.com` con la cobertura ya pintada (HAR `appwinforce.win.pe.har`), sin
+  geometría. Los polígonos salen de una **app web de terceros** (una PWA que el usuario ya
+  usa), que sirve **sin login** tres archivos (captura de red del usuario): `COBERTURA_JUNIO.kmz` (3.361 polígonos, con campo `PROYECTO`),
+  `zona_fraude.kml` (28 polígonos) y `zonas.txt` (PREFERENTE 2, BLOQUEADOS y `ZONA_F` con 27
+  polígonos que esa app no usa). El origen real parece ser un shapefile de proyectos de WIN.
+- **Datos de terceros y repo público**: las fuentes viven en `datos_capas/` y lo generado en
+  `validator_app/data/capas.json.gz` (651 KB); ambos **GITIGNORED**. Cubierto por
+  `tests/test_build_ps1.py`.
+
+**Lógica de la app de terceros (leída de su JS):** fraude dentro → "Zona de Fraude", fraude a
+≤ 300 m → "cercana"; cobertura dentro → directa, polígono a ≤ 300 m → cercana. Preferente 2 y
+bloqueados solo por punto-en-polígono.
+
+**Decisiones del usuario:** fraude dentro **bloquea**, fraude cercana **avisa**; **ZONA F se
+muestra en el mapa** como capa informativa (se la enseñará a su jefe para saber qué es); las
+capas van **embebidas en el .exe** (el tercero puede desaparecer).
+
+**Hecho (sin commit):**
+1. `validator_app/core/geo.py`: KML/KMZ/`zonas.txt`, `bbox` por polígono, distancias,
+   `decidir_venta` completa (`BLOQUEADA` / `VENDER` / `EXTENSIBLE` a ≤ 300 m / `SIN_COBERTURA`,
+   score mínimo 401 en Preferente 2 y 201 en el resto, avisos de fraude cercana y Zona F),
+   carga de capas embebidas. Con las capas reales: carga 0,17 s, decisión ~1-3 ms.
+2. **Hallazgo con datos reales**: en el punto del HAR de WinForce, WinForce respondió
+   `cobertura: NO` pero la copia de junio lo da por cubierto. Por eso, si WinForce dice NO,
+   **nunca** es `VENDER`: el polígono lo deja como `EXTENSIBLE` a 0 m con aviso de confirmar.
+3. Proxy: `capas.py` (`CapasCache`, descarga diaria del My Maps con copia en disco),
+   `GET /api/capas`, `ProxyClient.obtener_capas()`. Agente: `core/capas_local.py` mezcla las
+   capas embebidas con las reglas al día del proxy (caché en `%APPDATA%`).
+4. `tools/preparar_capas.py`: `datos_capas/` → `validator_app/data/capas.json.gz`
+   (3.361 / 28 / 129 / 9 / 27 polígonos).
+5. GUI: página **Mapa** (`gui/map_page.py`, `tkintermapview 1.30`; la ventana se agranda al
+   abrirla) con pin, círculo de 300 m, capas por color y casillas, clic derecho → "Validar esta
+   ubicación"; `gui/zonas.py` (textos y `plan_score`). **Compuerta del score** también en la
+   pantalla principal: bloqueada → no se consulta; extensible → confirma el asesor; sin
+   cobertura → no se consulta (igual que antes); se muestra si el score alcanza el mínimo.
+6. `build.ps1`: embebe las capas si existen (avisa si faltan) y empaqueta los datos de
+   `tkintermapview`/`customtkinter`.
+7. Tests 318 → **398**, ruff limpio. `.exe` de prueba (compilado en el scratchpad con las mismas
+   opciones, sin tocar `dist\`): **35,5 MiB** contra 33,3 MiB del actual (+2,2 MiB); las capas
+   quedan dentro (`validator_app\data\capas.json.gz`).
+8. **Incidente**: una captura de pantalla de prueba incluyó otra ventana del escritorio del
+   usuario que estaba por delante de la app. Se borró de inmediato y no se usó nada. Con permiso
+   expreso del usuario se repitió con `PrintWindow`, que renderiza **solo la ventana de la app**
+   (nada ajeno puede entrar). Capturas en el scratchpad (`mapa_1..4`), fuera del repo.
+9. **Resultado de las capturas**: pin, círculo de 300 m y panel correctos; cobertura en verde,
+   fraude en rojo, bloqueados en granate, Preferente 2 en azul. Preferente 2 cubre casi toda la
+   ciudad y tapaba todo, así que su relleno se aclaró (`gray12`; el resto `gray25`).
+10. **ZONA F = FRAUDE**: los 27 polígonos de `ZONA_F` de `zonas.txt` son **idénticos** a 27 de
+    los 28 de `zona_fraude.kml`. Es una copia de la capa de fraude (la app de terceros ni la
+    usa). La casilla "Zona F" del mapa es redundante; queda por si el jefe aclara otra cosa.
+11. **`.exe` reconstruidos** con `build.ps1` y `build-owner.ps1` (ambos código 0, arrancan y se
+    mantienen vivos, commit base `aae580d`, tag `v2026.10.07.1-2-gaae580d`):
+    - Agente: 34.930.986 → **37.269.172 B** (+2,2 MiB, trae `capas.json.gz`).
+      SHA-256 `4980526F0AC15FC9EFA59B8DF845D0C49EF94744C5029ACF78E2C54EC2F921A8`.
+    - Owner: 73.344.581 → **73.440.258 B**.
+      SHA-256 `EEB5685F979F84AD6FE57318CC495C180CB7ECF9BE27D2302DDE0814268B1BFE`.
+    - `dist\private_key.pem` sin cambios (mismo SHA-256).
+    - El build dejó `validator_app/version.py` modificado (SHA de `HEAD`); el código nuevo
+      **sigue sin commit**, así que ese SHA no lo describe. Para publicar: commit → rebuild →
+      `publish-release.ps1`.
+
+12. **Una sola medida de ventana + pantalla completa** (pedido del usuario): `TAMANO_VENTANA`
+    1120x700 para todas las páginas (antes 660x540 vs 1120x700), redimensionable (mínimo
+    900x600). `F11` alterna pantalla completa, `Esc` sale, menú nuevo "Ver". La pantalla
+    principal va centrada arriba dentro de un contenedor que llena el espacio (primer intento
+    con `sticky="n"` dejaba ver los controles de la página Mapa por detrás: corregido).
+13. **El mapa funciona sin WinForce** (pedido del usuario): solo la cobertura en vivo depende de
+    WinForce; el resto de capas es local. `decidir_venta(..., hay_cobertura=None)` → nuevo estado
+    `SIN_CONFIRMAR`: sigue bloqueando fraude/bloqueados, da el score mínimo (401/201), los avisos
+    y la referencia del mapa de cobertura marcada "sin confirmar". Ambas páginas muestran "No se
+    pudo obtener la información de cobertura (motivo). Del resto de los datos sí. Condiciones de
+    venta de esta zona: …" y "Este punto está en: <capas>". El score no se consulta.
+14. **Capas completas al marcarlas**: Zona F, Fraude y Bloqueados dibujan **todas** sus zonas
+    (64) al marcar la casilla, sin mover la vista; Cobertura y Preferente 2 siguen cerca del
+    punto (2 km) o de la vista ("Dibujar capas en esta vista"). Las casillas son **solo
+    visuales**: la decisión usa siempre todas las capas (`geo.capas_visibles` solo para dibujar).
+15. **Bug real hallado en la prueba de humo**: la carga de capas esperaba al proxy (con proxy
+    caído, reintentos ~20 s) y `obtener()` devolvía `{}` → una decisión podía tomarse **sin
+    capas**. Ahora `CapasCargadas` deja lo local (embebidas + última copia de reglas) listo al
+    instante y el proxy solo actualiza después (test con proxy lento).
+16. Tests 398 → **418**, ruff limpio. Capturas con `PrintWindow` (`n1..n4` en el scratchpad).
+17. **Agente reconstruido** con `build.ps1` (código 0, arranca, trae `capas.json.gz`):
+    37.274.499 B, SHA-256 `CC8F0F7C5398EADB304C2F50D3D633A25882E188041A052741F9D2C689363569`.
+    El owner no cambió (73.440.258 B, mismo SHA-256 del paso 11) y `private_key.pem` tampoco.
+    El primer intento falló con "acceso denegado": la ventana del agente abierta por el usuario
+    bloqueaba el `.exe`; se reintentó cuando la cerró. Un resto de mi prueba (Owner) se cerró.
+    Lección: `terminate()` de un `.exe` onefile mata el padre y puede dejar vivo al hijo.
+
+**En curso / siguiente:**
+- Probar la página Mapa a mano con los `.exe` nuevos; si gusta, commit y Release.
+- Decidir con el jefe qué hacer con la casilla "Zona F" (es copia de Fraude).
+- Los huecos de los polígonos (243) no se dibujan en el mapa, pero las reglas sí los respetan.
+- Mostrar a su jefe la ZONA F y anotar qué significa.
+- Actualizar `README.md`, `AGENTS.md`, `docs/arquitectura.md`, `anotaciones.md` y
+  `TestingLog.md` en el cierre de sesión. Borrar los HAR del scratchpad (el de WinForce puede
+  traer la cookie de sesión).
 
 ## Pendiente al iniciar
 
+- **Mapa de cobertura**: ver "En curso / siguiente" arriba.
 - **Reactivar los agentes** con la huella nueva (hoy 25: 18 + 7; a futuro 41). Funcionan
   en "transición" hasta entonces. **NO borrar `huellas_legacy()`** (ni su uso en
-  `validator_app/gui/main_window.py`) salvo que el usuario lo pida expresamente: el
-  actualizador salta directo al último Release, y quien se salte la transición perdería
-  la activación. Regla completa en `AGENTS.md` → "Versionado y actualizaciones".
+  `validator_app/gui/main_window.py`) salvo que el usuario lo pida expresamente. Regla
+  completa en `AGENTS.md` → "Versionado y actualizaciones".
 - **Probar un agente W10 real contra el owner W11** y revisar en el owner
   `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
 - Poner `W11-JSConnect-Win-Coverage` en privado (ya archivado) **solo después** de que
-  los `.exe` del canal W11 se hayan actualizado a `v2026.10.07`; si no, pierden su canal.
+  los `.exe` del canal W11 se hayan actualizado a `v2026.10.07`.
 - **Reemplazar a mano el `.exe` del owner** instalado (`v2026.10.07`) por el de
   `v2026.10.07.1`; desde ahí se actualiza solo.
 - **Observar por qué la sesión de WinForce muere ~10 min después de renovar** (hipótesis del
-  usuario: login ajeno con la misma cuenta; `docs/rotacion-credenciales.md` → "Cómo
-  investigar una muerte de sesión").
-- **Archivo del pendrive con URL + token para el agente** (idea acordada; ahora que la
-  Fase 5 terminó, es lo siguiente a hacer si el usuario lo confirma; con su propio Release).
+  usuario: login ajeno con la misma cuenta; `docs/rotacion-credenciales.md`).
+- **Archivo del pendrive con URL + token para el agente** (idea acordada, con su propio Release).
 - Firma de código de los `.exe` (Smart App Control en Windows 11).
-- Monitorear la primera semana de producción (sesión del proxy, RUC/CE) —
-  observación, no una tarea con pasos.
-- **Probar el recorrido del pendrive** en una PC owner limpia (Etapa E ya escrita) y
-  anotar lo que se ajuste en `docs/proxy-deploy.md`.
+- Monitorear la primera semana de producción (sesión del proxy, RUC/CE).
+- **Probar el recorrido del pendrive** en una PC owner limpia (`docs/proxy-deploy.md`).
 - Diferido a pedido del usuario: Etapa C.12 (modo standalone), la duda de
   `Escalabilidad.md`, la decisión de `actualizar_score_cliente`/`newsearch.php` y el
-  backlog v1.1.
+  resto del backlog v1.1.

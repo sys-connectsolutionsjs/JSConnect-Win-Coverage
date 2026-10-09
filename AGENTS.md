@@ -52,7 +52,8 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── medir_keepalive.py    # mide cuánto sobrevive la sesión con pings reales cada N min (mide edad de sesión, clasifica la muerte)
 │   ├── medir_sesion.py       # mide la vida real de una PHPSESSID sin actividad, para calibrar el keepalive
 │   ├── coords_prueba.txt     # 49 coordenadas públicas (polígono de Lima) que medir_keepalive.py rota por ping
-│   └── generar_iconos.py     # NUEVO 2026-09-25: dibuja con Pillow (dev-only) los .ico/.png de assets/icons/ y de la extensión
+│   ├── generar_iconos.py     # NUEVO 2026-09-25: dibuja con Pillow (dev-only) los .ico/.png de assets/icons/ y de la extensión
+│   └── preparar_capas.py     # NUEVO 2026-10-09: datos_capas/ (KMZ, KML de fraude, zonas.txt) -> validator_app/data/capas.json.gz
 ├── assets/
 │   └── icons/                # NUEVO 2026-09-25: agent.ico/.png (--icon de build.ps1), owner.ico/.png (--icon de build-owner.ps1)
 ├── generator/
@@ -90,8 +91,9 @@ JS-Win-Coverage/              (raíz del proyecto)
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
-    ├── core/                 # api.py (login, score, cobertura) + session.py
-    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone)
+    ├── core/                 # api.py (login, score, cobertura) + session.py · geo.py (reglas de venta por zona: KML/KMZ, distancias, decidir_venta) · capas_local.py (carga de capas con garantia)
+    ├── data/                 # capas.json.gz embebido en el .exe (GITIGNORED: datos de terceros)
+    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone) · map_page.py (pagina Mapa) · zonas.py (textos/plan del score)
     ├── activation/           # fingerprint.py, signer.py, state.py
     ├── updater/              # check.py, download.py (agente por commit; owner por SHA-256)
     └── proxy/                # proxy local para los agentes de la LAN (25 hoy, 41 previstos)
@@ -99,7 +101,8 @@ JS-Win-Coverage/              (raíz del proyecto)
         ├── config.py         # Pydantic Settings (lee config.yaml + env)
         ├── config.yaml       # GITIGNORED (secretos reales)
         ├── config.yaml.example  # plantilla en repo
-        ├── server.py         # FastAPI app + endpoints + ValidatorAPI wrapper + keepalive
+        ├── server.py         # FastAPI app + endpoints (incl. GET /api/capas) + ValidatorAPI wrapper + keepalive
+        ├── capas.py          # CapasCache: reglas de venta (My Maps -> KML) con copia en disco; la URL va solo en config.yaml
         ├── client.py         # ProxyClient para agentes .exe
         ├── winsw.xml         # config servicio Windows
         ├── install_service.bat   # instala servicio (winsw, tokens, Chromium, icono Escritorio)
@@ -186,10 +189,13 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
   código de compatibilidad con activaciones antiguas.
 
 ## Implementaciones futuras
-### 1. Mapa interactivo de cobertura
-Mostrar el punto validado sobre un mapa (propio) para dar contexto visual al agente.
-No depende de la API interna: la cobertura ya llega como dato. Tkinter `Canvas` o
-WebView embebido. La validación central (`core/api.py`) NO debe cambiar.
+### 1. Mapa interactivo de cobertura — PRIMERA VERSIÓN HECHA (2026-10-09, sin Release aún)
+Página "Mapa" (`gui/map_page.py`, `tkintermapview`) + reglas de venta por zona (`core/geo.py`):
+bloqueada/fraude → no se vende ni se consulta el score; Preferente 2 → score ≥ 401, resto ≥ 201;
+sin cobertura pero con cobertura a ≤ 300 m → "extensible" (confirma el asesor). Las capas van
+embebidas en el .exe y solo la cobertura en vivo depende de WinForce. `core/api.py` NO cambió.
+Falta: Release, detección automática de "no cruzar avenida de doble vía" (hoy es visual),
+decidir qué hacer con la capa "Zona F" (es copia de Fraude: 27 de sus 28 polígonos son idénticos).
 
 ### 2. Ofertas / catálogo de venta
 Al confirmar cobertura + score, sugerir planes por zona. Debe mantenerse separado
@@ -323,6 +329,11 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 ## Notas de seguridad
 - No subir a GitHub: llave privada de activación, credenciales reales, archivos de
   captura (`tools/captura.json` puede contener datos sensibles aunque esté redactado).
+- **Capas del mapa (datos de terceros / del negocio)**: `datos_capas/` y
+  `validator_app/data/*.json.gz` están en `.gitignore` (lo vigila `tests/test_build_ps1.py`); la URL
+  del mapa de reglas de venta (`capas_kml_url`) vive solo en el `config.yaml` del proxy, nunca en el
+  código. Los polígonos salen de una app web de terceros; no copiar sus datos ni su dirección al repo.
+  Los HAR/capturas de red (traen cookies) se guardan fuera del repo y se borran al terminar.
 - Las credenciales de Win rotan cada 1-2 meses: mantener siempre centralizada su
   actualización (proxy local) o por keyring por máquina; nunca en el repo.
 - El repo es público: el código de la API interna será visible. Los endpoints ya son
@@ -351,6 +362,9 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
    hayan actualizado a `v2026.10.07`.
 7. **Que el agente lea la URL y el token de un archivo del pendrive** (idea acordada; después de la
    Fase 5, con su propio Release).
+7b. **Mapa de cobertura**: probarlo con los asesores, publicar el Release (agente) y llevar la URL
+   de `capas_kml_url` al `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas
+   embebidas). Mostrar la "Zona F" al jefe y decidir qué hacer con ella.
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —

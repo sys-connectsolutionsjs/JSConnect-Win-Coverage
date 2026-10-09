@@ -39,6 +39,8 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 - Botón de actualizaciones contra GitHub Releases.
 - Ejecutable único, portable, anclable a la barra de tareas.
 - **Nuevo**: Configuración de proxy via GUI (menú ⚙️ Configuración → Configurar Proxy).
+- **Mapa y reglas de venta por zona** (página 🗺 **Mapa**): pinta sobre OpenStreetMap la cobertura, el fraude, *Preferente 2* (solo score ≥ 401), los códigos bloqueados y la Zona F, con un círculo de 300 m. Decide **antes de gastar una consulta de score**: zona bloqueada → no se vende ni se consulta; sin cobertura en el punto pero con cobertura a ≤ 300 m → "extensible" (el asesor confirma). Las capas van **embebidas en el .exe**, así que **solo la cobertura en vivo depende de WinForce**: si falla, la app lo avisa y da igual las condiciones de venta de la zona. Marcar una capa solo la muestra u oculta (la decisión siempre usa todas).
+- Una sola medida de ventana para todas las páginas y **pantalla completa** (`F11`, `Esc` para salir).
 
 ### Requisitos
 - **Agentes**: Windows 10 (probado). En Windows 11 con Smart App Control activo, el `.exe` sin firma se bloquea (ver Seguridad y avisos).
@@ -55,6 +57,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
    el flujo combinado de siempre (cobertura y, si hay, score).
 5. Pulsa **Validar** (o Enter) → resultado de cobertura y/o score al instante. El botón del borrador limpia cada campo.
 6. El score se clasifica con la **tabla comercial**: 0-200 MUY ALTO (rojo, "NO SE LE PUEDE VENDER") · 201-400 ALTO (naranja) · 401-600 REGULAR (dorado) · 601-800 BAJO (verde) · 801-999 MUY BAJO (azul). Se muestra el rango (ej. `SCORE: 401 - 500`) con un botón **Copiar** que lo lleva al portapapeles.
+7. Página **🗺 Mapa**: pega las coordenadas (o clic derecho en el mapa → "Validar esta ubicación") y, si quieres, un documento. Verás la decisión de la zona y el score mínimo (201, o 401 en Preferente 2); el botón **Consultar score** solo se habilita donde corresponde. `F11` = pantalla completa.
 
 En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver `docs/arquitectura.md` ("Control de acceso al proxy").
 
@@ -71,13 +74,15 @@ contra WinForce y se guarda cifrada en el keyring. Cuando expire, vuelve a pegar
 pip install -r requirements-dev.txt
 python -m playwright install chromium   # solo para tools/captura.py
 python main.py
+python tools/preparar_capas.py          # regenera validator_app/data/capas.json.gz desde datos_capas/
 ```
+Las capas de cobertura/fraude son datos de terceros: `datos_capas/` y `validator_app/data/*.json.gz` están en `.gitignore` y **no se suben** (el repo es público). Sin ellas la app funciona igual, solo que sin mapa de cobertura.
 
 ### Build del .exe
 ```powershell
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
-El build incluye `validator_app/proxy/client.py` (cliente proxy) pero **NO** `server.py` (solo corre en PC oficina).
+El build incluye `validator_app/proxy/client.py` (cliente proxy) pero **NO** `server.py` (solo corre en PC oficina). Embebe `validator_app/data/capas.json.gz` si existe (si falta, avisa y compila sin capas).
 
 ### Consola del owner
 La consola gráfica del owner genera códigos de activación, muestra el estado del
@@ -152,13 +157,13 @@ Ver `docs/proxy-deploy.md` para detalles completos, firewall, rotación de crede
 - En **Windows 11 con Smart App Control activo**, los `.exe` sin firma se **bloquean** (sin opción de "ejecutar de todas formas"). Alternativas: correr desde el código (`pythonw main.py`) o firmar el ejecutable. Detalle en `actualizacion-windows-11/pendientes.md`.
 - En Windows 11 las redes nuevas suelen quedar como **Públicas**: el instalador crea la regla de firewall para todos los perfiles, limitada a IP de LAN/Tailscale.
 - Repositorio público sin licencia: todos los derechos reservados (ver Licencia).
-- **NUNCA en repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, credenciales reales.
+- **NUNCA en repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, credenciales reales, `datos_capas/`, `validator_app/data/*.json.gz` y la URL del mapa de reglas de venta (`capas_kml_url`, solo en `config.yaml`).
 
 ### Licencia
 Todos los derechos reservados. Este repositorio no incluye licencia de uso, modificación ni distribución.
 
 ### Implementaciones futuras
-Mapa interactivo de cobertura · Ofertas/catálogo de venta · Instalador con auto-actualización · Servidor de activación en línea · Validación por lotes (CSV/Excel) · Historial/CRM básico. Detalle en `AGENTS.md`.
+Ofertas/catálogo de venta · Instalador con auto-actualización · Servidor de activación en línea · Validación por lotes (CSV/Excel) · Historial/CRM básico. Detalle en `AGENTS.md`.
 
 ### Documentación técnica (permanente, en `docs/`)
 - `arquitectura.md` — Diagrama + decisiones clave + flujo de datos
@@ -206,6 +211,8 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 - Update button against GitHub Releases.
 - Single portable executable, pinnable to the taskbar.
 - **New**: Proxy configuration via GUI (menu ⚙️ Configuración → Configurar Proxy).
+- **Map and per-zone sales rules** (🗺 **Mapa** page): draws coverage, fraud, *Preferente 2* (score ≥ 401 only), blocked codes and Zone F on OpenStreetMap, with a 300 m circle. It decides **before spending a score query**: blocked zone → no sale and no query; no coverage at the point but coverage within ≤ 300 m → "extensible" (the agent confirms). The layers are **embedded in the .exe**, so **only live coverage depends on WinForce**: if it fails the app says so and still gives the zone's sales conditions. Ticking a layer only shows or hides it (the decision always uses all of them).
+- One window size for every page and **full-screen mode** (`F11`, `Esc` to leave).
 
 ### Requirements
 - **Agents**: Windows 10 (tested). On Windows 11 with Smart App Control on, the unsigned `.exe` is blocked (see Security & notices).
@@ -222,6 +229,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
    the usual combined flow (coverage and, if covered, score).
 5. Press **Validate** (or Enter) → coverage and/or score results instantly. The eraser button clears each field.
 6. The score is classified with the **company table**: 0-200 VERY HIGH risk (red, "CANNOT BE SOLD") · 201-400 HIGH (orange) · 401-600 REGULAR (gold) · 601-800 LOW (green) · 801-999 VERY LOW (dark blue). The range (e.g. `SCORE: 401 - 500`) is shown with a **Copy** button for the clipboard.
+7. **🗺 Mapa** page: paste the coordinates (or right-click the map → "Validar esta ubicación") and, optionally, a document. You get the zone decision and the minimum score (201, or 401 in Preferente 2); the **Consultar score** button is only enabled where it applies. `F11` = full screen.
 
 At any time, **⚙️ Configuración → Activación / Huella de la PC** shows the activation status and the PC fingerprint (to request a code from the manager). If "IP no permitida" appears, the agent IP is not in the proxy allow-list: see `docs/arquitectura.md` ("Control de acceso al proxy").
 
@@ -238,13 +246,15 @@ it expires. **Do not use on all the agents at once** (concurrent-session block r
 pip install -r requirements-dev.txt
 python -m playwright install chromium   # only for tools/captura.py
 python main.py
+python tools/preparar_capas.py          # rebuilds validator_app/data/capas.json.gz from datos_capas/
 ```
+The coverage/fraud layers are third-party data: `datos_capas/` and `validator_app/data/*.json.gz` are in `.gitignore` and are **never pushed** (public repo). Without them the app still works, just without the coverage map.
 
 ### Build the .exe
 ```powershell
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
-The build includes `validator_app/proxy/client.py` (proxy client) but **NOT** `server.py` (runs only on office PC).
+The build includes `validator_app/proxy/client.py` (proxy client) but **NOT** `server.py` (runs only on office PC). It embeds `validator_app/data/capas.json.gz` when present (if missing it warns and builds without layers).
 
 ### Owner console
 The owner graphical console generates activation codes, displays the local proxy
@@ -320,13 +330,13 @@ See `docs/proxy-deploy.md` for full details, firewall, credential rotation, and 
 - On **Windows 11 with Smart App Control on**, unsigned `.exe` files are **blocked** (no "run anyway"). Options: run from source (`pythonw main.py`) or sign the executable. See `actualizacion-windows-11/pendientes.md`.
 - On Windows 11 new networks are usually **Public**: the installer creates the firewall rule for all profiles, restricted to LAN/Tailscale IPs.
 - Public repository with no license: all rights reserved (see License).
-- **NEVER in repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, real credentials.
+- **NEVER in repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, real credentials, `datos_capas/`, `validator_app/data/*.json.gz` and the sales-rules map URL (`capas_kml_url`, only in `config.yaml`).
 
 ### License
 All rights reserved. This repository carries no license to use, modify or distribute its contents.
 
 ### Future implementations
-Interactive coverage map · Sales offers/catalog · Installer with auto-update · Online activation server · Batch validation (CSV/Excel) · Basic history/CRM. Details in `AGENTS.md`.
+Sales offers/catalog · Installer with auto-update · Online activation server · Batch validation (CSV/Excel) · Basic history/CRM. Details in `AGENTS.md`.
 
 ### Technical documentation (permanent, in `docs/`)
 - `arquitectura.md` — Diagram + key decisions + data flow

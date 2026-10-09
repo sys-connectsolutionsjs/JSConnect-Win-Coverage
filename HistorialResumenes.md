@@ -13,6 +13,21 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+### 2026-10-07 — Sesión — repos W10+W11 unificados, huella estable, Fase 5, owner con actualizador + Releases v2026.10.07 / v2026.10.07.1
+- **Snapshot completo**: `resumenes/2026-10-07.md`.
+- **Un solo repo**: `W11-JSConnect-Win-Coverage` se unió a este por fast-forward (4 commits +
+  tag `v2026.10.02-w11`); el repo W11 quedó archivado (público) con un release puente.
+- **Huella estable** (`fingerprint.py`): MachineGuid + CPU del registro, sin `wmic`/MAC/volumen.
+  La antigua se acepta en "transición" (`activacion_vigente()` → `vigente`/`transicion`/`None`);
+  hay que reactivar los agentes. **No borrar `huellas_legacy()`** sin pedido expreso.
+- **Red del owner** (`install_service.bat`): si la red es Pública, OFRECE pasarla a Privada;
+  la causa del fallo "owner W11 + agentes W10" era el firewall `Domain,Private`.
+- **Etapa E**: runbook "Instalación con pendrive" en `docs/proxy-deploy.md` (sin probar en PC limpia).
+- **Punto 6**: el "tope de 9.5 h" de la sesión de WinForce es una medición no concluyente.
+- **Fase 5** (barrido de docs) y 3 bugs de Configurar Proxy. **La consola owner busca
+  actualizaciones** (compara SHA-256). `AGENTS.md` dividido (historial → `docs/historial-agents.md`).
+- **Releases** `v2026.10.07` (`57a42bc`) y `v2026.10.07.1` (`154ba5e`). Tests 287 → **318**.
+
 ### 2026-10-02 — Sesión — PC oficina en Windows 11 (owner + proxy) + Release v2026.10.02-w11 (repo W11, hoy unificado)
 - **Snapshot completo**: `resumenes/2026-10-02.md`.
 - **Windows 11**: la PC oficina (Windows 11 Pro 25H2) quedó como owner + proxy. Seis

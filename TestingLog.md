@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (287 en total, a 2026-10-02)
+## Inventario de tests (421 en total, a 2026-10-09; el desglose de abajo es de 2026-10-02)
 
 > 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
 > +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
@@ -46,6 +46,30 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-09 — mapa de cobertura y reglas de venta por zona (318 → 421 tests)
+- [TDD] Tests escritos primero (rojo) y luego el código, en este orden: `test_geo.py` y
+  `test_capas.py` (KML, caché del proxy, `/api/capas`, `ProxyClient.obtener_capas`),
+  `test_geo_reglas.py` (KMZ, `zonas.txt`, capas embebidas, `decidir_venta` completa),
+  `test_preparar_capas.py` (script con fuentes sintéticas), `test_capas_gui.py`
+  (`CapasCargadas`, textos de `zonas.py`, `plan_score`), `test_build_ps1.py` (guardas
+  estáticas del build y del `.gitignore`).
+- **Nunca datos reales en los tests**: los polígonos de cobertura/fraude son de terceros; todo se
+  prueba con cuadros sintéticos y KML de juguete.
+- **Bug destapado con datos reales, no con tests**: WinForce respondió `NO` en un punto que la
+  copia de junio de los polígonos da por cubierto → la regla "polígono O WinForce ⇒ vender" era
+  demasiado optimista. Ahora si WinForce dice NO nunca es `VENDER` (queda `EXTENSIBLE` a 0 m).
+- **Bug destapado por la prueba de humo en vivo**: la carga de capas esperaba al proxy; con el
+  proxy caído `obtener()` devolvía `{}` y la decisión se tomaba sin capas. Test nuevo con proxy
+  lento (`test_capas_cargadas_no_espera_a_un_proxy_lento`).
+- Pruebas de humo de la GUI (script fuera del repo): misma medida en ambas páginas, `F11`/`Esc`,
+  mapa con cobertura caída, Zona F completa sin mover la vista, y capturas con `PrintWindow`
+  (solo la ventana de la app; una captura de región de pantalla incluyó otra ventana del usuario
+  y se descartó). Los `.exe` se compilan y se arrancan 7 s; ojo: `terminate()` de un `.exe`
+  onefile mata el padre y puede dejar vivo al hijo.
+- Lección de proceso: lo versionado nunca debe traer URLs ni datos del negocio (el enlace del
+  mapa de reglas estuvo a punto de quedar en `config.py`; ahora el valor por defecto es vacío y
+  hay un test que lo exige).
 
 ### Sesión 2026-10-02 — PC oficina en Windows 11 (owner + proxy)
 - **Fallas encontradas en la PC real, no supuestas**:
