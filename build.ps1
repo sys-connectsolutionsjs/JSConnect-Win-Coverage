@@ -37,9 +37,21 @@ Set-Content -Path "$root\validator_app\version.py" -Value $content -Encoding UTF
 # 3. Empaquetar con PyInstaller (un solo .exe, sin consola)
 # Nota (2026-09-25): Pillow SI viaja en el .exe desde que la GUI usa
 # ttkbootstrap (lo trae como dependencia real, no dev-only) -- no excluir.
+# Capas de cobertura/fraude (mapa): GITIGNORED, se generan con
+# tools\preparar_capas.py. Sin ellas el .exe se construye igual, sin mapa de cobertura.
+$capas = Join-Path $root "validator_app\data\capas.json.gz"
+$datosCapas = @()
+if (Test-Path $capas) {
+    $datosCapas = @("--add-data", "$capas;validator_app\data")
+} else {
+    Write-Warning "Falta validator_app\data\capas.json.gz: el .exe saldra SIN capas embebidas (python tools\preparar_capas.py)."
+}
+
 & $python -m PyInstaller --clean --noconfirm --onefile --windowed `
     --add-data "$root\assets\LogoJSConnectSolutionsLogo.png;assets" `
     --add-data "$root\assets\icons\borrador.png;assets\icons" `
+    --collect-data tkintermapview --collect-data customtkinter `
+    @datosCapas `
     --icon "$root\assets\icons\agent.ico" `
     --name "JSConnect-Win-Coverage" main.py
 if ($LASTEXITCODE -ne 0) {

@@ -58,6 +58,12 @@ class ProxyConfig(BaseSettings):
     # varias oficinas; el Evento de Windows + la extension cubren el caso local.
     alert_webhook_url: str = ""
 
+    # Reglas de venta por zona (mapa de Google My Maps exportado como KML). La URL es
+    # informacion del negocio: va SOLO en config.yaml (gitignored), nunca en el repo publico.
+    # Vacia = no se descarga y los agentes usan las reglas embebidas en su .exe.
+    capas_kml_url: str = ""
+    capas_ttl_seconds: int = 86400
+
     # Redes permitidas (LAN + Tailscale CGNAT)
     allowed_networks: list[str] = [
         "192.168.0.0/16",

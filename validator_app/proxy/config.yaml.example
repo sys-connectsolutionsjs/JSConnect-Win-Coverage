@@ -35,6 +35,13 @@ winforce_score_timeout: 90         # Consulta score (más lento, SOAP Equifax)
 keepalive_enabled: true
 keepalive_interval_seconds: 900    # 15 min (validado en la investigación de keepalive)
 
+# Reglas de venta por zona (Google My Maps "PARAMETROS VENTAS" publicado como KML):
+# carpetas PREFERENTE 2 (score >= 401) y CODIGOS BLOQUEADOS (no vender). Se descarga
+# una vez por TTL y se sirve a los agentes en GET /api/capas.
+# capas_kml_url: "https://www.google.com/maps/d/kml?mid=<MID>&forcekml=1"   # SOLO aqui, nunca en el repo
+# Sin URL no se descarga nada y los agentes usan las reglas embebidas en su .exe.
+capas_ttl_seconds: 86400           # 24 h
+
 # Redes permitidas para agentes (CIDR): IP de ORIGEN que ve el proxy.
 # LAN estándar + Tailscale CGNAT (100.64.0.0/10). Loopback (127.0.0.1/::1) SIEMPRE
 # se permite. NO agregar las IP públicas del router (salida NAT): solo servirían con

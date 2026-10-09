@@ -10,8 +10,10 @@ import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
 
 from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
-from validator_app.core import api
-from validator_app.gui import fields, session_config
+from validator_app.core import api, capas_local, geo
+from validator_app.gui import fields, session_config, zonas
+from validator_app.gui.map_page import MapaPage
+from validator_app.gui.zonas import motivo_cobertura
 from validator_app.proxy.client import ProxyClient, ProxySesionCaducadaError
 from validator_app.updater import check as update_check
 from validator_app.updater import download
@@ -121,17 +123,72 @@ def resumir_error(exc: Exception, limite: int = 80) -> str:
     return texto if len(texto) <= limite else texto[: limite - 1] + "…"
 
 
+class _ClienteSinSesion:
+    """Hace las veces de cliente cuando no hay proxy ni sesion: cada llamada explica el motivo."""
+
+    def _fallar(self, *_args, **_kwargs):
+        raise api.SessionError(
+            "No hay sesion configurada. Menu ⚙ Configuracion → Configurar Proxy "
+            "o Sesion (standalone).",
+            "ERR_SESSION",
+        )
+
+    validar_cobertura = _fallar
+    validar_score = _fallar
+
+
+TAMANO_VENTANA = "1120x700"  # el mismo para todas las paginas
+TAMANO_MINIMO = (900, 600)
+
+
 class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="cosmo")
         self.title("JSConnect Win Coverage")
-        self.geometry("660x440")  # +120px para la barra lateral de navegacion
-        self.resizable(False, False)
+        self.geometry(TAMANO_VENTANA)
+        self.minsize(*TAMANO_MINIMO)
+        self.resizable(True, True)
         self._proxy_client: ProxyClient | None = None
         self._session_client: api.ValidatorAPI | None = None
+        self._capas_carga = capas_local.CapasCargadas()
+        self._pagina_actual = "cobertura_score"
+        self._pantalla_completa = tk.BooleanVar(value=False)
         self._build_ui()
         self._load_proxy_config()
+        self._cargar_capas_async()
+        self.bind("<F11>", self._alternar_pantalla_completa)
+        self.bind("<Escape>", self._salir_pantalla_completa)
         self.after(200, self._inicio)
+
+    def _alternar_pantalla_completa(self, _event=None) -> None:
+        self._poner_pantalla_completa(not self._pantalla_completa.get())
+
+    def _salir_pantalla_completa(self, _event=None) -> None:
+        if self._pantalla_completa.get():
+            self._poner_pantalla_completa(False)
+
+    def _poner_pantalla_completa(self, activa: bool) -> None:
+        self._pantalla_completa.set(activa)
+        self.attributes("-fullscreen", activa)
+
+    def _cliente_activo(self):
+        return self._proxy_client or self._session_client
+
+    def _cargar_capas_async(self) -> None:
+        """Capas embebidas + reglas al dia del proxy, sin frenar el arranque. Quien
+        decide una zona espera a que terminen (CapasCargadas.obtener)."""
+
+        def cargar():
+            self._capas_carga.cargar(self._proxy_client)
+            if not self._capas_carga.obtener(0):
+                self.after(
+                    0,
+                    lambda: self.lbl_estado.config(
+                        text="Estado: SIN capas de cobertura (este .exe no las trae)"
+                    ),
+                )
+
+        threading.Thread(target=cargar, daemon=True).start()
 
     def _build_ui(self):
         # Menu bar
@@ -150,6 +207,14 @@ class App(ttk.Window):
         )
         menu_config.add_command(label="Buscar actualizaciones", command=self._buscar_actualizacion)
 
+        menu_ver = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Ver", menu=menu_ver)
+        menu_ver.add_checkbutton(
+            label="Pantalla completa (F11)",
+            variable=self._pantalla_completa,
+            command=lambda: self._poner_pantalla_completa(self._pantalla_completa.get()),
+        )
+
         # Barra lateral de navegacion + area de contenido. Hoy solo hay una
         # funcion (Cobertura y Score); el mecanismo ya queda listo para las
         # que se vayan agregando (ver _mostrar_pagina).
@@ -164,6 +229,7 @@ class App(ttk.Window):
 
         self._nav_items: dict[str, dict] = {}
         self._agregar_item_nav("cobertura_score", "\U0001f4cd Cobertura y Score", sidebar)
+        self._agregar_item_nav("mapa", "\U0001f5fa Mapa", sidebar)
         # Para agregar una funcion nueva: crear su Frame(content, padding=16),
         # .grid(row=0, column=0, sticky="nsew"), guardarlo en
         # self._paginas["clave"] = frame, y llamar de nuevo a
@@ -174,9 +240,20 @@ class App(ttk.Window):
         content.grid_rowconfigure(0, weight=1)
         content.grid_columnconfigure(0, weight=1)
 
-        main = ttk.Frame(content, padding=16)
-        main.grid(row=0, column=0, sticky="nsew")
-        self._paginas = {"cobertura_score": main}
+        # Arriba y centrada con su ancho natural; el Mapa si ocupa todo el espacio.
+        # El contenedor llena todo el espacio (tapa a la otra pagina); el formulario
+        # va dentro, arriba y centrado.
+        pagina_principal = ttk.Frame(content)
+        pagina_principal.grid(row=0, column=0, sticky="nsew")
+        pagina_principal.columnconfigure(0, weight=1)
+        main = ttk.Frame(pagina_principal, padding=16)
+        main.grid(row=0, column=0, sticky="n")
+        self._paginas = {"cobertura_score": pagina_principal}
+        pagina_mapa = MapaPage(
+            content, self._cliente_activo, self._capas_carga.obtener, clasificar_score, _a_dict
+        )
+        pagina_mapa.grid(row=0, column=0, sticky="nsew")
+        self._paginas["mapa"] = pagina_mapa
 
         main.columnconfigure(0, weight=1)
         self._img_borrador = self._cargar_borrador()
@@ -212,6 +289,8 @@ class App(ttk.Window):
         frame_res.grid(row=5, column=0, columnspan=2, sticky="we")
         self.lbl_cobertura = ttk.Label(frame_res, text="Cobertura: \u2014")
         self.lbl_cobertura.pack(anchor="w")
+        self.lbl_zona = ttk.Label(frame_res, text="", wraplength=440, justify="left")
+        self.lbl_zona.pack(anchor="w")
         self.lbl_score = ttk.Label(frame_res, text="Score: \u2014")
         self.lbl_score.pack(anchor="w")
         # Se capturan al crear el widget para poder "resetear" la fuente del
@@ -230,6 +309,8 @@ class App(ttk.Window):
         )
         self.btn_copiar_rango.pack(side="right")
         self._rango_actual: str | None = None
+        self.lbl_veredicto = ttk.Label(frame_res, text="")
+        self.lbl_veredicto.pack(anchor="w")
 
         # Leyenda de la tabla: la categoria del cliente se resalta en su color.
         fila_leyenda = ttk.Frame(frame_res)
@@ -321,6 +402,10 @@ class App(ttk.Window):
         forma de cambiar de funcion; ver el comentario en _build_ui para
         agregar una pagina nueva."""
         self._paginas[nombre].tkraise()
+        self._pagina_actual = nombre
+        al_mostrar = getattr(self._paginas[nombre], "al_mostrar", None)
+        if al_mostrar:
+            al_mostrar()
         colores = ttk.Style().colors
         for clave, item in self._nav_items.items():
             activo = clave == nombre
@@ -452,6 +537,8 @@ class App(ttk.Window):
             self.lbl_tipo.config(text="Tipo: \u2014")
 
     def _on_enter_valida(self, _event=None):
+        if self._pagina_actual != "cobertura_score":
+            return  # Enter en otra pagina (ej. Mapa) no valida la pantalla principal
         if self.btn_validar.instate(["disabled"]):
             return  # ya hay una validacion en curso
         self._validar()
@@ -487,41 +574,52 @@ class App(ttk.Window):
 
     def _validar_en_hilo(self, lat, lon, tipo, numero):
         try:
-            if self._proxy_client:
-                cliente = self._proxy_client
-            elif self._session_client is not None:
-                cliente = self._session_client
-            else:
-                raise api.SessionError(
-                    "No hay sesion configurada. Menu ⚙ Configuracion → "
-                    "Configurar Sesion (standalone).",
-                    "ERR_SESSION",
-                )
+            cliente = self._cliente_activo() or _ClienteSinSesion()
             # ProxyClient y ValidatorAPI (standalone) exponen el mismo shape de
             # llamada para cobertura/score, asi que la logica de abajo sirve
             # para ambos sin ramas extra. Difieren en el TIPO de retorno
             # (dataclass vs dict plano): _a_dict() lo normaliza antes de leerlo.
             cobertura = None
+            cobertura_error = None
+            decision = None
+            score_pendiente = None
             if lat is not None:
-                cobertura = _a_dict(cliente.validar_cobertura(lat, lon))
+                # Solo la cobertura en vivo depende de WinForce; el resto de las capas
+                # es local. Si la cobertura falla se decide igual con los datos locales.
+                capas = self._capas_carga.obtener()
+                try:
+                    cobertura = _a_dict(cliente.validar_cobertura(lat, lon))
+                except NotImplementedError:
+                    raise
+                except Exception as exc:
+                    cobertura_error = motivo_cobertura(exc)
+                    decision = geo.decidir_venta(lat, lon, None, capas)
+                else:
+                    decision = geo.decidir_venta(lat, lon, cobertura["hay_cobertura"], capas)
             score = None
             if tipo is not None:
-                if cobertura is not None:
-                    # Ambos datos: mismo criterio de siempre, solo pide score
-                    # si hay cobertura.
-                    if cobertura["hay_cobertura"]:
-                        score = _a_dict(
-                            cliente.validar_score(tipo, numero, lat, lon, cobertura["cobertura"])
-                        )
-                else:
+                if lat is None:
                     # Solo documento (sin coordenadas): score directo, sin
                     # cobertura que reportar.
                     score = _a_dict(
                         cliente.validar_score(tipo, numero, None, None, cobertura="NO")
                     )
+                elif cobertura_error is None:
+                    # Ambos datos: el score cuesta una consulta de Equifax, asi
+                    # que solo se pide si la zona lo permite (ver zonas.plan_score);
+                    # en zona extensible lo confirma el asesor en la interfaz.
+                    plan = zonas.plan_score(decision)
+                    args = (tipo, numero, lat, lon, cobertura["cobertura"])
+                    if plan == "pedir":
+                        score = _a_dict(cliente.validar_score(*args))
+                    elif plan == "confirmar":
+                        score_pendiente = args
             resultado = {
                 "cobertura": cobertura,
+                "cobertura_error": cobertura_error,
+                "decision": decision,
                 "score": score,
+                "score_pendiente": score_pendiente,
                 "se_pidio_documento": tipo is not None,
             }
         except NotImplementedError:
@@ -558,7 +656,10 @@ class App(ttk.Window):
 
     def _mostrar_resultado(self, resultado):
         cobertura = resultado["cobertura"]
-        if cobertura is None:
+        error_cobertura = resultado.get("cobertura_error")
+        if error_cobertura:
+            self.lbl_cobertura.config(text="⚠ Cobertura: no disponible", bootstyle="warning")
+        elif cobertura is None:
             self.lbl_cobertura.config(
                 text="Cobertura: \u2014 (no se ingresaron coordenadas)", bootstyle="secondary"
             )
@@ -566,6 +667,16 @@ class App(ttk.Window):
             self.lbl_cobertura.config(text="\u2713 Cobertura: SI", bootstyle="success")
         else:
             self.lbl_cobertura.config(text="\u2717 Cobertura: NO", bootstyle="danger")
+
+        decision = resultado.get("decision")
+        if decision:
+            texto_zona, estilo_zona = zonas.resumen_decision(decision)
+            if error_cobertura:
+                aviso = zonas.mensaje_sin_cobertura(error_cobertura, decision)
+                texto_zona = f"{aviso}\n\n{texto_zona}"
+            self.lbl_zona.config(text=texto_zona, bootstyle=estilo_zona)
+        else:
+            self.lbl_zona.config(text="", bootstyle="default")
 
         score = resultado.get("score")
         clase = clasificar_score(score.get("valor")) if score else None
@@ -593,6 +704,12 @@ class App(ttk.Window):
                 texto = "Score: \u2014 (puntaje no disponible)"
             elif not resultado.get("se_pidio_documento"):
                 texto = "Score: \u2014 (no se ingres\u00f3 documento)"
+            elif decision and decision.estado == geo.BLOQUEADA:
+                texto = "Score: \u2014 (zona bloqueada: no se consult\u00f3)"
+            elif error_cobertura:
+                texto = "Score: \u2014 (cobertura sin confirmar: no se consult\u00f3)"
+            elif resultado.get("score_pendiente"):
+                texto = "Score: \u2014 (pendiente de confirmar)"
             else:
                 texto = "Score: \u2014 (sin cobertura)"
             self.lbl_score.config(
@@ -603,8 +720,47 @@ class App(ttk.Window):
                 text="Rango: \u2014", foreground="", font=self._font_score_normal
             )
             self.btn_copiar_rango.config(state="disabled")
+        veredicto = zonas.veredicto_score(
+            score.get("valor") if score and clase else None,
+            decision.score_minimo if decision else None,
+        )
+        if veredicto:
+            texto_veredicto, alcanza = veredicto
+            self.lbl_veredicto.config(
+                text=texto_veredicto, foreground="#2B8A3E" if alcanza else "#C8102E"
+            )
+        else:
+            self.lbl_veredicto.config(text="", foreground="")
         self._resaltar_leyenda(clase["categoria"] if clase else None)
         self._fin_validar("Estado: listo")
+        if resultado.get("score_pendiente"):
+            self._confirmar_score(resultado)
+
+    def _confirmar_score(self, resultado):
+        """Zona extensible: el score gasta una consulta de Equifax, lo decide el asesor."""
+        decision = resultado["decision"]
+        if not messagebox.askyesno(
+            "Consultar score",
+            f"{decision.mensaje}\n\nEl score gasta una consulta de Equifax. "
+            "¿Consultarlo de todas formas?",
+        ):
+            return
+        self.btn_validar.config(state="disabled")
+        self.lbl_estado.config(text="Estado: consultando score...")
+        threading.Thread(
+            target=self._score_pendiente_en_hilo, args=(resultado,), daemon=True
+        ).start()
+
+    def _score_pendiente_en_hilo(self, resultado):
+        try:
+            score = _a_dict(self._cliente_activo().validar_score(*resultado["score_pendiente"]))
+        except Exception as exc:
+            msg = str(exc)
+            self.after(0, lambda m=msg: messagebox.showerror("Error", m))
+            self.after(0, lambda: self._fin_validar("Estado: error al consultar el score"))
+            return
+        completo = {**resultado, "score": score, "score_pendiente": None}
+        self.after(0, lambda: self._mostrar_resultado(completo))
 
     def _resaltar_leyenda(self, categoria: str | None) -> None:
         colores = {c: col for _t, _r, c, col in _TABLA_SCORE}

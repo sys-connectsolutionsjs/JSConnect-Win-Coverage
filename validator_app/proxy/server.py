@@ -3,7 +3,8 @@
 Endpoints:
 - POST /api/cobertura  {lat, lon} -> CoberturaResponse
 - POST /api/score      {tipo_doc, num_doc, lat, lon, cobertura?} -> ScoreResponse
-- GET  /health         -> {status, version, session_age, logged_in, session_alive}
+- GET  /api/capas       ?version= -> reglas de venta por zona (poligonos) + version
+- GET  /health        -> {status, version, session_age, logged_in, session_alive}
 - GET  /admin/config   -> {proxy_url, token, timeouts} (auto-discovery)
 - POST /admin/login    {php_sessid} -> inyecta y valida cookie de sesion WinForce
 - POST /admin/rotar    {php_sessid} -> rota la cookie de sesion WinForce
@@ -43,6 +44,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from validator_app.core import api as core_api
+from validator_app.core import geo
+from validator_app.proxy.capas import CapasCache, CapasNoDisponiblesError
 from validator_app.proxy.config import ProxyConfig, get_config, reset_config
 
 log = logging.getLogger(__name__)
@@ -895,6 +898,17 @@ def get_proxy_api() -> ProxyValidatorAPI:
     return _proxy_api
 
 
+_capas_cache: CapasCache | None = None
+
+
+def get_capas_cache() -> CapasCache:
+    global _capas_cache
+    if _capas_cache is None:
+        config = get_config()
+        _capas_cache = CapasCache(config.capas_kml_url, ttl_s=config.capas_ttl_seconds)
+    return _capas_cache
+
+
 def _es_local(request: Request) -> None:
     host = request.client.host if request.client else ""
     if host not in ("127.0.0.1", "::1"):
@@ -1037,6 +1051,21 @@ async def api_score(request: ScoreRequest):
         cobertura=request.cobertura or "SI",
     )
     return ScoreResponse(**result)
+
+
+@app.get("/api/capas", dependencies=[Depends(verify_proxy_token)])
+async def api_capas(version: str | None = None):
+    try:
+        disponibles = await asyncio.to_thread(get_capas_cache().obtener)
+    except CapasNoDisponiblesError:
+        raise HTTPException(status_code=503, detail="Capas de venta no disponibles") from None
+    if version == disponibles.version:
+        return {"version": disponibles.version, "actualizado": False, "capas": None}
+    return {
+        "version": disponibles.version,
+        "actualizado": True,
+        "capas": geo.capas_a_json(disponibles.capas),
+    }
 
 
 @app.get("/health", response_model=HealthResponse)

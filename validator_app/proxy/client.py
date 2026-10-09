@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from validator_app.core import geo
+
 
 class ProxyError(Exception):
     """Error base del cliente proxy."""
@@ -51,6 +53,13 @@ class CoberturaResult:
     tipo: str
     id_celda: str
     comment: str
+
+
+@dataclass
+class CapasResult:
+    version: str
+    actualizado: bool
+    capas: dict | None
 
 
 @dataclass
@@ -200,6 +209,17 @@ class ProxyClient:
             tipo=data.get("tipo", ""),
             id_celda=data.get("id_celda", ""),
             comment=data.get("comment", ""),
+        )
+
+    def obtener_capas(self, version_local: str | None = None) -> CapasResult:
+        """Reglas de venta por zona; sin cambios (`capas=None`) si la version coincide."""
+        params = {"version": version_local} if version_local else None
+        data = self._request_with_retry("GET", "/api/capas", params=params).json()
+        capas = data.get("capas")
+        return CapasResult(
+            version=data.get("version", ""),
+            actualizado=data.get("actualizado", False),
+            capas=geo.capas_de_json(capas) if capas is not None else None,
         )
 
     def validar_score(
