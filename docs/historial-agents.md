@@ -900,3 +900,52 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   - probar un agente con Windows 10 real;
   - decidir si el repo W11 reemplaza al original o si conviven (hoy hay dos canales de actualización);
   - la firma de código.
+
+### Cierre de la sesión 2026-10-07 [CONTEXTO PARA LA SIGUIENTE — repos unificados, huella estable]
+
+- **Un solo repo**: `W11-JSConnect-Win-Coverage` se unió a este repo por fast-forward
+  (los 4 commits `5cb8768`, `a40a0d5`, `4fe66d3`, `84aa745` + tag `v2026.10.02-w11`).
+  Este repo es el único oficial para Windows 10 y 11; el repo W11 se archiva (el
+  usuario lo pondrá privado más adelante). `build.ps1 -RepoName` queda solo para forks.
+- **Por qué fallaba un owner W11 con agentes W10**: la regla de firewall solo cubría
+  `Domain,Private` y Windows 11 deja la red en Pública (agentes con timeout). La regla
+  `-Profile Any` limitada a la LAN (del repo W11) lo resuelve sin tocar la red.
+- **Huella estable** (`fingerprint.py`): `obtener_huella()` = MachineGuid + CPU del
+  registro; sin `wmic`, PowerShell, MAC ni volumen. La antigua (`huellas_legacy()`) se
+  acepta durante la **transición**: el agente arranca "activado (reactivar cuando
+  puedas)" y muestra la huella nueva. `activacion_vigente()` ahora devuelve
+  `"vigente"` / `"transicion"` / `None`. **Hay que reactivar los agentes con la huella
+  nueva** (hoy 25: 18 + 7; a futuro 41).
+- **Red del owner** (`install_service.bat`): si la red es Pública y el PC no está en
+  dominio, OFRECE pasarla a Privada (`choice`, por defecto NO, 60 s); avisa si el perfil
+  Público bloquea todo lo entrante. Nunca la cambia sin preguntar.
+- **Etapa E (runbook) completada**: `docs/proxy-deploy.md` → "Instalación con pendrive"
+  (Python 3.14.7 para todos los usuarios, repo copiado a `C:\jsconnect`, `.exe` del
+  Release, `private_key.pem` protegida, agentes con `.exe` + URL + token). Falta probarlo
+  de punta a punta en una PC limpia. `Roadmap.md` puesto al día (estaba en 2026-09-30).
+- **Release `v2026.10.07`** (tag → `57a42bc`, agente + owner). El repo W11 recibió el mismo
+  código, un aviso en su README y un release puente `v2026.10.07`; quedó **archivado**
+  (público). Pasarlo a privado solo cuando los `.exe` del canal W11 ya se hayan actualizado.
+- **Punto 6 (sesión de WinForce)**: el "tope de 9.5 h" es **una medición no concluyente**
+  (hipótesis del dueño: login ajeno con la misma cuenta). Solo docs; protocolo en
+  `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión".
+- **Fase 5 completada** (barrido de docs; 13 de 19 hallazgos ya estaban resueltos) y 3 bugs de
+  la ventana del agente arreglados (URL sin `http://`, error real en "Probar conexión",
+  `None` del keyring). Dato: `/admin/*` es solo loopback, así que no hay renovación ni
+  discovery remoto por VPN (`ProxyClient.from_discovery()` no puede funcionar; sin tocar).
+- **La consola owner busca actualizaciones** (botón + aviso al abrir; compara SHA-256, ver
+  "Versionado y actualizaciones"). `build-owner.ps1` graba `version.py`.
+- **`AGENTS.md` dividido**: el historial pasó a `docs/historial-agents.md`; aquí solo el último
+  cierre (convención en "Reglas de trabajo").
+- **Release `v2026.10.07.1`** (tag → `154ba5e`, agente + owner), verificado contra GitHub.
+  Tests 287 → **318**, ruff limpio.
+- **Pendiente**:
+  - reactivar los agentes. **NO borrar `huellas_legacy()`** hasta que el usuario lo pida
+    expresamente (ver la REGLA en "Versionado y actualizaciones");
+  - **reemplazar a mano el `.exe` del owner instalado** (`v2026.10.07`, sin actualizador) por el
+    de `v2026.10.07.1`;
+  - probar un agente W10 real contra el owner W11 y revisar en el owner
+    `Get-NetConnectionProfile`;
+  - siguiente mejora acordada: que el agente lea la URL y el token de un archivo del pendrive;
+  - los de siempre: observar las muertes de sesión, firma de código (Smart App Control),
+    monitoreo de producción y probar el pendrive en una PC limpia.

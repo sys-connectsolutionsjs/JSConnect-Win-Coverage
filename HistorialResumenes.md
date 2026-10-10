@@ -13,6 +13,30 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ---
 
+
+### 2026-10-09 — Sesión — mapa de cobertura y reglas de venta por zona antes del score (sin Release)
+- **Snapshot completo**: `resumenes/2026-10-09.md`.
+- **Por qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta) y "sin
+  cobertura" perdía ventas que se resuelven con un cable del vecino. Se decide la zona **antes** del
+  score: bloqueada/fraude → no se vende ni se consulta; Preferente 2 → score ≥ 401; resto ≥ 201; sin
+  cobertura con cobertura a ≤ 300 m → "extensible". Si WinForce dice NO nunca es "vender".
+- **Datos**: el mapa de WinForce son tiles PNG de Equifax (sin geometría); los polígonos salen de una
+  app web de terceros y se **embebieron en el .exe** (`tools/preparar_capas.py` → `capas.json.gz`).
+  Repo público: `datos_capas/` y el `.json.gz` en `.gitignore`; la URL del mapa de reglas
+  (`capas_kml_url`) solo en `config.yaml` (se sacó de `config.py` antes de subir).
+- **Hecho**: `core/geo.py`, `core/capas_local.py` (`CapasCargadas`), proxy `GET /api/capas`, página
+  **Mapa** (`tkintermapview`), compuerta del score en ambas pantallas, ventana de una sola medida +
+  pantalla completa (F11), `build.ps1` que embebe las capas.
+- **Decisiones del usuario**: solo la cobertura en vivo depende de WinForce (si falla se avisa y se
+  dan las condiciones de la zona); las casillas de capas son solo visuales; Zona F/Fraude/Bloqueados se
+  dibujan completas al marcarlas; fraude dentro bloquea, cercano avisa.
+- **Hallazgos**: Zona F es copia de Fraude (27 de 28 polígonos idénticos); bug real de la prueba de
+  humo (la carga esperaba al proxy y una decisión podía tomarse sin capas, corregido); captura por
+  región de pantalla incluyó otra ventana del usuario (borrada; ahora `PrintWindow`).
+- **Tests**: 318 → **421**, `ruff` limpio. **Commits**: `3942e2d` (feat) y `89a6d03` (docs), en `main`.
+- **Pendiente**: Release (recompilar desde `main`), probar con asesores, qué hacer con "Zona F",
+  detección automática de avenidas de doble vía.
+
 ### 2026-10-07 — Sesión — repos W10+W11 unificados, huella estable, Fase 5, owner con actualizador + Releases v2026.10.07 / v2026.10.07.1
 - **Snapshot completo**: `resumenes/2026-10-07.md`.
 - **Un solo repo**: `W11-JSConnect-Win-Coverage` se unió a este por fast-forward (4 commits +

@@ -146,6 +146,26 @@ Agente                    Proxy                        WinForce              Equ
 
 ---
 
+## Mapa de cobertura y reglas de venta por zona (2026-10-09)
+Decide la zona **antes** de gastar una consulta de score (cada una consume una petición de Equifax).
+- **Capas** (`COBERTURA`, `FRAUDE`, `PREFERENTE 2`, `CODIGOS BLOQUEADOS`, `ZONA F`): embebidas en el
+  .exe (`validator_app/data/capas.json.gz`, generado por `tools/preparar_capas.py` desde `datos_capas/`).
+  Son datos de terceros: **gitignored**, nunca en el repo público.
+- **Lógica pura** en `core/geo.py` (`decidir_venta`): bloqueada/fraude → no se vende ni se consulta;
+  score mínimo 401 en Preferente 2 y 201 en el resto; sin cobertura pero con cobertura a ≤ 300 m →
+  `EXTENSIBLE`; `hay_cobertura=None` (WinForce no respondió) → `SIN_CONFIRMAR` con los datos locales.
+  Si WinForce dice NO nunca es `VENDER`. `core/api.py` no cambia.
+- **Solo la cobertura en vivo depende de WinForce** (`POST /api/cobertura`); lo demás es local.
+- **Reglas al día**: `GET /api/capas?version=` (token como el resto de `/api/*`) sirve las reglas
+  (Preferente 2 / Bloqueados) que el proxy descarga una vez al día de un mapa de Google My Maps
+  exportado como KML; la URL (`capas_kml_url`) va solo en `config.yaml`. El agente las mezcla con las
+  embebidas (`core/capas_local.py`, `CapasCargadas`): lo local queda listo al instante y el proxy solo
+  actualiza después (caché en `%APPDATA%\JSConnectWinCoverage\capas_reglas.json`).
+- **GUI**: página Mapa (`gui/map_page.py`, `tkintermapview`); compuerta del score también en la
+  pantalla principal (`gui/zonas.py`: `plan_score`, `condiciones_de_venta`).
+
+---
+
 ## Decisiones Arquitectónicas Clave (No Cambiar Sin Análisis)
 
 | # | Decisión | Rationale | Impacto si cambia |

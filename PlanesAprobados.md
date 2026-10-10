@@ -473,6 +473,7 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
+- **Mapa de cobertura**: probar con asesores, recompilar desde `main` y publicar el Release (2026-10-09).
 - **Reactivar los agentes con la huella estable** (Release `v2026.10.07`, 2026-10-07):
   25 hoy (18 + 7), 41 a futuro. Funcionan en "transición" mientras tanto.
   `huellas_legacy()` **NO se borra salvo petición expresa del usuario** (regla en
@@ -522,7 +523,25 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   = 900` fijado; tope absoluto de sesión ≈ 9.5 h medido una vez (no concluyente, ver corrección 2026-10-07 en `anotaciones.md`). Ver Fase 0 (act.
   2026-09-08) y `anotaciones.md`.
 
+## Plan Mapa de cobertura y reglas de venta por zona — PRIMERA VERSIÓN IMPLEMENTADA (2026-10-09, sin Release)
+Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/`resumenes/2026-10-09.md`.
+- **Para qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta si no se
+  convierte en venta) y "sin cobertura" en un punto perdía ventas que se resuelven trayendo un cable
+  del vecino. Se decide la zona **antes** del score.
+- **Reglas del usuario**: bloqueada/fraude → no se vende ni se consulta; Preferente 2 → score ≥ 401;
+  resto ≥ 201; sin cobertura con cobertura a ≤ 300 m → "extensible" (sin cruzar avenidas grandes de
+  doble vía: hoy lo juzga el asesor mirando el mapa).
+- **Decisiones**: capas embebidas en el .exe (el tercero puede desaparecer) y **nunca en el repo
+  público**; solo la cobertura en vivo depende de WinForce; si WinForce dice NO nunca es "vender";
+  fraude dentro bloquea, fraude cercano (≤ 300 m) avisa; Zona F se muestra pero es copia de Fraude;
+  casillas de capas solo visuales (la decisión usa siempre todas); Zona F/Fraude/Bloqueados se dibujan
+  completas, Cobertura/Preferente 2 por cercanía; una sola medida de ventana + F11.
+- **Sigue en cola**: Release (recompilar desde `main`), `capas_kml_url` en el `config.yaml` del proxy
+  (opcional), detección automática de avenidas de doble vía (vías OSM `highway=trunk/primary`),
+  dibujar los huecos de los polígonos, qué hacer con "Zona F".
+
 ## Notas de seguridad
+- Las capas del mapa (`datos_capas/`, `validator_app/data/*.json.gz`) y la URL `capas_kml_url` NO van al repo (público).
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.
 - NO subir a GitHub: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `tools/captura.json`, `tools/js/`, `generator/private_key.pem`, credenciales reales.
 - Token proxy = secreto LAN (binding IP); admin key = solo owner.
