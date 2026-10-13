@@ -26,7 +26,9 @@ PERSONA = {
     "Codigo": "602",
     "Data": {
         "ns3DirectorioPersona": {
-            "Nombres": "JUAN CARLOS", "ApellidoPaterno": "PEREZ", "ApellidoMaterno": "GARCIA",
+            # Equifax manda Nombres como "APELLIDOS NOMBRES" (nombre completo)
+            "Nombres": "PEREZ GARCIA JUAN CARLOS", "PrimerNombre": "JUAN",
+            "SegundoNombre": "CARLOS", "ApellidoPaterno": "PEREZ", "ApellidoMaterno": "GARCIA",
             "TipoDocumento": "DNI", "NumeroDocumento": "10412031",
             "FechaNacimiento": "1980-05-17T00:00:00", "Sexo": "M", "EstadoCivil": "SOLTERO",
             "Nacionalidad": "PERUANA", "Telefono": "999111222",
@@ -55,7 +57,7 @@ def test_extrae_datos_de_la_persona():
     assert p["fecha_nacimiento"] == "17/05/1980"
     assert p["sexo"] == "M" and p["estado_civil"] == "SOLTERO"
     assert p["nacionalidad"] == "PERUANA"
-    assert p["lugar_nacimiento"] == ""
+    assert "lugar_nacimiento" not in p
     assert r["valor"] == 575
 
 
@@ -71,12 +73,20 @@ def test_fecha_en_varios_formatos():
     assert fecha("") == ""
 
 
-def test_lugar_de_nacimiento_si_el_reporte_lo_trae():
+def test_nombres_usa_primer_y_segundo_nombre_no_el_nombre_completo():
     mod = {
         "Codigo": "602",
-        "Data": {"ns3DirectorioPersona": {"Nombres": "ANA", "LugarNacimiento": "LIMA"}},
+        "Data": {"ns3DirectorioPersona": {
+            "Nombres": "RIOS LOPEZ ANA", "PrimerNombre": "ANA", "SegundoNombre": "",
+            "ApellidoPaterno": "RIOS", "ApellidoMaterno": "LOPEZ",
+        }},
     }
-    assert ValidatorAPI._extraer_score(_reporte(mod))["persona"]["lugar_nacimiento"] == "LIMA"
+    assert ValidatorAPI._extraer_score(_reporte(mod))["persona"]["nombres"] == "ANA"
+
+
+def test_sin_primer_nombre_cae_al_campo_nombres():
+    mod = {"Codigo": "602", "Data": {"ns3DirectorioPersona": {"Nombres": "ANA MARIA"}}}
+    assert ValidatorAPI._extraer_score(_reporte(mod))["persona"]["nombres"] == "ANA MARIA"
 
 
 def test_extrae_datos_sunat_de_un_ruc():

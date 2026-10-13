@@ -68,7 +68,7 @@ validan con `ruff` e import.
 - **Formato de dirección (2026-10-13)**: `DIRECCIÓN DETALLADA` conserva el formato de Geofinder `DETALLE (DISTRITO, PROVINCIA, DEPARTAMENTO)` (`direccion.con_ubicacion`); el paréntesis se regenera con los valores del 2.º endpoint y el respaldo OSM usa el mismo formato. 488 tests.
 - **No verificado en vivo** (sin credencial de Geofinder): la llamada real a Geofinder, el orden
   (distrito, provincia, departamento) del paréntesis con un punto de Lima, y si el reporte de un
-  DNI trae "lugar de nacimiento".
+  DNI trae "lugar de nacimiento" → **verificado: no lo trae**; se reemplazó por nacionalidad.
 
 ### Sesión 2026-10-09 — mapa de cobertura y reglas de venta por zona (318 → 421 tests)
 - [TDD] Tests escritos primero (rojo) y luego el código, en este orden: `test_geo.py` y

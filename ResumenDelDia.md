@@ -58,5 +58,7 @@ condensada en `HistorialResumenes.md`.
   y `tools/empaquetar_actualizacion_proxy.ps1` (paquete de pendrive sin secretos). 487 tests.
 - **Formato**: `DIRECCIÓN DETALLADA` sale como Geofinder: `AVENIDA PERU 4298 BOCANEGRA SECTOR 3 (CALLAO, CALLAO, CALLAO)` (con el paréntesis); departamento/provincia/distrito siguen en líneas aparte.
 - **Falta**: que el usuario ponga `geofinder_basic` en el proxy y actualice el proxy de la PC owner;
-  probar con un score real (DNI 10412031) si el reporte trae "lugar de nacimiento"; Release.
+  Release. Score real probado (DNI 10412031): el reporte no trae lugar de nacimiento → la ficha
+  usa "NACIONALIDAD Y FECHA DE NACIMIENTO"; los nombres salen "nombres primero" (PrimerNombre +
+  SegundoNombre + apellidos).
 

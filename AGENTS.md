@@ -371,8 +371,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
    `docs/proxy-deploy.md` → "Actualizar el proxy sin reinstalar"): poner `geofinder_basic` (header `Authorization: Basic …` de
    `api.latam.equifax.com/v2/oauth/token`, F12 → Network en WinForce) en el `config.yaml` de la PC owner y
    actualizar su proxy; mientras tanto la dirección sale de OpenStreetMap con aviso. Confirmar con un
-   score real (DNI 10412031) que el reporte trae el "lugar de nacimiento" (hoy `lugar_nacimiento`
-   queda en blanco si el campo no existe; `LugarNacimiento` es una suposición).
+   score real (DNI 10412031): verificado 2026-10-13; el reporte NO trae lugar de nacimiento, por eso la
+   línea de la ficha es "NACIONALIDAD Y FECHA DE NACIMIENTO".
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —

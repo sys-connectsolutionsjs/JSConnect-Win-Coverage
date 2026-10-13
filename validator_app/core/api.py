@@ -253,16 +253,15 @@ def _extraer_persona(credit) -> dict[str, str]:
     persona: dict[str, str] = {}
     directorio = _bloque(credit, "DirectorioPersona")
     if directorio is not None:
+        # "Nombres" llega como nombre completo (APELLIDOS NOMBRES): se prefieren los dos
+        # nombres de pila; "Nombres" solo si el reporte no los trae.
         primeros = (_txt(directorio.get("PrimerNombre")), _txt(directorio.get("SegundoNombre")))
-        nombres = _txt(directorio.get("Nombres")) or " ".join(p for p in primeros if p)
+        nombres = " ".join(p for p in primeros if p) or _txt(directorio.get("Nombres"))
         persona.update({
             "nombres": nombres,
             "apellido_paterno": _txt(directorio.get("ApellidoPaterno")),
             "apellido_materno": _txt(directorio.get("ApellidoMaterno")),
             "fecha_nacimiento": _fecha_dd_mm_aaaa(directorio.get("FechaNacimiento")),
-            "lugar_nacimiento": _txt(
-                directorio.get("LugarNacimiento") or directorio.get("LugarDeNacimiento")
-            ),
             "sexo": _txt(directorio.get("Sexo")),
             "estado_civil": _txt(directorio.get("EstadoCivil")),
             "nacionalidad": _txt(directorio.get("Nacionalidad")),

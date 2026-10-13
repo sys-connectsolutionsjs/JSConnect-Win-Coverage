@@ -2,7 +2,7 @@ from validator_app.gui import ficha
 
 PERSONA = {
     "nombres": "JUAN CARLOS", "apellido_paterno": "PEREZ", "apellido_materno": "GARCIA",
-    "fecha_nacimiento": "17/05/1980", "lugar_nacimiento": "LIMA",
+    "fecha_nacimiento": "17/05/1980", "nacionalidad": "PERU",
 }
 DIRECCION = {
     "direccion": "PASAJE 66 189 BOCANEGRA SECTOR 2 (CALLAO, CALLAO, CALLAO)",
@@ -21,7 +21,7 @@ def test_etiquetas_en_el_orden_pedido():
     assert [e for e, _v in items] == [
         "NOMBRES Y APELLIDOS",
         "DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)",
-        "LUGAR Y FECHA DE NACIMIENTO",
+        "NACIONALIDAD Y FECHA DE NACIMIENTO",
         "SCORE",
         "DIRECCIÓN DETALLADA",
         "DEPARTAMENTO",
@@ -34,7 +34,7 @@ def test_valores_completos():
     d = _dict(ficha.armar_ficha(SCORE, DIRECCION, "DNI", "10412031", "500 - 599"))
     assert d["NOMBRES Y APELLIDOS"] == "JUAN CARLOS PEREZ GARCIA"
     assert d["DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)"] == "DNI 10412031"
-    assert d["LUGAR Y FECHA DE NACIMIENTO"] == "LIMA, 17/05/1980"
+    assert d["NACIONALIDAD Y FECHA DE NACIMIENTO"] == "PERU, 17/05/1980"
     assert d["SCORE"] == "500 - 599"
     assert d["DIRECCIÓN DETALLADA"] == "PASAJE 66 189 BOCANEGRA SECTOR 2 (CALLAO, CALLAO, CALLAO)"
     assert d["DEPARTAMENTO"] == "CALLAO" and d["PROVINCIA"] == "CALLAO"
@@ -46,7 +46,7 @@ def test_copiar_todo_respeta_el_formato():
     assert ficha.texto_copiar_todo(items) == (
         "NOMBRES Y APELLIDOS: JUAN CARLOS PEREZ GARCIA\n"
         "DOCUMENTO DE IDENTIDAD (DNI, RUC, CE): DNI 10412031\n"
-        "LUGAR Y FECHA DE NACIMIENTO: LIMA, 17/05/1980\n"
+        "NACIONALIDAD Y FECHA DE NACIMIENTO: PERU, 17/05/1980\n"
         "SCORE: 500 - 599\n"
         "DIRECCIÓN DETALLADA: PASAJE 66 189 BOCANEGRA SECTOR 2 (CALLAO, CALLAO, CALLAO)\n"
         "DEPARTAMENTO: CALLAO\n"
@@ -55,10 +55,28 @@ def test_copiar_todo_respeta_el_formato():
     )
 
 
-def test_solo_fecha_si_no_hay_lugar():
-    persona = {**PERSONA, "lugar_nacimiento": ""}
+def test_solo_fecha_si_no_hay_nacionalidad():
+    persona = {**PERSONA, "nacionalidad": ""}
     d = _dict(ficha.armar_ficha({"persona": persona}, None, "DNI", "1", None))
-    assert d["LUGAR Y FECHA DE NACIMIENTO"] == "17/05/1980"
+    assert d["NACIONALIDAD Y FECHA DE NACIMIENTO"] == "17/05/1980"
+
+
+def test_nombre_completo_con_nombres_primero_aunque_haya_razon_social():
+    # Una persona natural con RUC 10 trae RazonSocial = "APELLIDOS NOMBRES": no debe ganar.
+    persona = {
+        "nombres": "NOEMI MATILDE", "apellido_paterno": "CARRANZA",
+        "apellido_materno": "JUAPE DE SEGOVIA",
+        "razon_social": "CARRANZA JUAPE DE SEGOVIA NOEMI MATILDE",
+    }
+    d = _dict(ficha.armar_ficha({"persona": persona}, None, "DNI", "1", None))
+    assert d["NOMBRES Y APELLIDOS"] == "NOEMI MATILDE CARRANZA JUAPE DE SEGOVIA"
+
+
+def test_no_duplica_apellidos_si_nombres_ya_es_el_nombre_completo():
+    persona = {"nombres": "CARRANZA JUAPE NOEMI", "apellido_paterno": "CARRANZA",
+               "apellido_materno": "JUAPE"}
+    d = _dict(ficha.armar_ficha({"persona": persona}, None, "DNI", "1", None))
+    assert d["NOMBRES Y APELLIDOS"] == "CARRANZA JUAPE NOEMI"
 
 
 def test_sin_score_ni_direccion_deja_en_blanco_lo_desconocido():

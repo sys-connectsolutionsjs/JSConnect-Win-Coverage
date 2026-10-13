@@ -7,7 +7,7 @@ import ttkbootstrap as ttk
 ETIQUETAS = (
     "NOMBRES Y APELLIDOS",
     "DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)",
-    "LUGAR Y FECHA DE NACIMIENTO",
+    "NACIONALIDAD Y FECHA DE NACIMIENTO",
     "SCORE",
     "DIRECCIÓN DETALLADA",
     "DEPARTAMENTO",
@@ -25,13 +25,14 @@ def rango_sin_prefijo(rango: str | None) -> str | None:
 
 
 def _nombre_completo(score: dict, persona: dict) -> str:
-    if persona.get("razon_social"):
-        return persona["razon_social"]
-    partes = (
-        persona.get("nombres"), persona.get("apellido_paterno"), persona.get("apellido_materno")
-    )
-    completo = " ".join(p for p in partes if p)
-    return completo or (score.get("nombre") or "")
+    nombres, paterno = persona.get("nombres") or "", persona.get("apellido_paterno") or ""
+    if nombres:
+        if paterno and nombres.startswith(paterno):
+            return nombres  # ya es el nombre completo (APELLIDOS NOMBRES)
+        partes = (nombres, paterno, persona.get("apellido_materno"))
+        return " ".join(p for p in partes if p)
+    # Empresas (RUC 20): sin directorio de personas, la razon social.
+    return persona.get("razon_social") or score.get("nombre") or ""
 
 
 def armar_ficha(score, direccion, tipo, numero, rango) -> list[tuple[str, str]]:
@@ -44,7 +45,7 @@ def armar_ficha(score, direccion, tipo, numero, rango) -> list[tuple[str, str]]:
     direccion = direccion or {}
     documento = " ".join(p for p in (tipo, numero) if p)
     nacimiento = ", ".join(
-        p for p in (persona.get("lugar_nacimiento"), persona.get("fecha_nacimiento")) if p
+        p for p in (persona.get("nacionalidad"), persona.get("fecha_nacimiento")) if p
     )
     valores = (
         _nombre_completo(score, persona),
