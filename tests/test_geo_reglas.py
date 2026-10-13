@@ -87,12 +87,20 @@ def test_parse_kmz_sin_kml_lanza_error():
         geo.parse_kmz(buf.getvalue())
 
 
-def test_parse_zonas_js_extrae_las_tres_capas():
+def test_parse_zonas_js_extrae_las_capas_y_ya_no_zona_f():
     capas = geo.parse_zonas_js(ZONAS_JS)
-    assert len(capas["ZONA F"]) == 1
     assert len(capas["PREFERENTE 2"]) == 2
     assert len(capas["CODIGOS BLOQUEADOS"]) == 1
-    assert capas["ZONA F"][0].anillo[0] == (-12.16, -76.94)
+    assert "ZONA F" not in capas
+    assert not hasattr(geo, "CAPA_ZONA_F")
+
+
+def test_capas_de_json_descarta_zona_f_de_archivos_viejos():
+    datos = {
+        "FRAUDE": [{"nombre": "", "anillo": [[0, 0], [0, 1], [1, 1]], "huecos": []}],
+        "ZONA F": [{"nombre": "", "anillo": [[0, 0], [0, 1], [1, 1]], "huecos": []}],
+    }
+    assert list(geo.capas_de_json(datos)) == ["FRAUDE"]
 
 
 def test_parse_zonas_js_sin_datos_devuelve_vacio():
@@ -155,7 +163,6 @@ def capas():
         "FRAUDE": [cuadro(-12.20, -77.20, 0.01, "VMT")],
         "CODIGOS BLOQUEADOS": [cuadro(-12.40, -77.40, 0.01)],
         "PREFERENTE 2": [cuadro(-11.90, -77.00, 0.01)],
-        "ZONA F": [cuadro(-12.60, -77.60, 0.01)],
     }
 
 
@@ -225,13 +232,6 @@ def test_score_minimo_401_en_preferente_tambien_en_extensible(capas):
     assert r.score_minimo == 401
 
 
-def test_zona_f_es_informativa(capas):
-    r = geo.decidir_venta(-12.595, -77.595, True, capas)
-    assert r.estado == geo.VENDER
-    assert r.score_minimo == 201
-    assert any("zona f" in a.lower() for a in r.avisos)
-
-
 def test_decidir_venta_con_miles_de_poligonos_es_rapido():
     polis = [cuadro(-12.5 + (i % 60) * 0.01, -77.5 + (i // 60) * 0.01, 0.005) for i in range(3400)]
     capas = {"COBERTURA": polis}
@@ -251,19 +251,16 @@ def test_cargar_capas_embebidas_encuentra_el_archivo_dentro_del_exe(tmp_path, mo
 
 
 def test_capas_en_punto_lista_todas_las_capas_que_lo_contienen(capas):
-    zona = {
-        **capas,
-        "ZONA F": [cuadro(-12.20, -77.20, 0.01)],  # igual que FRAUDE, como en los datos reales
-    }
-    assert geo.capas_en_punto(-12.195, -77.195, zona) == ("FRAUDE", "ZONA F")
+    zona = {**capas, "PREFERENTE 2": [cuadro(-12.20, -77.20, 0.01)]}
+    assert geo.capas_en_punto(-12.195, -77.195, zona) == ("FRAUDE", "PREFERENTE 2")
     assert geo.capas_en_punto(-11.995, -76.995, zona) == ("COBERTURA",)
     assert geo.capas_en_punto(-10.0, -70.0, zona) == ()
 
 
 def test_capas_visibles_solo_filtra_el_dibujo_y_no_toca_el_original(capas):
     copia = dict(capas)
-    r = geo.capas_visibles(capas, {"FRAUDE", "ZONA F"})
-    assert set(r) == {"FRAUDE", "ZONA F"}
+    r = geo.capas_visibles(capas, {"FRAUDE", "COBERTURA"})
+    assert set(r) == {"FRAUDE", "COBERTURA"}
     assert capas == copia
     assert geo.capas_visibles(capas, set()) == {}
 

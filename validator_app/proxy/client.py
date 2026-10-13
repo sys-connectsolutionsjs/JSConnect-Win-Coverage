@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from validator_app.core import geo
+from validator_app.core import direccion, geo
 
 
 class ProxyError(Exception):
@@ -36,6 +36,11 @@ class ProxyServerError(ProxyError):
 
 class ProxyTimeoutError(ProxyError):
     """Timeout en la peticion."""
+    pass
+
+
+class ProxyEndpointNoExisteError(ProxyError):
+    """El proxy respondio 404: es de una version anterior y no tiene ese endpoint."""
     pass
 
 
@@ -71,6 +76,7 @@ class ScoreResult:
     nombre: str | None
     documento: str | None
     valido: bool
+    persona: dict | None = None
 
 
 @dataclass
@@ -134,10 +140,12 @@ class ProxyClient:
         self,
         method: str,
         path: str,
+        max_retries: int | None = None,
         **kwargs,
     ) -> httpx.Response:
         last_exc: Exception | None = None
-        for attempt in range(self.max_retries):
+        intentos = max_retries or self.max_retries
+        for attempt in range(intentos):
             try:
                 url = f"{self.base_url}{path}"
                 resp = self.client.request(method, url, headers=self._headers(), **kwargs)
@@ -146,6 +154,10 @@ class ProxyClient:
                 if resp.status_code == 403:
                     raise ProxyAuthError(
                         "IP no permitida en el proxy (verifica allowed_networks)"
+                    )
+                if resp.status_code == 404:
+                    raise ProxyEndpointNoExisteError(
+                        f"El proxy no tiene {path} (version anterior): hay que actualizarlo."
                     )
                 if resp.status_code == 503:
                     # Sesion del proxy con WinForce caducada. Es terminal: el
@@ -181,7 +193,7 @@ class ProxyClient:
             except Exception as e:
                 last_exc = ProxyError(f"Error inesperado: {e}")
 
-            if attempt < self.max_retries - 1:
+            if attempt < intentos - 1:
                 wait = 2 ** attempt  # 1s, 2s, 4s
                 time.sleep(wait)
 
@@ -210,6 +222,21 @@ class ProxyClient:
             id_celda=data.get("id_celda", ""),
             comment=data.get("comment", ""),
         )
+
+    def obtener_direccion(self, lat: float, lon: float) -> dict:
+        """Direccion (Geofinder) de las coordenadas; DireccionNoDisponible si el proxy no puede."""
+        try:
+            resp = self._request_with_retry(
+                "GET", "/api/direccion", params={"lat": lat, "lon": lon}, max_retries=1
+            )
+        except ProxyEndpointNoExisteError as exc:
+            raise direccion.DireccionNoDisponible(direccion.AVISO_PROXY_VIEJO) from exc
+        data = resp.json()
+        if not data.get("disponible") or not data.get("direccion"):
+            raise direccion.DireccionNoDisponible(
+                data.get("motivo") or "El proxy no pudo obtener la direccion."
+            )
+        return data["direccion"]
 
     def obtener_capas(self, version_local: str | None = None) -> CapasResult:
         """Reglas de venta por zona; sin cambios (`capas=None`) si la version coincide."""
@@ -251,6 +278,7 @@ class ProxyClient:
             nombre=data.get("nombre"),
             documento=data.get("documento"),
             valido=data.get("valido", False),
+            persona=data.get("persona"),
         )
 
     @classmethod

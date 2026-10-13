@@ -38,15 +38,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from validator_app.core import api as core_api
-from validator_app.core import geo
+from validator_app.core import direccion, geo
 from validator_app.proxy.capas import CapasCache, CapasNoDisponiblesError
 from validator_app.proxy.config import ProxyConfig, get_config, reset_config
+from validator_app.proxy.geofinder import GeofinderEquifax
 
 log = logging.getLogger(__name__)
 
@@ -209,6 +210,8 @@ class ScoreResponse(BaseModel):
     nombre: str | None
     documento: str | None
     valido: bool
+    # Datos de la persona/empresa del reporte (opcional: proxies viejos no lo mandan).
+    persona: dict[str, str] | None = None
 
 
 class HealthResponse(BaseModel):
@@ -217,6 +220,8 @@ class HealthResponse(BaseModel):
     session_age: int | None
     logged_in: bool
     session_alive: bool
+    # True si el proxy tiene la credencial de Geofinder (direccion de coordenadas).
+    geofinder: bool = False
 
 
 class AdminConfigResponse(BaseModel):
@@ -899,6 +904,14 @@ def get_proxy_api() -> ProxyValidatorAPI:
 
 
 _capas_cache: CapasCache | None = None
+_geofinder: GeofinderEquifax | None = None
+
+
+def get_geofinder() -> GeofinderEquifax:
+    global _geofinder
+    if _geofinder is None:
+        _geofinder = GeofinderEquifax(get_config().geofinder_basic)
+    return _geofinder
 
 
 def get_capas_cache() -> CapasCache:
@@ -1053,6 +1066,19 @@ async def api_score(request: ScoreRequest):
     return ScoreResponse(**result)
 
 
+@app.get("/api/direccion", dependencies=[Depends(verify_proxy_token)])
+async def api_direccion(
+    lat: Annotated[float, Query(ge=-90, le=90)],
+    lon: Annotated[float, Query(ge=-180, le=180)],
+):
+    """Direccion de las coordenadas (Geofinder). Siempre 200: el agente decide el respaldo."""
+    try:
+        resultado = await asyncio.to_thread(get_geofinder().consultar, lat, lon)
+    except direccion.DireccionNoDisponible as exc:
+        return {"disponible": False, "motivo": str(exc), "direccion": None}
+    return {"disponible": True, "motivo": "", "direccion": resultado}
+
+
 @app.get("/api/capas", dependencies=[Depends(verify_proxy_token)])
 async def api_capas(version: str | None = None):
     try:
@@ -1078,6 +1104,7 @@ async def health():
         session_age=status["session_age"],
         logged_in=status["logged_in"],
         session_alive=status["session_alive"],
+        geofinder=bool((get_config().geofinder_basic or "").strip()),
     )
 
 

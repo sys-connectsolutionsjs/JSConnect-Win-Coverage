@@ -10,6 +10,7 @@ Flujo descubierto en la Fase 0 (ver tools/captura.json y AGENTS.md):
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from typing import Any
@@ -203,6 +204,82 @@ def _diagnostico(resp) -> str:
 
 def _formato_coordenada(valor: float) -> str:
     return repr(float(valor))
+
+
+_FECHA_ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
+_FECHA_COMPACTA = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
+_FECHA_LATINA = re.compile(r"^(\d{2})/(\d{2})/(\d{4})")
+
+
+def _fecha_dd_mm_aaaa(valor) -> str:
+    """Normaliza la fecha de nacimiento a dd/mm/aaaa; si no se reconoce, la deja tal cual."""
+    texto = str(valor).strip() if valor not in (None, "") else ""
+    for patron, orden in (
+        (_FECHA_ISO, (3, 2, 1)),
+        (_FECHA_COMPACTA, (3, 2, 1)),
+        (_FECHA_LATINA, (1, 2, 3)),
+    ):
+        m = patron.match(texto)
+        if m:
+            return "/".join(m.group(i) for i in orden)
+    return texto
+
+
+def _bloque(obj, sufijo: str):
+    """Primer dict cuya clave termina en `sufijo` (el reporte antepone ns3 a los nodos)."""
+    if isinstance(obj, dict):
+        for clave, valor in obj.items():
+            if isinstance(valor, dict) and str(clave).endswith(sufijo):
+                return valor
+            hallado = _bloque(valor, sufijo)
+            if hallado is not None:
+                return hallado
+    elif isinstance(obj, list):
+        for item in obj:
+            hallado = _bloque(item, sufijo)
+            if hallado is not None:
+                return hallado
+    return None
+
+
+def _txt(valor) -> str:
+    if valor in (None, "") or isinstance(valor, (dict, list)):
+        return ""
+    return str(valor).strip()
+
+
+def _extraer_persona(credit) -> dict[str, str]:
+    """Datos de la persona/empresa: modulo 602 (directorio de personas) y 877 (SUNAT)."""
+    persona: dict[str, str] = {}
+    directorio = _bloque(credit, "DirectorioPersona")
+    if directorio is not None:
+        primeros = (_txt(directorio.get("PrimerNombre")), _txt(directorio.get("SegundoNombre")))
+        nombres = _txt(directorio.get("Nombres")) or " ".join(p for p in primeros if p)
+        persona.update({
+            "nombres": nombres,
+            "apellido_paterno": _txt(directorio.get("ApellidoPaterno")),
+            "apellido_materno": _txt(directorio.get("ApellidoMaterno")),
+            "fecha_nacimiento": _fecha_dd_mm_aaaa(directorio.get("FechaNacimiento")),
+            "lugar_nacimiento": _txt(
+                directorio.get("LugarNacimiento") or directorio.get("LugarDeNacimiento")
+            ),
+            "sexo": _txt(directorio.get("Sexo")),
+            "estado_civil": _txt(directorio.get("EstadoCivil")),
+            "nacionalidad": _txt(directorio.get("Nacionalidad")),
+        })
+    sunat = _bloque(credit, "DirectorioSUNAT")
+    sunat = sunat.get("Directorio") if isinstance(sunat, dict) else None
+    if isinstance(sunat, dict):
+        direccion = (sunat.get("Direcciones") or {}).get("Direccion")
+        if isinstance(direccion, list):
+            direccion = direccion[0] if direccion else ""
+        persona.update({
+            "razon_social": _txt(sunat.get("RazonSocial")),
+            "estado_contribuyente": _txt(sunat.get("EstadoContribuyente")),
+            "condicion_contribuyente": _txt(sunat.get("CondicionContribuyente")),
+            "direccion_fiscal": _txt(direccion),
+        })
+    return persona
 
 
 class ValidatorAPI:
@@ -470,6 +547,7 @@ class ValidatorAPI:
             "nombre": nombre,
             "documento": documento,
             "valido": puntaje is not None,
+            "persona": _extraer_persona(credit),
         }
 
     def validar(

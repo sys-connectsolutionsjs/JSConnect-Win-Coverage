@@ -42,6 +42,12 @@ keepalive_interval_seconds: 900    # 15 min (validado en la investigación de ke
 # Sin URL no se descarga nada y los agentes usan las reglas embebidas en su .exe.
 capas_ttl_seconds: 86400           # 24 h
 
+# Geofinder: direccion de las coordenadas (la misma que muestra WinForce). Pega aqui el valor
+# del encabezado `Authorization: Basic ...` de la peticion api.latam.equifax.com/v2/oauth/token
+# (F12 -> Network en WinForce). SOLO en este archivo, nunca en el repo ni en el chat.
+# Vacio = los agentes muestran la direccion aproximada de OpenStreetMap con un aviso.
+# geofinder_basic: ""
+
 # Redes permitidas para agentes (CIDR): IP de ORIGEN que ve el proxy.
 # LAN estándar + Tailscale CGNAT (100.64.0.0/10). Loopback (127.0.0.1/::1) SIEMPRE
 # se permite. NO agregar las IP públicas del router (salida NAT): solo servirían con

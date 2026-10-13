@@ -15,7 +15,8 @@ CAPA_COBERTURA = "COBERTURA"
 CAPA_FRAUDE = "FRAUDE"
 CAPA_PREFERENTE = "PREFERENTE 2"
 CAPA_BLOQUEADOS = "CODIGOS BLOQUEADOS"
-CAPA_ZONA_F = "ZONA F"
+# Capa retirada (2026-10-13): era copia de FRAUDE. Se ignora si aparece en datos viejos.
+CAPAS_OBSOLETAS = frozenset({"ZONA F"})
 
 BLOQUEADA = "bloqueada"
 SIN_COBERTURA = "sin_cobertura"
@@ -32,7 +33,6 @@ MAX_KML_BYTES = 200 * 1024 * 1024
 
 _METROS_POR_GRADO = 6371000 * math.pi / 180
 _NOMBRES_ZONAS_JS = {
-    "ZONA_F": CAPA_ZONA_F,
     "ZONA_PREFERENTE_2": CAPA_PREFERENTE,
     "ZONA_CODIGOS_BLOQUEADOS": CAPA_BLOQUEADOS,
 }
@@ -160,6 +160,8 @@ def parse_zonas_js(texto: str) -> dict:
         except ValueError:
             continue
         nombre = _NOMBRES_ZONAS_JS.get(m.group(1), m.group(1).replace("_", " "))
+        if nombre in CAPAS_OBSOLETAS:
+            continue
         capas[nombre] = [
             Poligono(tuple((float(a), float(b)) for a, b in poli)) for poli in datos if poli
         ]
@@ -194,6 +196,7 @@ def capas_de_json(datos: dict) -> dict:
             for poli in polis
         ]
         for nombre, polis in datos.items()
+        if nombre not in CAPAS_OBSOLETAS
     }
 
 
@@ -328,7 +331,7 @@ def _mas_cercano(lat: float, lon: float, capas: dict, nombre: str, radio_m: floa
 
 
 def capas_en_punto(lat: float, lon: float, capas: dict) -> tuple:
-    """Nombres de TODAS las capas que contienen el punto (ej. ("FRAUDE", "ZONA F"))."""
+    """Nombres de TODAS las capas que contienen el punto (ej. ("FRAUDE", "PREFERENTE 2"))."""
     return tuple(
         nombre
         for nombre, polis in capas.items()
@@ -364,8 +367,6 @@ def decidir_venta(
     fraude = _mas_cercano(lat, lon, capas, CAPA_FRAUDE, radio_m)
     if fraude:
         avisos.append(f"Zona de fraude cercana (a {fraude[0]:.0f} m): vende con cuidado.")
-    if CAPA_ZONA_F in en_capas:
-        avisos.append("Zona F (significado por confirmar): no cambia la decision.")
 
     if hay_cobertura:
         return Decision(

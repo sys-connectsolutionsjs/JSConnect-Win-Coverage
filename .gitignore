@@ -13,6 +13,8 @@ dist/
 # Captura: datos sensibles (redactados, pero mejor no subir)
 tools/captura.json
 captura.json
+captura1.json
+captura2.json
 tools/captura_inicio.png
 tools/js/
 
@@ -68,3 +70,7 @@ validator_app/proxy/capas_cache.kml
 # Capas de cobertura/fraude de terceros: el repo es publico, NUNCA se suben
 datos_capas/
 validator_app/data/*.json.gz
+
+# Paquete para actualizar el proxy (lo genera tools/empaquetar_actualizacion_proxy.ps1)
+proxy-update/
+dist-nuevo/

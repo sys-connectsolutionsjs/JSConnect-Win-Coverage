@@ -3,7 +3,7 @@
 Entrada (carpeta `datos_capas/`, GITIGNORED - el repo es publico):
   COBERTURA_JUNIO.kmz  poligonos de cobertura
   zona_fraude.kml      zonas de fraude
-  zonas.txt            PREFERENTE 2, CODIGOS BLOQUEADOS y ZONA F
+  zonas.txt            PREFERENTE 2 y CODIGOS BLOQUEADOS (su ZONA F se ignora: copia de fraude)
 
 Salida: validator_app/data/capas.json.gz (tambien GITIGNORED).
 
@@ -40,7 +40,7 @@ def preparar(datos: Path, salida: Path) -> dict:
         ),
     }
     zonas = geo.parse_zonas_js((datos / ARCHIVOS[2]).read_text(encoding="utf-8", errors="replace"))
-    for nombre in (geo.CAPA_PREFERENTE, geo.CAPA_BLOQUEADOS, geo.CAPA_ZONA_F):
+    for nombre in (geo.CAPA_PREFERENTE, geo.CAPA_BLOQUEADOS):
         capas[nombre] = zonas.get(nombre, [])
 
     vacias = [n for n, polis in capas.items() if not polis]

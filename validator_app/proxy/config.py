@@ -64,6 +64,11 @@ class ProxyConfig(BaseSettings):
     capas_kml_url: str = ""
     capas_ttl_seconds: int = 86400
 
+    # Geofinder (direccion de unas coordenadas, API de Equifax que usa WinForce).
+    # Credencial `Authorization: Basic ...` del OAuth de la app; SOLO en config.yaml
+    # (gitignored). Vacia = el agente usa el respaldo de OpenStreetMap con aviso.
+    geofinder_basic: str = ""
+
     # Redes permitidas (LAN + Tailscale CGNAT)
     allowed_networks: list[str] = [
         "192.168.0.0/16",

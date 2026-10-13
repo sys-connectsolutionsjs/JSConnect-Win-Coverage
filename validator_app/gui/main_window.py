@@ -10,8 +10,8 @@ import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
 
 from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
-from validator_app.core import api, capas_local, geo
-from validator_app.gui import fields, session_config, zonas
+from validator_app.core import api, capas_local, direccion, geo
+from validator_app.gui import ficha, fields, session_config, zonas
 from validator_app.gui.map_page import MapaPage
 from validator_app.gui.zonas import motivo_cobertura
 from validator_app.proxy.client import ProxyClient, ProxySesionCaducadaError
@@ -248,6 +248,9 @@ class App(ttk.Window):
         pagina_principal.columnconfigure(0, weight=1)
         main = ttk.Frame(pagina_principal, padding=16)
         main.grid(row=0, column=0, sticky="n")
+        self.ficha = ficha.FichaCliente(pagina_principal)
+        self.ficha.grid(row=0, column=1, sticky="n", padx=(0, 16), pady=16)
+        self.ficha.limpiar()
         self._paginas = {"cobertura_score": pagina_principal}
         pagina_mapa = MapaPage(
             content, self._cliente_activo, self._capas_carga.obtener, clasificar_score, _a_dict
@@ -568,6 +571,7 @@ class App(ttk.Window):
 
         self.btn_validar.config(state="disabled")
         self.lbl_estado.config(text="Estado: validando...")
+        self.ficha.limpiar()
         threading.Thread(
             target=self._validar_en_hilo, args=(lat, lon, tipo, numero), daemon=True
         ).start()
@@ -583,6 +587,15 @@ class App(ttk.Window):
             cobertura_error = None
             decision = None
             score_pendiente = None
+            traida = {}
+            hilo_direccion = None
+            if lat is not None:
+                # La direccion no gasta score: se pide en paralelo con la cobertura.
+                hilo_direccion = threading.Thread(
+                    target=lambda: traida.update(d=direccion.obtener(cliente, lat, lon)),
+                    daemon=True,
+                )
+                hilo_direccion.start()
             if lat is not None:
                 # Solo la cobertura en vivo depende de WinForce; el resto de las capas
                 # es local. Si la cobertura falla se decide igual con los datos locales.
@@ -614,7 +627,14 @@ class App(ttk.Window):
                         score = _a_dict(cliente.validar_score(*args))
                     elif plan == "confirmar":
                         score_pendiente = args
+            if hilo_direccion is not None:
+                hilo_direccion.join()
+            dir_encontrada, aviso_direccion = traida.get("d", (None, None))
             resultado = {
+                "direccion": dir_encontrada,
+                "aviso_direccion": aviso_direccion,
+                "tipo_documento": tipo,
+                "numero_documento": numero,
                 "cobertura": cobertura,
                 "cobertura_error": cobertura_error,
                 "decision": decision,
@@ -731,6 +751,13 @@ class App(ttk.Window):
             )
         else:
             self.lbl_veredicto.config(text="", foreground="")
+        self.ficha.mostrar(
+            ficha.armar_ficha(
+                score, resultado.get("direccion"), resultado.get("tipo_documento"),
+                resultado.get("numero_documento"), clase["rango"] if clase else None,
+            ),
+            resultado.get("aviso_direccion"),
+        )
         self._resaltar_leyenda(clase["categoria"] if clase else None)
         self._fin_validar("Estado: listo")
         if resultado.get("score_pendiente"):

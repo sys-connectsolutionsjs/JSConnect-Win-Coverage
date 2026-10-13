@@ -7,8 +7,8 @@ from tkinter import messagebox
 
 import ttkbootstrap as ttk
 
-from validator_app.core import api, geo
-from validator_app.gui import fields, zonas
+from validator_app.core import api, direccion, geo
+from validator_app.gui import ficha, fields, limites_mapa, zonas
 
 CENTRO_LIMA = (-12.0464, -77.0428)
 RADIO_DIBUJO_M = 2000
@@ -18,18 +18,16 @@ MAX_POLIGONOS_CERCANOS = 600
 RELLENO_NORMAL = "gray25"
 RELLENO_TENUE = "gray12"
 
-# Orden de dibujo: la ultima capa queda encima. Zona F va al final: sus poligonos son
-# identicos a los de Fraude y asi se ven (en morado) sobre los rojos.
+# Orden de dibujo: la ultima capa queda encima.
 CAPAS_VISUALES = (
     (geo.CAPA_COBERTURA, "Cobertura", "#2E9E4F"),
     (geo.CAPA_PREFERENTE, "Preferente 2 (score 401+)", "#1971C2"),
     (geo.CAPA_BLOQUEADOS, "Codigos bloqueados", "#7B1E3A"),
     (geo.CAPA_FRAUDE, "Fraude", "#E03131"),
-    (geo.CAPA_ZONA_F, "Zona F (por confirmar)", "#9C36B5"),
 )
 # Pocas y de tamano chico: al marcarlas se dibujan TODAS, esten donde esten. Cobertura
 # (3.361) y Preferente 2 (casi toda Lima) solo se dibujan cerca del punto o de la vista.
-CAPAS_COMPLETAS = frozenset({geo.CAPA_FRAUDE, geo.CAPA_BLOQUEADOS, geo.CAPA_ZONA_F})
+CAPAS_COMPLETAS = frozenset({geo.CAPA_FRAUDE, geo.CAPA_BLOQUEADOS})
 ANCHO_LATERAL = 300
 
 
@@ -73,9 +71,8 @@ class MapaPage(ttk.Frame):
         self._contenedor_mapa = ttk.Frame(cuerpo)
         self._contenedor_mapa.grid(row=0, column=0, sticky="nsew")
 
-        lateral = ttk.Frame(cuerpo, width=ANCHO_LATERAL)
+        lateral = ttk.ScrolledFrame(cuerpo, width=ANCHO_LATERAL, auto_hide=True)
         lateral.grid(row=0, column=1, sticky="ns", padx=(8, 0))
-        lateral.grid_propagate(False)
         ajuste = ANCHO_LATERAL - 30
 
         marco_zona = ttk.LabelFrame(lateral, text="Zona", padding=8, bootstyle="info")
@@ -97,6 +94,10 @@ class MapaPage(ttk.Frame):
             bootstyle="success", state="disabled",
         )
         self.btn_score.pack(fill="x", pady=(6, 0))
+
+        self.ficha = ficha.FichaCliente(lateral)
+        self.ficha.pack(fill="x", pady=(8, 0))
+        self.ficha.limpiar()
 
         marco_capas = ttk.LabelFrame(
             lateral, text="Capas (solo mostrar u ocultar)", padding=8, bootstyle="info"
@@ -131,7 +132,25 @@ class MapaPage(ttk.Frame):
                 self._contenedor_mapa, text="Mapa no disponible (falta tkintermapview)."
             ).pack()
             return
-        self.mapa = TkinterMapView(self._contenedor_mapa, corner_radius=0)
+        class _MapaPeru(TkinterMapView):
+            """Mapa que no deja alejar ni arrastrar fuera de Peru."""
+
+            def set_zoom(self, zoom, *args, **kwargs):
+                self.min_zoom = max(self.min_zoom, limites_mapa.ZOOM_MIN_PERU)
+                super().set_zoom(zoom, *args, **kwargs)
+
+            def check_map_border_crossing(self):
+                dx, dy = limites_mapa.ajuste_vista(
+                    self.upper_left_tile_pos, self.lower_right_tile_pos, round(self.zoom)
+                )
+                self.upper_left_tile_pos = (
+                    self.upper_left_tile_pos[0] + dx, self.upper_left_tile_pos[1] + dy
+                )
+                self.lower_right_tile_pos = (
+                    self.lower_right_tile_pos[0] + dx, self.lower_right_tile_pos[1] + dy
+                )
+
+        self.mapa = _MapaPeru(self._contenedor_mapa, corner_radius=0)
         self.mapa.pack(fill="both", expand=True)
         self.mapa.set_position(*CENTRO_LIMA)
         self.mapa.set_zoom(12)
@@ -172,6 +191,7 @@ class MapaPage(ttk.Frame):
         self.btn_zona.config(state="disabled")
         self.btn_score.config(state="disabled")
         self.lbl_zona.config(text="Validando cobertura...", bootstyle="default")
+        self.ficha.limpiar()
         threading.Thread(
             target=self._validar_en_hilo, args=(lat, lon, tipo, numero), daemon=True
         ).start()
@@ -179,6 +199,14 @@ class MapaPage(ttk.Frame):
     def _validar_en_hilo(self, lat, lon, tipo, numero) -> None:
         # Las capas son locales y siempre se esperan: la decision nunca se toma sin ellas.
         capas = self._obtener_capas()
+        traida: dict = {}
+        hilo_direccion = threading.Thread(
+            target=lambda: traida.update(
+                d=direccion.obtener(self._obtener_cliente(), lat, lon)
+            ),
+            daemon=True,
+        )
+        hilo_direccion.start()
         cobertura = error = None
         # Solo la cobertura en vivo depende de WinForce; si falla se decide con lo local.
         try:
@@ -194,11 +222,19 @@ class MapaPage(ttk.Frame):
             error = zonas.motivo_cobertura(exc)
         hay = None if cobertura is None else cobertura["hay_cobertura"]
         decision = geo.decidir_venta(lat, lon, hay, capas)
+        hilo_direccion.join()
+        dir_encontrada, aviso = traida.get("d", (None, None))
         self.after(
-            0, lambda: self._mostrar_zona(lat, lon, cobertura, error, decision, capas, tipo, numero)
+            0,
+            lambda: self._mostrar_zona(
+                lat, lon, cobertura, error, decision, capas, tipo, numero, dir_encontrada, aviso
+            ),
         )
 
-    def _mostrar_zona(self, lat, lon, cobertura, error, decision, capas, tipo, numero) -> None:
+    def _mostrar_zona(
+        self, lat, lon, cobertura, error, decision, capas, tipo, numero,
+        dir_encontrada=None, aviso_direccion=None,
+    ) -> None:
         self._capas = capas
         texto, estilo = zonas.resumen_decision(decision)
         if error:
@@ -206,8 +242,10 @@ class MapaPage(ttk.Frame):
         self.lbl_zona.config(text=texto, bootstyle=estilo)
         self._ultimo = {
             "lat": lat, "lon": lon, "cobertura": cobertura, "decision": decision,
-            "tipo": tipo, "numero": numero,
+            "tipo": tipo, "numero": numero, "direccion": dir_encontrada,
+            "aviso_direccion": aviso_direccion, "score": None, "rango": None,
         }
+        self._actualizar_ficha()
         self.lbl_veredicto.config(text="")
         plan = zonas.plan_score(decision)
         if error:
@@ -230,6 +268,16 @@ class MapaPage(ttk.Frame):
         self._centro_dibujo = (lat, lon)
         self._pintar_capas()
         self.btn_zona.config(state="normal")
+
+    def _actualizar_ficha(self) -> None:
+        u = self._ultimo
+        if not u:
+            self.ficha.limpiar()
+            return
+        self.ficha.mostrar(
+            ficha.armar_ficha(u["score"], u["direccion"], u["tipo"], u["numero"], u["rango"]),
+            u["aviso_direccion"],
+        )
 
     def _pintar_capas(self) -> None:
         """Dibuja u oculta capas. Es SOLO visual: la decision usa siempre todas las capas."""
@@ -323,6 +371,10 @@ class MapaPage(ttk.Frame):
     def _mostrar_score(self, score: dict, decision: geo.Decision) -> None:
         valor = score.get("valor")
         clase = self._clasificar_score(valor)
+        if self._ultimo is not None:
+            self._ultimo["score"] = score
+            self._ultimo["rango"] = clase["rango"] if clase else None
+            self._actualizar_ficha()
         if clase:
             self.lbl_score.config(
                 text=f"Score: {valor} — Riesgo {clase['riesgo']} ({clase['categoria']})\n"

@@ -45,13 +45,13 @@ def datos(tmp_path):
     triangulo = "[[[-12.0,-77.1],[-11.9,-77.1],[-11.9,-77.0]]]"
     lineas = [
         f"var ZONA_{nombre}_POLYGONS_DATA = {triangulo};"
-        for nombre in ("F", "PREFERENTE_2", "CODIGOS_BLOQUEADOS")
+        for nombre in ("F", "PREFERENTE_2", "CODIGOS_BLOQUEADOS")  # F: archivo viejo, se ignora
     ]
     (carpeta / "zonas.txt").write_text("\n".join(lineas), encoding="utf-8")
     return carpeta
 
 
-def test_preparar_genera_las_cinco_capas(datos, tmp_path):
+def test_preparar_genera_las_cuatro_capas(datos, tmp_path):
     salida = tmp_path / "out" / "capas.json.gz"
     conteo = pc.preparar(datos, salida)
     assert conteo == {
@@ -59,7 +59,6 @@ def test_preparar_genera_las_cinco_capas(datos, tmp_path):
         geo.CAPA_FRAUDE: 1,
         geo.CAPA_PREFERENTE: 1,
         geo.CAPA_BLOQUEADOS: 1,
-        geo.CAPA_ZONA_F: 1,
     }
     cargadas = geo.cargar_capas_embebidas(salida)
     assert [p.nombre for p in cargadas[geo.CAPA_COBERTURA]] == ["P1", "P2"]
