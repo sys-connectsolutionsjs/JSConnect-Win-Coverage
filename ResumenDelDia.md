@@ -1,6 +1,6 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: (se fija al abrir la proxima sesion)
+Fecha: 2026-10-13
 
 ## Rotación del resumen anterior
 
@@ -32,3 +32,31 @@ condensada en `HistorialResumenes.md`.
   PC owner limpia.
 - Diferido: Etapa C.12 (modo standalone), duda de `Escalabilidad.md`, `actualizar_score_cliente` /
   `newsearch.php`, resto del backlog v1.1.
+
+## Mapa limitado a Perú (2026-10-13)
+- `gui/limites_mapa.py` (lógica pura: `PERU_BBOX`, `ZOOM_MIN_PERU = 5`, `ajuste_vista`) y subclase
+  `_MapaPeru` en `map_page.py`: el mapa ya no deja alejar hasta ver el mundo ni arrastrar fuera de
+  Perú (tiles del resto del mundo no se descargan). 6 tests nuevos en `tests/test_limites_mapa.py`
+  (427 en total), `ruff` limpio; verificado con un Tk real: zoom piso 5 y la vista no sale de Perú.
+- La validación de zona no cambia (la decide `geo.decidir_venta`, no el mapa). Sin Release aún.
+
+## Dirección, ficha copiable y Zona F retirada (2026-10-13)
+- **Dirección por coordenadas**: Geofinder (API de Equifax que usa WinForce; `GET .../geoapi/nyg/pe/
+  coordinates/v1`) vía el proxy (`proxy/geofinder.py`, `GET /api/direccion`, credencial `geofinder_basic`
+  solo en `config.yaml`) con respaldo OpenStreetMap y aviso de "aproximada, el servicio debe reactivarse"
+  (`core/direccion.py`). Se pide en paralelo con la cobertura (no gasta score).
+- **Datos del documento**: `core/api.py::_extraer_score` devuelve `persona` (módulos 602 y 877);
+  `ScoreResponse`/`ScoreResult` con `persona` opcional.
+- **Ficha copiable** (`gui/ficha.py`) en Cobertura/Score y Mapa: dato por dato y "Copiar todo" en el
+  orden pedido; el score del Mapa ya se copia. Panel lateral del Mapa desplazable.
+- **Zona F retirada** (copia de Fraude: 27 polígonos idénticos, el 28.º de Fraude no estaba en F).
+- Tests 421 → 474, `ruff` limpio. `captura.json` fue reemplazado por una captura nueva (38 registros,
+  sin score; confirma el formato de Geofinder; `Authorization` va oculto).
+- **Seguimiento (misma sesión)**: la dirección salía "equivocada" porque el proxy de la oficina
+  (la PC de oficina) es anterior y respondía 404; el agente usó OpenStreetMap (otra base de datos).
+  Se ajustó Geofinder al flujo del navegador, se añadió banner rojo con el motivo, `/health.geofinder`
+  y `tools/empaquetar_actualizacion_proxy.ps1` (paquete de pendrive sin secretos). 487 tests.
+- **Formato**: `DIRECCIÓN DETALLADA` sale como Geofinder: `AVENIDA PERU 4298 BOCANEGRA SECTOR 3 (CALLAO, CALLAO, CALLAO)` (con el paréntesis); departamento/provincia/distrito siguen en líneas aparte.
+- **Falta**: que el usuario ponga `geofinder_basic` en el proxy y actualice el proxy de la PC owner;
+  probar con un score real (DNI 10412031) si el reporte trae "lugar de nacimiento"; Release.
+

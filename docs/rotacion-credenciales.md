@@ -243,6 +243,19 @@ No hay un tope de 9.5 h demostrado (ver la corrección del 2026-10-07 en
 
 ---
 
+## Geofinder (dirección de las coordenadas)
+La dirección que muestra la app sale de **Geofinder**, una API de Equifax que WinForce usa desde el
+navegador. No depende de la sesión de WinForce: el proxy pide un token OAuth (`client_credentials`,
+dura ~24 min y se renueva solo) con la credencial `Authorization: Basic …` de la app de WinForce.
+- **Dónde va**: `geofinder_basic` en `validator_app/proxy/config.yaml` (gitignored). Nunca en el repo,
+  chat ni documentos. Vacío = los agentes muestran la dirección de OpenStreetMap con un aviso.
+- **Cómo obtenerla**: en WinForce, F12 → Network → filtro `oauth` → petición
+  `api.latam.equifax.com/v2/oauth/token` → Headers → `Authorization: Basic …` (se pega solo lo que
+  sigue a `Basic`). `tools/captura.py` la oculta a propósito.
+- **Cuándo cambia**: solo si WinForce/Equifax rotan la credencial. Síntoma: en la ficha del cliente
+  aparece el aviso de dirección aproximada (OpenStreetMap). Se repite el procedimiento y se reinicia
+  el servicio del proxy.
+
 ## Troubleshooting
 
 | Problema | Causa | Solución |

@@ -72,6 +72,25 @@ y `extension.pem`/`.crx`/`updates.xml` (se regeneran), `.browser_profile/`,
 8. **IP para los agentes:** copiar la URL de "URL para los agentes" en la consola owner
    (`http://<IP>:8080`; nunca `localhost`).
 
+### Actualizar el proxy sin reinstalar (cuando hay código nuevo)
+
+El servicio corre el código del repo de la PC owner (`C:\jsconnect`) con el Python del
+sistema, así que **no hace falta reinstalar**: se copia el código nuevo y se reinicia el servicio.
+Un proxy anterior responde `404` en los endpoints nuevos (`/api/direccion`, `/api/capas`) y los
+agentes avisan "proxy desactualizado".
+
+1. En tu PC: `powershell -ExecutionPolicy Bypass -File tools\empaquetar_actualizacion_proxy.ps1`
+   → crea `proxy-update\` (solo código; nunca `config.yaml`, tokens, llaves ni perfiles) con un
+   `LEEME.txt`. Llevar esa carpeta al pendrive.
+2. En la PC owner (PowerShell **como Administrador**): `sc stop JSWinProxy`, luego
+   `robocopy <pendrive>\proxy-update\validator_app C:\jsconnect\validator_app /E`
+   (sin `/MIR` ni `/PURGE`: no borra lo que ya existe), luego `sc start JSWinProxy`.
+3. Para la dirección: agregar `geofinder_basic: "..."` a `validator_app\proxy\config.yaml`
+   (ver `docs/rotacion-credenciales.md` → "Geofinder") **antes** de iniciar el servicio.
+4. Verificar: `curl http://localhost:8080/health` → `"geofinder":true`.
+5. Si no arranca por un paquete faltante: `install_service.bat` como Administrador y elegir **C**
+   (conserva los tokens; los agentes no se reconfiguran).
+
 ### 3. En cada agente
 
 1. Copiar `JSConnect-Win-Coverage.exe` del pendrive a la PC y abrirlo. (Un `.exe` copiado

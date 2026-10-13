@@ -709,14 +709,14 @@ keyring.delete_password("servicio", "usuario")
 
 ## Mapa de cobertura y reglas de venta por zona (2026-10-09)
 - **Capas**: `COBERTURA` (3.361 polígonos, con el campo `PROYECTO`), `FRAUDE`, `PREFERENTE 2`,
-  `CODIGOS BLOQUEADOS` y `ZONA F`. Viven embebidas en el .exe (`validator_app/data/capas.json.gz`,
+  y `CODIGOS BLOQUEADOS` (la `ZONA F` se retiró el 2026-10-13). Viven embebidas en el .exe (`validator_app/data/capas.json.gz`,
   generado por `tools/preparar_capas.py`) y **no se suben al repo** (datos de terceros).
 - **Reglas**: bloqueada/fraude → no se vende ni se consulta el score; Preferente 2 → score ≥ 401;
   el resto → ≥ 201; sin cobertura pero con cobertura a ≤ 300 m → "extensible" (no cruzar avenidas
   grandes de doble vía, eso hoy lo juzga el asesor mirando el mapa).
 - **Solo la cobertura en vivo depende de WinForce** (`validar_cobertura`). Si falla, la decisión
   queda `SIN_CONFIRMAR` con los datos locales. Si WinForce dice NO, nunca es "vender".
-- **Zona F** = copia de Fraude (27 de sus 28 polígonos son idénticos); significado pendiente.
+- **Zona F** (retirada 2026-10-13) = copia de Fraude: 27 de sus 28 polígonos eran idénticos y sin nombres; no aportaba nada.
 - **Origen de los polígonos**: el mapa de WinForce son tiles PNG de Equifax (sin geometría); salen de
   una app web de terceros que los sirve sin login. Por eso se embebieron: el tercero puede desaparecer.
 - `PrintWindow` (Win32): captura el contenido de UNA ventana aunque otra esté encima; es la forma

@@ -88,6 +88,14 @@ set PROXY_TOKEN=a1b2c3d4e5f67890...
 
 ---
 
+## Dirección de coordenadas (Geofinder) — solo en el proxy
+La dirección sale de Geofinder (Equifax). Va en el `config.yaml` del **proxy** (no en cada agente):
+`geofinder_basic: "<valor de Authorization: Basic …>"`. Sin ella (o si Equifax falla) el agente usa
+OpenStreetMap y lo avisa con un banner rojo en la ficha ("DIRECCIÓN APROXIMADA… NO es la de
+WinForce"; si el proxy es anterior, además "hay que actualizarlo"). `GET /health` informa
+`"geofinder": true|false`. Procedimiento completo: `docs/rotacion-credenciales.md` → "Geofinder".
+Actualizar el proxy sin reinstalar: `docs/proxy-deploy.md`.
+
 ## Verificación de Configuración
 
 ### Desde la App

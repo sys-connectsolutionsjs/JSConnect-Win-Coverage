@@ -91,9 +91,9 @@ JS-Win-Coverage/              (raíz del proyecto)
 └── validator_app/
     ├── __init__.py
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
-    ├── core/                 # api.py (login, score, cobertura) + session.py · geo.py (reglas de venta por zona: KML/KMZ, distancias, decidir_venta) · capas_local.py (carga de capas con garantia)
+    ├── core/                 # api.py (login, score, cobertura) + session.py · geo.py (reglas de venta por zona: KML/KMZ, distancias, decidir_venta) · capas_local.py (carga de capas con garantia) · direccion.py (direccion de unas coordenadas: parsers Geofinder/OSM y respaldo con aviso)
     ├── data/                 # capas.json.gz embebido en el .exe (GITIGNORED: datos de terceros)
-    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone) · map_page.py (pagina Mapa) · zonas.py (textos/plan del score)
+    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone) · map_page.py (pagina Mapa) · limites_mapa.py (encierra el mapa en Peru: zoom minimo 5 + bbox) · ficha.py (ficha del cliente copiable: dato por dato o todo junto) · zonas.py (textos/plan del score)
     ├── activation/           # fingerprint.py, signer.py, state.py
     ├── updater/              # check.py, download.py (agente por commit; owner por SHA-256)
     └── proxy/                # proxy local para los agentes de la LAN (25 hoy, 41 previstos)
@@ -102,6 +102,7 @@ JS-Win-Coverage/              (raíz del proyecto)
         ├── config.yaml       # GITIGNORED (secretos reales)
         ├── config.yaml.example  # plantilla en repo
         ├── server.py         # FastAPI app + endpoints (incl. GET /api/capas) + ValidatorAPI wrapper + keepalive
+        ├── geofinder.py      # token OAuth de Equifax + direccion de coordenadas (GET /api/direccion); credencial geofinder_basic solo en config.yaml
         ├── capas.py          # CapasCache: reglas de venta (My Maps -> KML) con copia en disco; la URL va solo en config.yaml
         ├── client.py         # ProxyClient para agentes .exe
         ├── winsw.xml         # config servicio Windows
@@ -195,7 +196,7 @@ bloqueada/fraude → no se vende ni se consulta el score; Preferente 2 → score
 sin cobertura pero con cobertura a ≤ 300 m → "extensible" (confirma el asesor). Las capas van
 embebidas en el .exe y solo la cobertura en vivo depende de WinForce. `core/api.py` NO cambió.
 Falta: Release, detección automática de "no cruzar avenida de doble vía" (hoy es visual),
-decidir qué hacer con la capa "Zona F" (es copia de Fraude: 27 de sus 28 polígonos son idénticos).
+la capa "Zona F" (copia de Fraude) se retiró el 2026-10-13.
 
 ### 2. Ofertas / catálogo de venta
 Al confirmar cobertura + score, sugerir planes por zona. Debe mantenerse separado
@@ -364,7 +365,14 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
    Fase 5, con su propio Release).
 7b. **Mapa de cobertura**: probarlo con los asesores, publicar el Release (agente) y llevar la URL
    de `capas_kml_url` al `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas
-   embebidas). Mostrar la "Zona F" al jefe y decidir qué hacer con ella.
+   embebidas). La "Zona F" ya se retiró (era copia de Fraude).
+7c. **Geofinder en el proxy** (el proxy de la oficina era anterior al 2026-10-09: `/api/direccion` y
+   `/api/capas` daban 404; actualizar con `tools/empaquetar_actualizacion_proxy.ps1` +
+   `docs/proxy-deploy.md` → "Actualizar el proxy sin reinstalar"): poner `geofinder_basic` (header `Authorization: Basic …` de
+   `api.latam.equifax.com/v2/oauth/token`, F12 → Network en WinForce) en el `config.yaml` de la PC owner y
+   actualizar su proxy; mientras tanto la dirección sale de OpenStreetMap con aviso. Confirmar con un
+   score real (DNI 10412031) que el reporte trae el "lugar de nacimiento" (hoy `lugar_nacimiento`
+   queda en blanco si el campo no existe; `LugarNacimiento` es una suposición).
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —

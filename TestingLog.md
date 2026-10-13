@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (421 en total, a 2026-10-09; el desglose de abajo es de 2026-10-02)
+## Inventario de tests (427 en total, a 2026-10-13; el desglose de abajo es de 2026-10-02)
 
 > 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
 > +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
@@ -46,6 +46,29 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-13 — mapa solo Perú, dirección (Geofinder/OSM), ficha copiable, sin Zona F (421 → 474 tests)
+- `test_limites_mapa.py` (6): el mapa no sale de Perú (zoom mínimo 5 + borde por bbox), con la fórmula
+  de tiles de OSM reimplementada en el test.
+- `test_direccion.py` (17) y `test_direccion_proxy.py` (13): parsers Geofinder/Nominatim, token OAuth
+  (caché, renovación, 401, sin credencial), `/api/direccion` (siempre 200 con `disponible`),
+  `ProxyClient.obtener_direccion` (un solo intento) y respaldo OSM con aviso (`direccion.obtener`).
+- `test_persona_score.py` (9): `persona` en el score (módulos 602/877), fechas en varios formatos,
+  campos opcionales en `ScoreResponse`/`ScoreResult` (proxy viejo sigue funcionando).
+- `test_ficha.py` (9): etiquetas en el orden pedido, "Copiar todo", blancos si falta dato o coordenadas.
+- Zona F retirada: tests de geo/preparar_capas actualizados; `capas_de_json` ignora "ZONA F" de datos viejos.
+- Prueba de humo con Tk real: la ficha en el panel desplazable del Mapa copia dato por dato y todo junto.
+- **Seguimiento 2026-10-13 (dirección equivocada)**: el proxy de la oficina daba 404 en
+  `/api/direccion`; el agente caía a OpenStreetMap, que devuelve el objeto OSM más cercano ("Mercado 3
+  de enero, 4298, Avenida Perú"), no la dirección de Equifax. Cambios con tests: Geofinder sigue el
+  flujo del navegador (`coordinates-ref` con el punto tal cual → punto ajustado → `coordinates`),
+  404 tipado (`ProxyEndpointNoExisteError`, sin reintentos), aviso rojo con el motivo, `/health`
+  con `geofinder`, y `tools/empaquetar_actualizacion_proxy.ps1` con guardas
+  (`test_empaquetar_proxy.py`: la lista de archivos no trae secretos). 474 → 487 tests.
+- **Formato de dirección (2026-10-13)**: `DIRECCIÓN DETALLADA` conserva el formato de Geofinder `DETALLE (DISTRITO, PROVINCIA, DEPARTAMENTO)` (`direccion.con_ubicacion`); el paréntesis se regenera con los valores del 2.º endpoint y el respaldo OSM usa el mismo formato. 488 tests.
+- **No verificado en vivo** (sin credencial de Geofinder): la llamada real a Geofinder, el orden
+  (distrito, provincia, departamento) del paréntesis con un punto de Lima, y si el reporte de un
+  DNI trae "lugar de nacimiento".
 
 ### Sesión 2026-10-09 — mapa de cobertura y reglas de venta por zona (318 → 421 tests)
 - [TDD] Tests escritos primero (rojo) y luego el código, en este orden: `test_geo.py` y

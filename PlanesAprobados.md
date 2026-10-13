@@ -533,12 +533,12 @@ Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/`resumen
   doble vía: hoy lo juzga el asesor mirando el mapa).
 - **Decisiones**: capas embebidas en el .exe (el tercero puede desaparecer) y **nunca en el repo
   público**; solo la cobertura en vivo depende de WinForce; si WinForce dice NO nunca es "vender";
-  fraude dentro bloquea, fraude cercano (≤ 300 m) avisa; Zona F se muestra pero es copia de Fraude;
-  casillas de capas solo visuales (la decisión usa siempre todas); Zona F/Fraude/Bloqueados se dibujan
+  fraude dentro bloquea, fraude cercano (≤ 300 m) avisa; Zona F era copia de Fraude y se retiró (2026-10-13);
+  casillas de capas solo visuales (la decisión usa siempre todas); Fraude/Bloqueados se dibujan
   completas, Cobertura/Preferente 2 por cercanía; una sola medida de ventana + F11.
 - **Sigue en cola**: Release (recompilar desde `main`), `capas_kml_url` en el `config.yaml` del proxy
   (opcional), detección automática de avenidas de doble vía (vías OSM `highway=trunk/primary`),
-  dibujar los huecos de los polígonos, qué hacer con "Zona F".
+  dibujar los huecos de los polígonos.
 
 ## Notas de seguridad
 - Las capas del mapa (`datos_capas/`, `validator_app/data/*.json.gz`) y la URL `capas_kml_url` NO van al repo (público).
