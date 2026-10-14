@@ -29,6 +29,9 @@ CAPAS_VISUALES = (
 # (3.361) y Preferente 2 (casi toda Lima) solo se dibujan cerca del punto o de la vista.
 CAPAS_COMPLETAS = frozenset({geo.CAPA_FRAUDE, geo.CAPA_BLOQUEADOS})
 ANCHO_LATERAL = 300
+# Espacio reservado para la barra de desplazamiento (siempre visible: si se oculta, el
+# contenido cambia de ancho y la ventana parece trabarse).
+ANCHO_BARRA = 14
 
 
 class MapaPage(ttk.Frame):
@@ -71,8 +74,11 @@ class MapaPage(ttk.Frame):
         self._contenedor_mapa = ttk.Frame(cuerpo)
         self._contenedor_mapa.grid(row=0, column=0, sticky="nsew")
 
-        lateral = ttk.ScrolledFrame(cuerpo, width=ANCHO_LATERAL, auto_hide=True)
+        lateral = ttk.ScrolledFrame(
+            cuerpo, width=ANCHO_LATERAL + ANCHO_BARRA, auto_hide=False, bootstyle="round"
+        )
         lateral.grid(row=0, column=1, sticky="ns", padx=(8, 0))
+        self.panel_lateral = lateral
         ajuste = ANCHO_LATERAL - 30
 
         marco_zona = ttk.LabelFrame(lateral, text="Zona", padding=8, bootstyle="info")
