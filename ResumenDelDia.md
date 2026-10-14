@@ -57,7 +57,9 @@ condensada en `HistorialResumenes.md`.
   Se ajustó Geofinder al flujo del navegador, se añadió banner rojo con el motivo, `/health.geofinder`
   y `tools/empaquetar_actualizacion_proxy.ps1` (paquete de pendrive sin secretos). 487 tests.
 - **Formato**: `DIRECCIÓN DETALLADA` sale como Geofinder: `AVENIDA PERU 4298 BOCANEGRA SECTOR 3 (CALLAO, CALLAO, CALLAO)` (con el paréntesis); departamento/provincia/distrito siguen en líneas aparte.
-- **Falta**: que el usuario ponga `geofinder_basic` en el proxy y actualice el proxy de la PC owner;
+- **Release `v2026.10.13` publicado** (agente + owner, tag en `5abb5d2`; el SHA embebido, el commit
+  del tag y los hashes de las notas coinciden). Los agentes lo recibirán con "Buscar actualizaciones".
+- **Falta (histórico del día, ya resuelto salvo lo último)**: que el usuario ponga `geofinder_basic` en el proxy y actualice el proxy de la PC owner;
   Release. Score real probado (DNI 10412031): el reporte no trae lugar de nacimiento → la ficha
   usa "NACIONALIDAD Y FECHA DE NACIMIENTO"; la etiqueta es "APELLIDOS Y NOMBRES" y el valor va apellidos primero (apellidos + PrimerNombre +
   SegundoNombre + apellidos).

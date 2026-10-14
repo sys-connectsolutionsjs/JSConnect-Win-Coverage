@@ -417,8 +417,8 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
   credencial de Geofinder se saca a mano con F12.
 - **Decisiones del usuario**: respaldo OSM visible y copiable pero con alerta roja; solo documento →
   dirección en blanco; lugar de nacimiento reemplazado por nacionalidad; apellidos primero.
-- **Estado**: tests 421 → **494**, `ruff` limpio. **Release `v2026.10.13`**: se publica a
-  continuación desde este commit (confirmar en GitHub → Releases). El proxy de la oficina ya corre
+- **Estado**: tests 421 → **494**, `ruff` limpio. **Release `v2026.10.13` PUBLICADO**
+  (2026-10-13, agente + consola owner, tag en `5abb5d2`, SHA-256 verificados contra las notas). El proxy de la oficina ya corre
   Geofinder, pero con un `core/api.py` anterior al fix de nombres (funciona igual con el agente nuevo).
 - **Pendiente**:
   - recopiar `proxy-update\` a la PC owner cuando convenga (fix de nombres en `core/api.py`);
