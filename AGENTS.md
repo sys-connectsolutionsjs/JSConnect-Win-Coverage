@@ -190,13 +190,14 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
   código de compatibilidad con activaciones antiguas.
 
 ## Implementaciones futuras
-### 1. Mapa interactivo de cobertura — PRIMERA VERSIÓN HECHA (2026-10-09, sin Release aún)
+### 1. Mapa interactivo de cobertura — PRIMERA VERSIÓN HECHA (2026-10-09; en el Release v2026.10.13)
 Página "Mapa" (`gui/map_page.py`, `tkintermapview`) + reglas de venta por zona (`core/geo.py`):
 bloqueada/fraude → no se vende ni se consulta el score; Preferente 2 → score ≥ 401, resto ≥ 201;
 sin cobertura pero con cobertura a ≤ 300 m → "extensible" (confirma el asesor). Las capas van
 embebidas en el .exe y solo la cobertura en vivo depende de WinForce. `core/api.py` NO cambió.
-Falta: Release, detección automática de "no cruzar avenida de doble vía" (hoy es visual),
-la capa "Zona F" (copia de Fraude) se retiró el 2026-10-13.
+Falta: detección automática de "no cruzar avenida de doble vía" (hoy es visual) y dibujar los
+huecos de los polígonos. La capa "Zona F" (copia de Fraude) se retiró el 2026-10-13; el mapa solo
+muestra Perú y la barra del panel lateral es fija.
 
 ### 2. Ofertas / catálogo de venta
 Al confirmar cobertura + score, sugerir planes por zona. Debe mantenerse separado
@@ -363,16 +364,15 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
    hayan actualizado a `v2026.10.07`.
 7. **Que el agente lea la URL y el token de un archivo del pendrive** (idea acordada; después de la
    Fase 5, con su propio Release).
-7b. **Mapa de cobertura**: probarlo con los asesores, publicar el Release (agente) y llevar la URL
-   de `capas_kml_url` al `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas
-   embebidas). La "Zona F" ya se retiró (era copia de Fraude).
-7c. **Geofinder en el proxy** (el proxy de la oficina era anterior al 2026-10-09: `/api/direccion` y
-   `/api/capas` daban 404; actualizar con `tools/empaquetar_actualizacion_proxy.ps1` +
-   `docs/proxy-deploy.md` → "Actualizar el proxy sin reinstalar"): poner `geofinder_basic` (header `Authorization: Basic …` de
-   `api.latam.equifax.com/v2/oauth/token`, F12 → Network en WinForce) en el `config.yaml` de la PC owner y
-   actualizar su proxy; mientras tanto la dirección sale de OpenStreetMap con aviso. Confirmar con un
-   score real (DNI 10412031): verificado 2026-10-13; el reporte NO trae lugar de nacimiento, por eso la
-   línea de la ficha es "NACIONALIDAD Y FECHA DE NACIMIENTO".
+7b. **Mapa de cobertura**: probarlo con los asesores y llevar la URL de `capas_kml_url` al
+   `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas embebidas; `/api/capas`
+   responde 503 sin ella, lo esperado). Release publicado en `v2026.10.13`. La "Zona F" ya se retiró.
+7c. **Geofinder en el proxy**: HECHO y verificado en vivo el 2026-10-13 en la PC de oficina
+   (`geofinder_basic` en su `config.yaml`; `/health` → `"geofinder": true`). Si la credencial rota,
+   repetir el procedimiento de `docs/rotacion-credenciales.md` → "Geofinder" (síntoma: banner rojo de
+   dirección aproximada). Para llevar código nuevo al proxy sin reinstalar:
+   `tools/empaquetar_actualizacion_proxy.ps1` + `docs/proxy-deploy.md` → "Actualizar el proxy sin
+   reinstalar". Pendiente menor: recopiar el paquete (fix de nombres en `core/api.py`).
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —
@@ -386,45 +386,45 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-10-09 [CONTEXTO PARA LA SIGUIENTE — mapa de cobertura y reglas de venta, sin Release]
+### Cierre de la sesión 2026-10-13 [CONTEXTO PARA LA SIGUIENTE — dirección Geofinder, ficha copiable, mapa solo Perú, Release v2026.10.13]
 
-- **Para qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta si no se
-  convierte en venta) y "sin cobertura" perdía ventas que se resuelven trayendo un cable del vecino.
-  Se pidió un mapa y decidir la zona **antes** del score.
-- **Reglas del usuario**: bloqueada/fraude → no se vende ni se consulta; **Preferente 2** → score ≥ 401;
-  resto ≥ 201; sin cobertura con cobertura a ≤ **300 m** → "extensible" (sin cruzar avenidas grandes
-  de doble vía; hoy lo juzga el asesor mirando el mapa). Si WinForce dice NO **nunca** es "vender"
-  (hallazgo con datos reales: la copia de junio de los polígonos cubría un punto donde WinForce dijo NO).
-- **De dónde salen los datos**: el mapa de WinForce son tiles PNG de Equifax (sin geometría). Los
-  polígonos (cobertura 3.361, fraude 28, Preferente 2 129, bloqueados 9, Zona F 27) salen de una app
-  web de terceros que los sirve sin login; se **embebieron en el .exe** porque el tercero puede
-  desaparecer. **Repo público**: `datos_capas/` y `validator_app/data/*.json.gz` están en `.gitignore`
-  (guarda: `tests/test_build_ps1.py`) y la URL del mapa de reglas (`capas_kml_url`) vive solo en el
-  `config.yaml` del proxy (vacía por defecto en el código; casi se queda en `config.py`).
-- **Hecho** (commits `3942e2d` y `89a6d03`, subidos a `main`): `core/geo.py` (KML/KMZ/`zonas.txt`,
-  `decidir_venta`, estados `BLOQUEADA`/`VENDER`/`EXTENSIBLE`/`SIN_COBERTURA`/`SIN_CONFIRMAR`),
-  `core/capas_local.py` (`CapasCargadas`: lo local queda listo al instante, el proxy solo actualiza),
-  proxy `capas.py` + `GET /api/capas` + `ProxyClient.obtener_capas()`, `tools/preparar_capas.py`,
-  página **Mapa** (`gui/map_page.py`, `tkintermapview`) y `gui/zonas.py`, compuerta del score también
-  en la pantalla principal, ventana de **una sola medida** (1120x700) + **pantalla completa** (F11/Esc),
-  `build.ps1` que embebe las capas.
-- **Decisiones del usuario**: solo la cobertura en vivo depende de WinForce (si falla se avisa "no se
-  pudo obtener la información de cobertura, pero del resto sí" y se dan las condiciones de la zona);
-  las casillas de capas son **solo visuales** (la decisión usa siempre todas); Zona F, Fraude y
-  Bloqueados se dibujan **completas** al marcarlas, sin mover la vista; fraude dentro bloquea, cercano avisa.
-- **Hallazgos**: **Zona F = copia de Fraude** (27 de sus 28 polígonos son idénticos; significado
-  pendiente, el usuario se lo enseñará a su jefe). Bug de la prueba de humo: la carga de capas esperaba
-  al proxy y con el proxy caído una decisión podía tomarse **sin capas** (corregido, con test).
-  Una captura de pantalla por región incluyó otra ventana del usuario (borrada de inmediato); desde
-  entonces solo `PrintWindow`. `terminate()` de un `.exe` onefile puede dejar vivo al hijo.
-- **Estado**: tests 318 → **421**, `ruff` limpio. **Sin Release** (el usuario lo publica otro día).
-  El `.exe` de `dist\` se compiló antes de sacar la URL de `config.py` y con `HEAD` = `aae580d`:
-  **recompilar desde `main`** antes de publicar. Los HAR de la captura de red se borraron.
+- **Para qué**: el asesor necesita la **dirección** de las coordenadas y los **datos del documento**
+  para copiarlos a WinForce sin reescribir, y el mapa no debía cargar el mundo entero.
+- **Hecho** (commits `2247945`, `5809c72`, `43dd799`, `9ac9fbe`, `ae07541`, en `main`):
+  - **Dirección**: Geofinder (API de Equifax que usa WinForce) vía el proxy: `proxy/geofinder.py`
+    (token OAuth `client_credentials` cacheado ~24 min; flujo del navegador: `coordinates-ref` con
+    el punto tal cual → punto ajustado → `coordinates`), `GET /api/direccion`, `geofinder_basic`
+    **solo** en el `config.yaml` del proxy y `/health.geofinder`. Respaldo OpenStreetMap
+    (`core/direccion.py`) con **banner rojo** "DIRECCIÓN APROXIMADA… NO es la de WinForce" y el motivo.
+    `DIRECCIÓN DETALLADA` sale como Geofinder: `DETALLE (DISTRITO, PROVINCIA, DEPARTAMENTO)`.
+  - **Ficha copiable** (`gui/ficha.py`) en Cobertura/Score y Mapa: dato por dato y **Copiar todo**:
+    APELLIDOS Y NOMBRES, DOCUMENTO DE IDENTIDAD, NACIONALIDAD Y FECHA DE NACIMIENTO, SCORE (rango),
+    DIRECCIÓN DETALLADA, DEPARTAMENTO, PROVINCIA, DISTRITO. Datos de la persona del reporte
+    (`persona`, módulos 602/877) como campo opcional de proxy y cliente. El score del Mapa ya se copia.
+  - **Mapa solo Perú** (`gui/limites_mapa.py`: zoom mínimo 5 + borde por bbox) y **barra de
+    desplazamiento fija** en el panel lateral (sin saltos al perder el foco).
+  - **Zona F retirada** (era copia de Fraude; `capas_de_json` la ignora en datos viejos).
+  - **Actualizar el proxy sin reinstalar**: `tools/empaquetar_actualizacion_proxy.ps1` (solo código,
+    sin secretos) + `docs/proxy-deploy.md`.
+- **Verificado en vivo** (proxy de la oficina, DNI de prueba): dirección idéntica a WinForce para
+  `-12.02894226054663, -77.0938731550291`; orden del paréntesis confirmado con un punto de Lima;
+  score + `persona` + Copiar todo con el formato pedido.
+- **Hallazgos**: el proxy de la oficina era anterior al 2026-10-09 (404 en `/api/direccion` y
+  `/api/capas`): el agente cayó a OpenStreetMap, que devuelve el objeto OSM más cercano ("Mercado 3
+  de enero, 4298") y no la dirección de Equifax. El reporte **no trae lugar de nacimiento**; `Nombres`
+  llega como nombre completo (APELLIDOS NOMBRES) y en personas con RUC 10 `RazonSocial` repite ese
+  nombre. Un "nombre de otro DNI" fue un DNI mal digitado. `captura.py` oculta `Authorization`: la
+  credencial de Geofinder se saca a mano con F12.
+- **Decisiones del usuario**: respaldo OSM visible y copiable pero con alerta roja; solo documento →
+  dirección en blanco; lugar de nacimiento reemplazado por nacionalidad; apellidos primero.
+- **Estado**: tests 421 → **494**, `ruff` limpio. **Release `v2026.10.13`**: se publica a
+  continuación desde este commit (confirmar en GitHub → Releases). El proxy de la oficina ya corre
+  Geofinder, pero con un `core/api.py` anterior al fix de nombres (funciona igual con el agente nuevo).
 - **Pendiente**:
-  - Release del agente (recompilar, `publish-release.ps1`); `capas_kml_url` en el `config.yaml` del
-    proxy (opcional); probar el mapa con asesores;
-  - qué hacer con "Zona F"; detección automática de "no cruzar avenida de doble vía" (vías OSM);
-    dibujar los huecos de los polígonos (243; las reglas sí los respetan);
+  - recopiar `proxy-update\` a la PC owner cuando convenga (fix de nombres en `core/api.py`);
+  - `capas_kml_url` en el `config.yaml` del proxy (opcional); probar el mapa con asesores;
+  - detección automática de "no cruzar avenida de doble vía" (vías OSM) y dibujar los huecos;
   - los de siempre: reactivar los agentes (**NO borrar `huellas_legacy()`**), reemplazar a mano el
-    `.exe` del owner, probar un agente W10 contra el owner W11, el archivo del pendrive con URL+token,
-    firma de código, observar las muertes de sesión y probar el pendrive en una PC limpia.
+    `.exe` del owner si sigue en `v2026.10.07`, probar un agente W10 contra el owner W11, el archivo
+    del pendrive con URL+token, firma de código, observar las muertes de sesión y probar el pendrive
+    en una PC limpia.

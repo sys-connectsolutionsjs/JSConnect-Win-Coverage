@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-10-09.
+Última actualización: 2026-10-13.
 
 ---
 
@@ -20,7 +20,7 @@ actualizaciones propias), el runbook de la Etapa E está escrito (instalación c
 pendrive) y la Fase 5 (barrido de documentación) terminó. Lo que sigue: reactivar
 los agentes con la huella nueva, reemplazar a mano el `.exe` del owner una vez,
 probar un agente W10 contra el owner W11 y monitorear la primera semana en
-producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de venta por zona** (subido a `main`, **sin Release**): falta probarlo con asesores, recompilar y publicar.
+producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de venta por zona** (publicado en el Release v2026.10.13 junto con la dirección y la ficha copiable): falta probarlo con asesores.
 
 ---
 
@@ -61,6 +61,7 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | 2026-10-07 | **Repos W10 + W11 unificados, huella estable y runbook de la Etapa E** — el repo W11 (4 commits por delante) se unió por fast-forward y se archivó; la huella de activación pasa a MachineGuid + CPU del registro (las activaciones antiguas siguen válidas en "transición"); el instalador del proxy ofrece pasar una red Pública a Privada (por defecto NO); runbook de instalación con pendrive en `docs/proxy-deploy.md`. Release `v2026.10.07`, 291 tests | `212f300` `ce3f60a` `57a42bc` `12a7960` |
 | 2026-10-07 | **Fase 5, consola owner con actualizaciones y `AGENTS.md` dividido** — barrido de documentación (19 hallazgos revalidados), 3 bugs de Configurar Proxy del agente arreglados (URL sin `http://`, error real en Probar conexión, keyring), la consola owner busca actualizaciones por SHA-256, `AGENTS.md` 113 KB → 26 KB (historial en `docs/historial-agents.md`), "tope de 9.5 h" marcado como medición no concluyente. Release `v2026.10.07.1`, 318 tests | `5f382a5` `46e8a32` `154ba5e` |
 | 2026-10-09 | **Mapa de cobertura y reglas de venta por zona** — página Mapa (`tkintermapview`) con cobertura, fraude, Preferente 2 (score ≥ 401), códigos bloqueados (la Zona F se retiró el 2026-10-13); decisión **antes** de gastar score (bloqueada → no se consulta; sin cobertura pero con cobertura a ≤ 300 m → "extensible"); solo la cobertura en vivo depende de WinForce (si falla se avisa y se dan las condiciones de la zona); capas embebidas en el .exe (datos de terceros, gitignored); ventana de una sola medida + pantalla completa (F11). **Sin Release aún**, 421 tests | `3942e2d` `89a6d03` |
+| 2026-10-13 | **Dirección (Geofinder + respaldo OSM), ficha copiable, mapa solo Perú, Zona F retirada** — dirección de las coordenadas vía el proxy (`/api/direccion`, `geofinder_basic`) con respaldo OpenStreetMap y banner rojo; ficha con APELLIDOS Y NOMBRES, documento, nacionalidad y fecha, score, dirección detallada, departamento, provincia y distrito (dato por dato o Copiar todo); mapa limitado a Perú y barra fija; paquete para actualizar el proxy sin reinstalar. Verificado en vivo; **Release v2026.10.13**, 494 tests | `2247945` … `ae07541` |
 
 ---
 

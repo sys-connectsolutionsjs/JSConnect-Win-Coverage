@@ -949,3 +949,46 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   - siguiente mejora acordada: que el agente lea la URL y el token de un archivo del pendrive;
   - los de siempre: observar las muertes de sesión, firma de código (Smart App Control),
     monitoreo de producción y probar el pendrive en una PC limpia.
+
+### Cierre de la sesión 2026-10-09 [CONTEXTO PARA LA SIGUIENTE — mapa de cobertura y reglas de venta, sin Release]
+
+- **Para qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta si no se
+  convierte en venta) y "sin cobertura" perdía ventas que se resuelven trayendo un cable del vecino.
+  Se pidió un mapa y decidir la zona **antes** del score.
+- **Reglas del usuario**: bloqueada/fraude → no se vende ni se consulta; **Preferente 2** → score ≥ 401;
+  resto ≥ 201; sin cobertura con cobertura a ≤ **300 m** → "extensible" (sin cruzar avenidas grandes
+  de doble vía; hoy lo juzga el asesor mirando el mapa). Si WinForce dice NO **nunca** es "vender"
+  (hallazgo con datos reales: la copia de junio de los polígonos cubría un punto donde WinForce dijo NO).
+- **De dónde salen los datos**: el mapa de WinForce son tiles PNG de Equifax (sin geometría). Los
+  polígonos (cobertura 3.361, fraude 28, Preferente 2 129, bloqueados 9, Zona F 27) salen de una app
+  web de terceros que los sirve sin login; se **embebieron en el .exe** porque el tercero puede
+  desaparecer. **Repo público**: `datos_capas/` y `validator_app/data/*.json.gz` están en `.gitignore`
+  (guarda: `tests/test_build_ps1.py`) y la URL del mapa de reglas (`capas_kml_url`) vive solo en el
+  `config.yaml` del proxy (vacía por defecto en el código; casi se queda en `config.py`).
+- **Hecho** (commits `3942e2d` y `89a6d03`, subidos a `main`): `core/geo.py` (KML/KMZ/`zonas.txt`,
+  `decidir_venta`, estados `BLOQUEADA`/`VENDER`/`EXTENSIBLE`/`SIN_COBERTURA`/`SIN_CONFIRMAR`),
+  `core/capas_local.py` (`CapasCargadas`: lo local queda listo al instante, el proxy solo actualiza),
+  proxy `capas.py` + `GET /api/capas` + `ProxyClient.obtener_capas()`, `tools/preparar_capas.py`,
+  página **Mapa** (`gui/map_page.py`, `tkintermapview`) y `gui/zonas.py`, compuerta del score también
+  en la pantalla principal, ventana de **una sola medida** (1120x700) + **pantalla completa** (F11/Esc),
+  `build.ps1` que embebe las capas.
+- **Decisiones del usuario**: solo la cobertura en vivo depende de WinForce (si falla se avisa "no se
+  pudo obtener la información de cobertura, pero del resto sí" y se dan las condiciones de la zona);
+  las casillas de capas son **solo visuales** (la decisión usa siempre todas); Zona F, Fraude y
+  Bloqueados se dibujan **completas** al marcarlas, sin mover la vista; fraude dentro bloquea, cercano avisa.
+- **Hallazgos**: **Zona F = copia de Fraude** (27 de sus 28 polígonos son idénticos; significado
+  pendiente, el usuario se lo enseñará a su jefe). Bug de la prueba de humo: la carga de capas esperaba
+  al proxy y con el proxy caído una decisión podía tomarse **sin capas** (corregido, con test).
+  Una captura de pantalla por región incluyó otra ventana del usuario (borrada de inmediato); desde
+  entonces solo `PrintWindow`. `terminate()` de un `.exe` onefile puede dejar vivo al hijo.
+- **Estado**: tests 318 → **421**, `ruff` limpio. **Sin Release** (el usuario lo publica otro día).
+  El `.exe` de `dist\` se compiló antes de sacar la URL de `config.py` y con `HEAD` = `aae580d`:
+  **recompilar desde `main`** antes de publicar. Los HAR de la captura de red se borraron.
+- **Pendiente**:
+  - Release del agente (recompilar, `publish-release.ps1`); `capas_kml_url` en el `config.yaml` del
+    proxy (opcional); probar el mapa con asesores;
+  - qué hacer con "Zona F"; detección automática de "no cruzar avenida de doble vía" (vías OSM);
+    dibujar los huecos de los polígonos (243; las reglas sí los respetan);
+  - los de siempre: reactivar los agentes (**NO borrar `huellas_legacy()`**), reemplazar a mano el
+    `.exe` del owner, probar un agente W10 contra el owner W11, el archivo del pendrive con URL+token,
+    firma de código, observar las muertes de sesión y probar el pendrive en una PC limpia.

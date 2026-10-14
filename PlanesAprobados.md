@@ -473,7 +473,7 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
-- **Mapa de cobertura**: probar con asesores, recompilar desde `main` y publicar el Release (2026-10-09).
+- **Mapa de cobertura**: probar con asesores (el Release salió como `v2026.10.13`, 2026-10-13).
 - **Reactivar los agentes con la huella estable** (Release `v2026.10.07`, 2026-10-07):
   25 hoy (18 + 7), 41 a futuro. Funcionan en "transición" mientras tanto.
   `huellas_legacy()` **NO se borra salvo petición expresa del usuario** (regla en
@@ -536,9 +536,9 @@ Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/`resumen
   fraude dentro bloquea, fraude cercano (≤ 300 m) avisa; Zona F era copia de Fraude y se retiró (2026-10-13);
   casillas de capas solo visuales (la decisión usa siempre todas); Fraude/Bloqueados se dibujan
   completas, Cobertura/Preferente 2 por cercanía; una sola medida de ventana + F11.
-- **Sigue en cola**: Release (recompilar desde `main`), `capas_kml_url` en el `config.yaml` del proxy
-  (opcional), detección automática de avenidas de doble vía (vías OSM `highway=trunk/primary`),
-  dibujar los huecos de los polígonos.
+- **Sigue en cola**: `capas_kml_url` en el `config.yaml` del proxy (opcional), detección automática
+  de avenidas de doble vía (vías OSM `highway=trunk/primary`), dibujar los huecos de los polígonos.
+  (El Release salió como `v2026.10.13`, 2026-10-13.)
 
 ## Notas de seguridad
 - Las capas del mapa (`datos_capas/`, `validator_app/data/*.json.gz`) y la URL `capas_kml_url` NO van al repo (público).

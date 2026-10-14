@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (427 en total, a 2026-10-13; el desglose de abajo es de 2026-10-02)
+## Inventario de tests (494 en total, a 2026-10-13; el desglose de abajo es de 2026-10-02)
 
 > 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
 > +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
