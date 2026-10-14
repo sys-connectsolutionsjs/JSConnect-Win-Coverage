@@ -59,6 +59,6 @@ condensada en `HistorialResumenes.md`.
 - **Formato**: `DIRECCIÓN DETALLADA` sale como Geofinder: `AVENIDA PERU 4298 BOCANEGRA SECTOR 3 (CALLAO, CALLAO, CALLAO)` (con el paréntesis); departamento/provincia/distrito siguen en líneas aparte.
 - **Falta**: que el usuario ponga `geofinder_basic` en el proxy y actualice el proxy de la PC owner;
   Release. Score real probado (DNI 10412031): el reporte no trae lugar de nacimiento → la ficha
-  usa "NACIONALIDAD Y FECHA DE NACIMIENTO"; los nombres salen "nombres primero" (PrimerNombre +
+  usa "NACIONALIDAD Y FECHA DE NACIMIENTO"; la etiqueta es "APELLIDOS Y NOMBRES" y el valor va apellidos primero (apellidos + PrimerNombre +
   SegundoNombre + apellidos).
 

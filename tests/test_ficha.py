@@ -19,7 +19,7 @@ def _dict(items):
 def test_etiquetas_en_el_orden_pedido():
     items = ficha.armar_ficha(SCORE, DIRECCION, "DNI", "10412031", "500 - 599")
     assert [e for e, _v in items] == [
-        "NOMBRES Y APELLIDOS",
+        "APELLIDOS Y NOMBRES",
         "DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)",
         "NACIONALIDAD Y FECHA DE NACIMIENTO",
         "SCORE",
@@ -32,7 +32,7 @@ def test_etiquetas_en_el_orden_pedido():
 
 def test_valores_completos():
     d = _dict(ficha.armar_ficha(SCORE, DIRECCION, "DNI", "10412031", "500 - 599"))
-    assert d["NOMBRES Y APELLIDOS"] == "JUAN CARLOS PEREZ GARCIA"
+    assert d["APELLIDOS Y NOMBRES"] == "PEREZ GARCIA JUAN CARLOS"
     assert d["DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)"] == "DNI 10412031"
     assert d["NACIONALIDAD Y FECHA DE NACIMIENTO"] == "PERU, 17/05/1980"
     assert d["SCORE"] == "500 - 599"
@@ -44,7 +44,7 @@ def test_valores_completos():
 def test_copiar_todo_respeta_el_formato():
     items = ficha.armar_ficha(SCORE, DIRECCION, "DNI", "10412031", "500 - 599")
     assert ficha.texto_copiar_todo(items) == (
-        "NOMBRES Y APELLIDOS: JUAN CARLOS PEREZ GARCIA\n"
+        "APELLIDOS Y NOMBRES: PEREZ GARCIA JUAN CARLOS\n"
         "DOCUMENTO DE IDENTIDAD (DNI, RUC, CE): DNI 10412031\n"
         "NACIONALIDAD Y FECHA DE NACIMIENTO: PERU, 17/05/1980\n"
         "SCORE: 500 - 599\n"
@@ -61,7 +61,7 @@ def test_solo_fecha_si_no_hay_nacionalidad():
     assert d["NACIONALIDAD Y FECHA DE NACIMIENTO"] == "17/05/1980"
 
 
-def test_nombre_completo_con_nombres_primero_aunque_haya_razon_social():
+def test_nombre_completo_con_apellidos_primero_aunque_haya_razon_social():
     # Una persona natural con RUC 10 trae RazonSocial = "APELLIDOS NOMBRES": no debe ganar.
     persona = {
         "nombres": "NOEMI MATILDE", "apellido_paterno": "CARRANZA",
@@ -69,37 +69,37 @@ def test_nombre_completo_con_nombres_primero_aunque_haya_razon_social():
         "razon_social": "CARRANZA JUAPE DE SEGOVIA NOEMI MATILDE",
     }
     d = _dict(ficha.armar_ficha({"persona": persona}, None, "DNI", "1", None))
-    assert d["NOMBRES Y APELLIDOS"] == "NOEMI MATILDE CARRANZA JUAPE DE SEGOVIA"
+    assert d["APELLIDOS Y NOMBRES"] == "CARRANZA JUAPE DE SEGOVIA NOEMI MATILDE"
 
 
 def test_no_duplica_apellidos_si_nombres_ya_es_el_nombre_completo():
     persona = {"nombres": "CARRANZA JUAPE NOEMI", "apellido_paterno": "CARRANZA",
                "apellido_materno": "JUAPE"}
     d = _dict(ficha.armar_ficha({"persona": persona}, None, "DNI", "1", None))
-    assert d["NOMBRES Y APELLIDOS"] == "CARRANZA JUAPE NOEMI"
+    assert d["APELLIDOS Y NOMBRES"] == "CARRANZA JUAPE NOEMI"
 
 
 def test_sin_score_ni_direccion_deja_en_blanco_lo_desconocido():
     d = _dict(ficha.armar_ficha(None, None, "DNI", "10412031", None))
-    assert d["NOMBRES Y APELLIDOS"] == ""
+    assert d["APELLIDOS Y NOMBRES"] == ""
     assert d["DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)"] == "DNI 10412031"
     assert d["SCORE"] == ""
     assert d["DIRECCIÓN DETALLADA"] == "" and d["DISTRITO"] == ""
     assert ficha.texto_copiar_todo(ficha.armar_ficha(None, None, None, "", None)).startswith(
-        "NOMBRES Y APELLIDOS:\n"
+        "APELLIDOS Y NOMBRES:\n"
     )
 
 
 def test_ruc_usa_la_razon_social():
     score = {"nombre": "EMPRESA SAC", "persona": {"razon_social": "EMPRESA SAC"}}
     d = _dict(ficha.armar_ficha(score, None, "RUC", "20123456789", None))
-    assert d["NOMBRES Y APELLIDOS"] == "EMPRESA SAC"
+    assert d["APELLIDOS Y NOMBRES"] == "EMPRESA SAC"
     assert d["DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)"] == "RUC 20123456789"
 
 
 def test_sin_modulo_persona_cae_al_nombre_principal():
     d = _dict(ficha.armar_ficha({"nombre": "PEREZ GARCIA JUAN"}, None, "DNI", "1", None))
-    assert d["NOMBRES Y APELLIDOS"] == "PEREZ GARCIA JUAN"
+    assert d["APELLIDOS Y NOMBRES"] == "PEREZ GARCIA JUAN"
 
 
 def test_nunca_inventa_direccion_si_no_hay_coordenadas():

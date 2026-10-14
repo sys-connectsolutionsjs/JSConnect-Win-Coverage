@@ -5,7 +5,7 @@ from __future__ import annotations
 import ttkbootstrap as ttk
 
 ETIQUETAS = (
-    "NOMBRES Y APELLIDOS",
+    "APELLIDOS Y NOMBRES",
     "DOCUMENTO DE IDENTIDAD (DNI, RUC, CE)",
     "NACIONALIDAD Y FECHA DE NACIMIENTO",
     "SCORE",
@@ -29,7 +29,7 @@ def _nombre_completo(score: dict, persona: dict) -> str:
     if nombres:
         if paterno and nombres.startswith(paterno):
             return nombres  # ya es el nombre completo (APELLIDOS NOMBRES)
-        partes = (nombres, paterno, persona.get("apellido_materno"))
+        partes = (paterno, persona.get("apellido_materno"), nombres)
         return " ".join(p for p in partes if p)
     # Empresas (RUC 20): sin directorio de personas, la razon social.
     return persona.get("razon_social") or score.get("nombre") or ""
