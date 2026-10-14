@@ -346,7 +346,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes
-> Solo lo que sigue **abierto**. Las tareas completadas (1-43) están en
+> Solo lo que sigue **abierto**. Las tareas completadas (1-44) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). La cola con el detalle y el orden
 > está en `PlanesAprobados.md` y `Roadmap.md`.
 
@@ -367,12 +367,6 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 7b. **Mapa de cobertura**: probarlo con los asesores y llevar la URL de `capas_kml_url` al
    `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas embebidas; `/api/capas`
    responde 503 sin ella, lo esperado). Release publicado en `v2026.10.13`. La "Zona F" ya se retiró.
-7c. **Geofinder en el proxy**: HECHO y verificado en vivo el 2026-10-13 en la PC de oficina
-   (`geofinder_basic` en su `config.yaml`; `/health` → `"geofinder": true`). Si la credencial rota,
-   repetir el procedimiento de `docs/rotacion-credenciales.md` → "Geofinder" (síntoma: banner rojo de
-   dirección aproximada). Para llevar código nuevo al proxy sin reinstalar:
-   `tools/empaquetar_actualizacion_proxy.ps1` + `docs/proxy-deploy.md` → "Actualizar el proxy sin
-   reinstalar". Pendiente menor: recopiar el paquete (fix de nombres en `core/api.py`).
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —

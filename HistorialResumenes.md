@@ -14,6 +14,28 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 ---
 
 
+
+### 2026-10-13 — Sesión — dirección Geofinder + respaldo OSM, ficha copiable, mapa solo Perú, Zona F retirada y Release v2026.10.13
+- **Snapshot completo**: `resumenes/2026-10-13.md`.
+- **Por qué**: el asesor necesita la dirección de las coordenadas y los datos del documento para
+  copiarlos a WinForce sin reescribir, y el mapa no debía cargar el mundo entero.
+- **Dirección**: Geofinder (API de Equifax que usa WinForce) vía el proxy (`proxy/geofinder.py`,
+  `GET /api/direccion`, `geofinder_basic` solo en `config.yaml`, `/health.geofinder`); respaldo
+  OpenStreetMap con banner rojo "NO es la de WinForce". Formato `DETALLE (DISTRITO, PROVINCIA,
+  DEPARTAMENTO)`. La "dirección equivocada" era el proxy viejo (404) + el respaldo OSM.
+- **Ficha copiable** (`gui/ficha.py`) en Cobertura/Score y Mapa: dato por dato y "Copiar todo";
+  APELLIDOS Y NOMBRES y NACIONALIDAD Y FECHA DE NACIMIENTO (el reporte no trae lugar de nacimiento).
+- **Mapa**: solo Perú (`gui/limites_mapa.py`) y barra de desplazamiento fija; **Zona F retirada**
+  (copia de Fraude).
+- **Proxy**: `tools/empaquetar_actualizacion_proxy.ps1` (paquete de pendrive sin secretos) +
+  `docs/proxy-deploy.md` → "Actualizar el proxy sin reinstalar".
+- **Release `v2026.10.13`** (agente + owner, tag en `5abb5d2`): SHA embebido, commit del tag y
+  hashes de las notas verificados.
+- **Tests**: 421 → **494**, `ruff` limpio. **Commits**: `2247945`, `5809c72`, `43dd799`, `9ac9fbe`,
+  `ae07541`, `5abb5d2`, `9a7d32b`.
+- **Pendiente**: recopiar el paquete al proxy (fix de nombres), probar el mapa con asesores,
+  `capas_kml_url` (opcional), reemplazar a mano el `.exe` del owner, reactivar agentes.
+
 ### 2026-10-09 — Sesión — mapa de cobertura y reglas de venta por zona antes del score (sin Release)
 - **Snapshot completo**: `resumenes/2026-10-09.md`.
 - **Por qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta) y "sin

@@ -722,3 +722,19 @@ keyring.delete_password("servicio", "usuario")
 - `PrintWindow` (Win32): captura el contenido de UNA ventana aunque otra esté encima; es la forma
   segura de sacar capturas de la app (`ImageGrab` de una región copia lo que haya encima).
 
+
+## Geofinder, dirección y ficha del cliente (2026-10-13)
+- **Geofinder**: API de geolocalización de Equifax que WinForce usa desde el navegador
+  (`geoapi/nyg/pe/coordinates-ref/v1` y `coordinates/v1`). Da la dirección, distrito, provincia y
+  departamento de unas coordenadas; no gasta consultas de score. Token OAuth `client_credentials`
+  (~24 min) pedido con `Authorization: Basic ...`; esa credencial es `geofinder_basic` en el
+  `config.yaml` del proxy (nunca en el repo; `tools/captura.py` la oculta, se saca con F12).
+- **Respaldo OpenStreetMap (Nominatim)**: devuelve el objeto OSM más cercano, no la dirección de
+  Equifax; por eso se marca con banner rojo "NO es la de WinForce".
+- **`persona`**: dict opcional del score con los datos del documento (módulos 602 "Directorio de
+  personas" y 877 "Directorio SUNAT" del reporte). `Nombres` llega como nombre completo (APELLIDOS
+  NOMBRES); el reporte **no trae lugar de nacimiento**.
+- **Ficha**: `gui/ficha.py`; "Copiar todo" sigue el orden APELLIDOS Y NOMBRES, DOCUMENTO,
+  NACIONALIDAD Y FECHA DE NACIMIENTO, SCORE, DIRECCIÓN DETALLADA, DEPARTAMENTO, PROVINCIA, DISTRITO.
+- **Proxy anterior**: responde 404 en `/api/direccion`; el cliente lo traduce a "proxy
+  desactualizado" (`ProxyEndpointNoExisteError`).
