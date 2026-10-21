@@ -87,7 +87,7 @@ curl http://100.64.12.34:8080/health
 - **Diagnóstico**: el error 403 dice `IP no permitida: <ip>`; esa es la IP a permitir
   si es legítima.
 - **No** agregar las IP públicas de la oficina (salida NAT): el proxy nunca las ve y
-  sería abrir el sistema a Internet. Ver `docs/arquitectura.md`, "Control de acceso".
+  sería abrir el sistema a Internet. Ver [`docs/arquitectura.md`](arquitectura.md), "Control de acceso".
 
 ---
 
@@ -216,7 +216,7 @@ async def metrics():
 - [ ] Configurar agente remoto con IP Tailscale + mismo token
 - [ ] (Opcional) Configurar DNS `proxy.oficina.local` en tailnet
 - [ ] (Opcional) Crear herramienta de IT para `/admin/config` con `X-Admin-Key`
-- [ ] Documentar en `README_PROXY.md` sección "Agentes Remotos"
+- [ ] Documentar en [`README_PROXY.md`](../README_PROXY.md) sección "Agentes Remotos"
 - [ ] Probar con 1 laptop remota → validar cobertura + score → OK
 - [ ] Escalar a N laptops
 
@@ -236,8 +236,8 @@ async def metrics():
 
 ## Referencias
 
-- `docs/arquitectura.md` — Diagrama y decisiones base
-- `docs/proxy-deploy.md` — Instalación proxy (base para réplicas)
+- [`docs/arquitectura.md`](arquitectura.md) — Diagrama y decisiones base
+- [`docs/proxy-deploy.md`](proxy-deploy.md) — Instalación proxy (base para réplicas)
 - `validator_app/proxy/client.py` — `ProxyClient.from_discovery()`
 - `validator_app/proxy/server.py` — `GET /admin/config`
 - Tailscale docs: https://tailscale.com/kb/

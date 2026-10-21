@@ -1,6 +1,6 @@
 # JSConnect Win Proxy - Guía Rápida de Despliegue
 
-> Resumen ejecutivo para el owner/administrador. Ver `docs/proxy-deploy.md` para detalles completos.
+> Resumen ejecutivo para el owner/administrador. Ver [`docs/proxy-deploy.md`](docs/proxy-deploy.md) para detalles completos.
 
 ---
 
@@ -106,7 +106,7 @@ Ver `actualizacion-windows-11/`.
 
 ## Renovar / Rotar la Sesión WinForce
 
-Ver `docs/rotacion-credenciales.md` para detalles completos.
+Ver [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) para detalles completos.
 
 ### Extensión de Chrome (vía principal — el owner no sale de su navegador)
 `install_service.bat` fuerza-instala la extensión **"Renovar sesion WinForce"** en
@@ -248,4 +248,4 @@ Cuando haya vendedores en campo / home office:
 2. Agentes usan IP Tailscale del proxy (`100.64.x.y:8080`) + **mismo token**
 3. Cero cambios de código, misma arquitectura
 
-Ver `docs/escalabilidad-remota.md` y `Escalabilidad.md` para guía completa.
+Ver [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md) y [`Escalabilidad.md`](Escalabilidad.md) para guía completa.

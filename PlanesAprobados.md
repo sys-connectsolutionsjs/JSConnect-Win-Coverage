@@ -18,7 +18,7 @@ funciona (37 pings VIVA hasta ≈ 9 h 16 m de edad de sesión) y **hubo una muer
 limpia a ≈ 9 h 31 m** (confirmada por `validar_cookie_sesion()`), que se interpretó
 como un tope absoluto de ≈ 9.5 h. **[Corrección 2026-10-07]** es una sola medición (la
 corrida arrancó el sábado 21:08 y murió ≈ 06:38 del domingo) y **no descarta que un
-login ajeno con la misma cuenta invalidara la `PHPSESSID`**; ver `anotaciones.md`.
+login ajeno con la misma cuenta invalidara la `PHPSESSID`**; ver [`anotaciones.md`](anotaciones.md).
 Idle-timeout, anti-bot acumulativo y
 "tope a 40 min" quedan **descartados**. **Fases 2A (keepalive) y 2.5 (renovación de
 sesión) COMPLETADAS 2026-09-08** — el proxy mantiene la sesión viva y el owner la
@@ -29,11 +29,11 @@ Pendiente: Fases 3–5.
 - Fase 0 (captura de la API): COMPLETA.
 - Fase 1 (núcleo core): COMPLETA — 35 tests, ruff limpio.
 - Fase 1.5 (decisión de autenticación): **DECIDIDA — Opción B (Proxy Local)**.
-- Fase 0 Documentación: COMPLETA — `docs/`, `Escalabilidad.md`, `anotaciones.md`, `resumenes/`.
+- Fase 0 Documentación: COMPLETA — `docs/`, [`Escalabilidad.md`](Escalabilidad.md), [`anotaciones.md`](anotaciones.md), `resumenes/`.
 - **Proxy Local (FASES 1.1–1.5) IMPLEMENTADO**: `validator_app/proxy/` completo
   (server.py, config.py, client.py, rotate_creds.py, winsw.xml, install/uninstall .bat),
   core adaptado (`auto_relogin_if_needed`, persistencia cookies), GUI conectada
-  (menú "⚙️ Configuración"). Detalle en `AGENTS.md` (Historial → Fase Proxy —
+  (menú "⚙️ Configuración"). Detalle en [`AGENTS.md`](AGENTS.md) (Historial → Fase Proxy —
   Implementación).
 - ~~**Gap: sin tests del proxy**~~ → **CERRADO 2026-09-08 (Fase 4)**:
   `tests/test_proxy.py` cubre el keepalive (2A), `/local/*` (2.5d) y toda la capa
@@ -95,11 +95,11 @@ Esto hace **inviable la prueba de concurrencia** planificada (4-5 máquinas simu
 
 ### Decisión aprobada (2026-08-25)
 **Opción B (Proxy Local) APROBADA** definitivamente. No se realiza prueba de concurrencia.
-Razones documentadas en `AGENTS.md` (Historial 2026-08-25) y `ResumenDelDia.md`.
+Razones documentadas en [`AGENTS.md`](AGENTS.md) (Historial 2026-08-25) y [`ResumenDelDia.md`](ResumenDelDia.md).
 
 ## Plan Proxy Local — IMPLEMENTADO (sacado de la cola 2026-08-26)
 El plan completo de FASES 1.1–1.5 (stack, acuerdos, pasos de implementación) se
-ejecutó íntegramente. El detalle verificado vive en `AGENTS.md` (Historial → Fase
+ejecutó íntegramente. El detalle verificado vive en [`AGENTS.md`](AGENTS.md) (Historial → Fase
 Proxy — Implementación), no se duplica aquí. Único cabo suelto: **no se creó
 `tests/test_proxy.py`** (ver "Gap detectado" arriba) — si se retoma, es cola nueva,
 no parte de este plan ya cerrado.
@@ -109,8 +109,8 @@ Login manual (2FA) + cookie inyectada vía `tools/probar_con_cookie.py` (nuevo, 
 como herramienta de diagnóstico) → cobertura (SI, HORIZONTAL, celda 8764) → score (423,
 MUY ALTO). Dos bugs reales encontrados y corregidos: BOM UTF-8 en `_json()` (cobertura) y
 doble-encodificado no implementado en `_parsear_score` (score, ya documentado desde Fase 0
-pero nunca hecho). 37 tests pasando, ruff limpio. Detalle completo en `AGENTS.md`
-(Historial → "Prueba real end-to-end (2026-08-27)") y `ResumenDelDia.md`.
+pero nunca hecho). 37 tests pasando, ruff limpio. Detalle completo en [`AGENTS.md`](AGENTS.md)
+(Historial → "Prueba real end-to-end (2026-08-27)") y [`ResumenDelDia.md`](ResumenDelDia.md).
 
 **Geodata del score — RESUELTA: opción C (payload mínimo)**. El score respondió bien
 enviando solo coordenadas + documento, sin geodata. No hace falta replicar Equifax (A) ni
@@ -126,7 +126,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   **[COMPLETADA 2026-09-04]**. 4 corridas (`medir_sesion.log`): dos con `--max` por
   defecto (600s) llegaron VIVA hasta 525s sin morir; una corrida corta murió entre
   135s y 210s (anómala — coincide con una recarga del navegador que reemplazó la
-  `PHPSESSID`, ver `anotaciones.md` "Reuse de PHPSESSID..."; no representa el
+  `PHPSESSID`, ver [`anotaciones.md`](anotaciones.md) "Reuse de PHPSESSID..."; no representa el
   idle-timeout real); la corrida `--max 3600` (la buena, sin interferencia) dio el
   rango real: **VIVA a 1155s, MUERTA a 1350s** (entre 19.25 y 22.5 min de
   inactividad) — algo por debajo del `session.gc_maxlifetime` default de PHP
@@ -156,7 +156,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   intercambiables); `_relogin_silent()` reescrito para recargar+revalidar la
   cookie del keyring (antes intentaba login programático inviable, código muerto
   en dos capas); `session_alive` agregado a `/health` y `/admin/status`
-  (valida la cookie actual contra WinForce en vivo). `docs/rotacion-credenciales.md`
+  (valida la cookie actual contra WinForce en vivo). [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md)
   actualizado. 3 tests nuevos en `tests/test_api.py` (40 pasando, ruff limpio).
   `tests/test_proxy.py` (FastAPI TestClient) queda para la Fase 4, como estaba
   planeado.
@@ -165,7 +165,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   Exception: pass` (cada fallo se loguea con causa + error + remedio, distingue
   cookie expirada de fallo de red); `/health` cachea `session_alive` 30s en vez
   de validar contra WinForce en cada request; `logging.basicConfig` en el
-  `__main__` de `server.py`. `docs/arquitectura.md` sincronizado.
+  `__main__` de `server.py`. [`docs/arquitectura.md`](docs/arquitectura.md) sincronizado.
 - **Fase 2A (B) — keepalive en el proxy. [COMPLETADA 2026-09-08]**
   `_keepalive_loop` (`asyncio` en el `lifespan`) + `ProxyValidatorAPI._keepalive_tick`
   en `server.py`. Config `keepalive_enabled` / `keepalive_interval_seconds` (**900s**)
@@ -212,19 +212,19 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
 - **Fase 5 — barrido final de la documentación. [COMPLETADA 2026-10-07]**
   El 2026-10-07 se revalidaron los 19 hallazgos contra el código y los docs de ese día:
   13 ya estaban corregidos; se corrigieron los restantes — #2 (ejemplos de versión →
-  `"dev"`), #5/#13 (`README.md`, `docs/arquitectura.md`), #8 (`/admin/*` es solo
-  loopback: `docs/rotacion-credenciales.md`, `docs/arquitectura.md`,
-  `docs/escalabilidad-remota.md`, `docs/proxy-config.md`, `Escalabilidad.md`,
-  `anotaciones.md`), #7 (`Escalabilidad.md`), #10-12 (`SkillsPropuestas.md`), #15 y #16 —
+  `"dev"`), #5/#13 ([`README.md`](README.md), [`docs/arquitectura.md`](docs/arquitectura.md)), #8 (`/admin/*` es solo
+  loopback: [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md), [`docs/arquitectura.md`](docs/arquitectura.md),
+  [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md), [`docs/proxy-config.md`](docs/proxy-config.md), [`Escalabilidad.md`](Escalabilidad.md),
+  [`anotaciones.md`](anotaciones.md)), #7 ([`Escalabilidad.md`](Escalabilidad.md)), #10-12 ([`SkillsPropuestas.md`](SkillsPropuestas.md)), #15 y #16 —
   y los 3 bugs de código (#14, #18, #19) se arreglaron con tests (Release
   `v2026.10.07.1`). Además se actualizaron conteos de agentes (25 hoy, 41 previstos),
   Python 3.14.7, el tope de sesión de 9.5 h (ahora "una medición, no concluyente") y se
-  dividió `AGENTS.md` (el historial vive en `docs/historial-agents.md`). La auditoría
+  dividió [`AGENTS.md`](AGENTS.md) (el historial vive en [`docs/historial-agents.md`](docs/historial-agents.md)). La auditoría
   original queda abajo solo como trazabilidad.
 
   _Hallazgos del 2026-09-09 (todos resueltos al 2026-10-07; los `archivo:línea` son de esa
-  fecha y ya no coinciden — p. ej. `AGENTS.md` se dividió el 2026-10-07 y su historial
-  vive en `docs/historial-agents.md`):_
+  fecha y ya no coinciden — p. ej. [`AGENTS.md`](AGENTS.md) se dividió el 2026-10-07 y su historial
+  vive en [`docs/historial-agents.md`](docs/historial-agents.md)):_
   1. Rotación por usuario/contraseña inexistente — `docs/rotacion-credenciales.md:3,10,190`,
      `anotaciones.md:344,346` vs `server.py:120-121,686,692-694` (`server.py:12`).
   2. `version="dev"` vs commit SHA — `server.py:655,681,506` (y `:604` dice `1.0.0`)
@@ -299,14 +299,14 @@ Ya hecho, se deja como referencia de qué se tocó:
 
 ## Plan aprobado — Puesta en marcha del proxy (2026-09-09)
 
-Activar end-to-end todo lo construido. Vista de conjunto en `Roadmap.md`. Los
+Activar end-to-end todo lo construido. Vista de conjunto en [`Roadmap.md`](Roadmap.md). Los
 planes de trabajo originales (`shimmying-skipping-mochi.md`, `steady-crunching-music.md`)
 están archivados localmente en `~/.claude/plans/` de la PC donde se generaron —
 **su contenido vigente está resumido aquí**. Estado:
 
 La activación RSA y la consola separada del owner se completaron y probaron el
-2026-09-16; ya no forman parte de esta cola. Su historial está en `AGENTS.md` y
-`resumenes/2026-09-16.md`. La llave privada se transfiere por un canal privado,
+2026-09-16; ya no forman parte de esta cola. Su historial está en [`AGENTS.md`](AGENTS.md) y
+[`resumenes/2026-09-16.md`](resumenes/2026-09-16.md). La llave privada se transfiere por un canal privado,
 nunca con el repositorio.
 
 - **Etapa 0 — desbloquear el arranque. [COMPLETADA 2026-09-09]** `config.yaml` se
@@ -319,7 +319,7 @@ nunca con el repositorio.
 - **Etapa C — GUI (Tkinter) contra el proxy. [COMPLETADA 2026-09-09]** pasos 10-11
   validados; la suite envenenaba el keyring del proxy → `tests/conftest.py`
   (`ffc5296`); paso 12 (standalone) no aplica ya (el modo proxy siempre gana).
-  Ver `ResumenDelDia.md`.
+  Ver [`ResumenDelDia.md`](ResumenDelDia.md).
 - **Etapa R — robustez de sesión del proxy. [COMPLETADA 2026-09-09]** R1 (fix del
   bug de `_last_activity` que cegaba la alarma, validación al arrancar, primer
   keepalive a 60s, `_marcar_sesion_muerta/viva`) · R2 (fail-fast HTTP 503 +
@@ -402,7 +402,7 @@ tiene botón de borrar. No bloquea nada; hacerlo solo si se necesita el standalo
 > las IP públicas del router no van en `allowed_networks`. **Sin cerrar aún**: sesión
 > WinForce que murió 3 veces (hipótesis: dos logins en paralelo), persistencia tras
 > reinicio del servicio, carga con `tools/probar_concurrencia.py`, firewall desde otra PC,
-> desinstalar el ensayo y repetir en la PC oficial (ver `docs/proxy-deploy.md`, "Qué llevar
+> desinstalar el ensayo y repetir en la PC oficial (ver [`docs/proxy-deploy.md`](docs/proxy-deploy.md), "Qué llevar
 > a la PC owner").
 
 **Resuelto 2026-09-25**: "el instalador no crea regla de firewall" del hallazgo de
@@ -442,7 +442,7 @@ idempotente, con fallback manual si el firewall está gobernado por dominio;
 
 El usuario compartió su procedimiento real (Python en la PC owner; repo, `.exe` y
 `private_key.pem` por pendrive; agentes con `.exe` + URL + token por pendrive). Quedó
-escrito en `docs/proxy-deploy.md` → "Instalación con pendrive", con Python 3.14.7 (ver
+escrito en [`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Instalación con pendrive", con Python 3.14.7 (ver
 0.6), copia a `C:\jsconnect`, ACL de la llave, `install_service.bat`, extensión manual,
 firewall/red y alta de agentes. Lo que **no** está probado de punta a punta (recorrido
 completo desde un pendrive en una PC limpia) y la mejora pendiente (que el agente lea
@@ -455,9 +455,9 @@ no una versión fijada** — un seguro barato para la PC de oficina, cuya versi�
 controlamos aún (si subiéramos a `>=3.14` y esa PC tuviera 3.12,
 `install_service.bat` abortaría en `[1/12]`). Pero **producción se estandariza en
 Python 3.14.7**, igual que desarrollo, para que dev y prod no diverjan — anotarlo
-en `docs/proxy-deploy.md`. **[HECHO 2026-10-07]** `docs/proxy-deploy.md`, `README.md` y
-`AGENTS.md` ya dicen "3.14.7 en producción, mínimo 3.12"; `TestingLog.md` y
-`SkillsPropuestas.md` ya dicen `py312`. Sigue sin verificarse `>=3.12` con una
+en [`docs/proxy-deploy.md`](docs/proxy-deploy.md). **[HECHO 2026-10-07]** [`docs/proxy-deploy.md`](docs/proxy-deploy.md), [`README.md`](README.md) y
+[`AGENTS.md`](AGENTS.md) ya dicen "3.14.7 en producción, mínimo 3.12"; [`TestingLog.md`](TestingLog.md) y
+[`SkillsPropuestas.md`](SkillsPropuestas.md) ya dicen `py312`. Sigue sin verificarse `>=3.12` con una
 instalación real de 3.12 (desde 2026-08-27: ~40 tests entonces, 318 hoy).
 
 ### Luego — Fase 5  [COMPLETADA 2026-10-07]
@@ -477,14 +477,14 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
 - **Reactivar los agentes con la huella estable** (Release `v2026.10.07`, 2026-10-07):
   25 hoy (18 + 7), 41 a futuro. Funcionan en "transición" mientras tanto.
   `huellas_legacy()` **NO se borra salvo petición expresa del usuario** (regla en
-  `AGENTS.md` → "Versionado y actualizaciones").
+  [`AGENTS.md`](AGENTS.md) → "Versionado y actualizaciones").
 - **Probar un agente W10 real contra el owner W11** y revisar en el owner
   `Get-NetConnectionProfile` / la regla `JSWinProxy API` (repos unificados 2026-10-07).
 - **Reemplazar a mano el `.exe` del owner instalado** (`v2026.10.07`, sin actualizador) por el
   de `v2026.10.07.1`; desde ahí la consola owner se actualiza sola.
 - **La sesión de WinForce muere ~10 min después de cada renovación**
-  (`actualizacion-windows-11/pendientes.md` §1) — **solo observar**: hipótesis del dueño =
-  login ajeno con la misma cuenta; pasos en `docs/rotacion-credenciales.md` → "Cómo
+  ([`actualizacion-windows-11/pendientes.md`](actualizacion-windows-11/pendientes.md) §1) — **solo observar**: hipótesis del dueño =
+  login ajeno con la misma cuenta; pasos en [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) → "Cómo
   investigar una muerte de sesión". El "tope de 9.5 h" es una medición no concluyente.
 - **Que el agente lea la URL y el token de un archivo del pendrive** — mejora acordada
   2026-10-07, con su propio Release (ahora que la Fase 5 terminó).
@@ -496,11 +496,11 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   WinForce distinta de la de desarrollo, así que el escenario que se
   investigaba (dev/prod compartiendo cuenta) ya no aplica. Sigue en
   observación esta semana en producción. Tabla de experimentos en
-  `docs/rotacion-credenciales.md` ("¿Por qué se cerró la sesión?") si hace
+  [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) ("¿Por qué se cerró la sesión?") si hace
   falta retomarla.
 - ~~Confirmar `tipo_doc=4` para CE~~ → **CONFIRMADO 2026-09-29**: probado en
   producción junto con RUC, ambos funcionando (reportado por el usuario).
-- **Revisar la duda del usuario en `Escalabilidad.md`** (comentario a mano,
+- **Revisar la duda del usuario en [`Escalabilidad.md`](Escalabilidad.md)** (comentario a mano,
   2026-09-27, bajo "No hay que reescribir nada para escalar") — **diferida
   a pedido explícito del usuario (2026-09-29)**, no urgente, se revisa otro día.
 - Decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`
@@ -517,14 +517,14 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   código), `ruff target-version = "py312"`, requisito de versión unificado en
   `3.12+` en todo el repo. El workaround `PYTHONPATH=.` para `tools/` tampoco hace
   falta desde `82f9a4c`.
-- ~~`resumenes/2026-09-04.md` y `2026-09-05.md` sin crear~~ → **RESUELTO
+- ~~[`resumenes/2026-09-04.md`](resumenes/2026-09-04.md) y `2026-09-05.md` sin crear~~ → **RESUELTO
   2026-09-08**: recuperados verbatim de git.
 - ~~Corrida de keepalive v3~~ → **CERRADA 2026-09-08**: `keepalive_interval_seconds
-  = 900` fijado; tope absoluto de sesión ≈ 9.5 h medido una vez (no concluyente, ver corrección 2026-10-07 en `anotaciones.md`). Ver Fase 0 (act.
-  2026-09-08) y `anotaciones.md`.
+  = 900` fijado; tope absoluto de sesión ≈ 9.5 h medido una vez (no concluyente, ver corrección 2026-10-07 en [`anotaciones.md`](anotaciones.md)). Ver Fase 0 (act.
+  2026-09-08) y [`anotaciones.md`](anotaciones.md).
 
 ## Plan Mapa de cobertura y reglas de venta por zona — PRIMERA VERSIÓN IMPLEMENTADA (2026-10-09, sin Release)
-Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/`resumenes/2026-10-09.md`.
+Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/[`resumenes/2026-10-09.md`](resumenes/2026-10-09.md).
 - **Para qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta si no se
   convierte en venta) y "sin cobertura" en un punto perdía ventas que se resuelven trayendo un cable
   del vecino. Se decide la zona **antes** del score.

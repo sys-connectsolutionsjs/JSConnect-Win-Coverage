@@ -1,6 +1,6 @@
 # Diagramas UML (PlantUML)
 
-Diagramas técnicos complementarios a `docs/arquitectura.md`. Todos incluyen
+Diagramas técnicos complementarios a [`docs/arquitectura.md`](../arquitectura.md). Todos incluyen
 `_comun.puml` (tema compartido) y un `footer` con el SHA corto contra el que
 se verificaron por última vez — si el código avanza y el diagrama no, el
 footer queda desactualizado a propósito, como señal.

@@ -8,7 +8,7 @@
 
 - Windows 10 (probado). En Windows 11 con **Smart App Control** activo el `.exe`
   sin firma se bloquea; ahí correr desde el código o firmar el ejecutable (ver
-  `actualizacion-windows-11/pendientes.md`). La huella de activación (MachineGuid +
+  [`actualizacion-windows-11/pendientes.md`](../actualizacion-windows-11/pendientes.md)). La huella de activación (MachineGuid +
   CPU del registro) es idéntica en Windows 10 y 11 y no depende de `wmic`, la red ni
   discos USB.
 - `JSConnect-Win-Coverage.exe` (última release)
@@ -93,8 +93,8 @@ La dirección sale de Geofinder (Equifax). Va en el `config.yaml` del **proxy** 
 `geofinder_basic: "<valor de Authorization: Basic …>"`. Sin ella (o si Equifax falla) el agente usa
 OpenStreetMap y lo avisa con un banner rojo en la ficha ("DIRECCIÓN APROXIMADA… NO es la de
 WinForce"; si el proxy es anterior, además "hay que actualizarlo"). `GET /health` informa
-`"geofinder": true|false`. Procedimiento completo: `docs/rotacion-credenciales.md` → "Geofinder".
-Actualizar el proxy sin reinstalar: `docs/proxy-deploy.md`.
+`"geofinder": true|false`. Procedimiento completo: [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) → "Geofinder".
+Actualizar el proxy sin reinstalar: [`docs/proxy-deploy.md`](proxy-deploy.md).
 
 ## Verificación de Configuración
 
@@ -147,7 +147,7 @@ Si **no hay configuración de proxy** guardada en keyring:
 | "Proxy no configurado" | Keyring vacío | Configurar via GUI o script |
 | "Connection refused" | Proxy caído / IP incorrecta / Firewall | Verificar servicio proxy + firewall + IP |
 | "401 Unauthorized" | Token incorrecto / expirado | Verificar token en keyring = `config.yaml` proxy |
-| "403 Forbidden" / "IP no permitida: <ip>" | La IP que ve el proxy no está en `allowed_networks` (loopback ya siempre pasa) | Añadir el CIDR de esa IP en `config.yaml` y `Restart-Service JSWinProxy`. No agregar IP públicas del router. Ver `docs/arquitectura.md`, "Control de acceso" |
+| "403 Forbidden" / "IP no permitida: <ip>" | La IP que ve el proxy no está en `allowed_networks` (loopback ya siempre pasa) | Añadir el CIDR de esa IP en `config.yaml` y `Restart-Service JSWinProxy`. No agregar IP públicas del router. Ver [`docs/arquitectura.md`](arquitectura.md), "Control de acceso" |
 | "Timeout" | Proxy sobrecargado / WinForce lento | Reintentar; proxy tiene retry 3x backoff |
 | "Score: error parsing" | WinForce cambió respuesta | Actualizar proxy (pull repo + rebuild service) |
 

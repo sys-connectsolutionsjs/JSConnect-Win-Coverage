@@ -120,7 +120,7 @@ Orden sugerido de lectura del diff (de mayor a menor impacto):
 ```powershell
 git revert 5cb8768   # deshace el código; la regla de firewall de la PC se ajusta aparte
 ```
-La regla de firewall de la PC se cambió a mano (ver `cambios-en-esta-pc.md`); para
+La regla de firewall de la PC se cambió a mano (ver [`cambios-en-esta-pc.md`](cambios-en-esta-pc.md)); para
 volver a la anterior:
 `Set-NetFirewallRule -DisplayName "JSWinProxy API" -Profile Domain,Private -RemoteAddress Any`
 (como Administrador) — y con eso los agentes **dejan de conectar** mientras la red

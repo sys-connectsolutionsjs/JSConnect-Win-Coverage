@@ -55,7 +55,7 @@ ya está hecho).
 - **Ahora:** subrutinas `:puerto_en_uso` (PowerShell
   `Get-NetTCPConnection -LocalPort N -State Listen`) y `:puerto_libre_forzado`.
 - **Test:** `test_puerto_ocupado_no_usa_pipe_con_delayed_expansion`. Probado
-  aparte en un `.bat` de prueba (ver `verificacion.md`).
+  aparte en un `.bat` de prueba (ver [`verificacion.md`](verificacion.md)).
 
 ### 1d. Health check
 - **Antes:** `if %errorLevel% equ 0` **dentro** de un bloque → se expandía al leer
@@ -173,7 +173,7 @@ renovar de la consola owner (que llama `rotate_creds.main` en el mismo proceso).
   propia**, no la de Tk. Con la ventana de Tk como dueña, al cerrar la consola Tk
   vaciaba el portapapeles (copiar → cerrar → pegar dejaba de funcionar). Con
   `OpenClipboard(NULL)`, `SetClipboardData` falla.
-- **Riesgo:** bajo (tiene respaldo a Tk). Probado en real (ver `verificacion.md`).
+- **Riesgo:** bajo (tiene respaldo a Tk). Probado en real (ver [`verificacion.md`](verificacion.md)).
 - **Test:** `test_copiar_sin_historial_devuelve_false_si_no_abre_el_portapapeles`.
 
 ## 8. `validator_app/proxy/secretos.py` (leer/rotar tokens, corre elevado)

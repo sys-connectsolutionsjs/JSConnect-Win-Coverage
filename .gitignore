@@ -74,3 +74,6 @@ validator_app/data/*.json.gz
 # Paquete para actualizar el proxy (lo genera tools/empaquetar_actualizacion_proxy.ps1)
 proxy-update/
 dist-nuevo/
+
+# Obsidian (configuracion local del editor)
+.obsidian/

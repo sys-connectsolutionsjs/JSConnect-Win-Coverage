@@ -1,7 +1,7 @@
 # Roadmap — JSConnect Win Coverage
 
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
-cada hito vive en `HistorialResumenes.md` y en `resumenes/<fecha>.md`.
+cada hito vive en [`HistorialResumenes.md`](HistorialResumenes.md) y en `resumenes/<fecha>.md`.
 
 Última actualización: 2026-10-13.
 
@@ -58,8 +58,8 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | 2026-09-29 | **Icono nuevo de la extensión de Chrome** — reemplaza el cuadrado verde con flecha por un recuadro naranja con bordes redondeados y la "W" de Win | `136d225` |
 | 2026-09-29 | **Etapa D completada** — instalado en todas las máquinas de la oficina; el usuario reportó funcionando sin incidencias, con una cuenta de WinForce de producción distinta de la usada en desarrollo. RUC y CE confirmados funcionando en producción. Reportado por el usuario, no verificable contra código | (despliegue operativo, sin commit) |
 | 2026-09-30 | **Ventana del agente: logo, borrador y tabla comercial de scores** — logo junto a los campos, botones de limpiar con icono de borrador, rango de 100 puntos copiable + riesgo/color según la tabla de la empresa (el `NivelRiesgo` de WinForce ya no se muestra); Release `v2026.09.30`, 264 tests | `2e49cd2` |
-| 2026-10-07 | **Repos W10 + W11 unificados, huella estable y runbook de la Etapa E** — el repo W11 (4 commits por delante) se unió por fast-forward y se archivó; la huella de activación pasa a MachineGuid + CPU del registro (las activaciones antiguas siguen válidas en "transición"); el instalador del proxy ofrece pasar una red Pública a Privada (por defecto NO); runbook de instalación con pendrive en `docs/proxy-deploy.md`. Release `v2026.10.07`, 291 tests | `212f300` `ce3f60a` `57a42bc` `12a7960` |
-| 2026-10-07 | **Fase 5, consola owner con actualizaciones y `AGENTS.md` dividido** — barrido de documentación (19 hallazgos revalidados), 3 bugs de Configurar Proxy del agente arreglados (URL sin `http://`, error real en Probar conexión, keyring), la consola owner busca actualizaciones por SHA-256, `AGENTS.md` 113 KB → 26 KB (historial en `docs/historial-agents.md`), "tope de 9.5 h" marcado como medición no concluyente. Release `v2026.10.07.1`, 318 tests | `5f382a5` `46e8a32` `154ba5e` |
+| 2026-10-07 | **Repos W10 + W11 unificados, huella estable y runbook de la Etapa E** — el repo W11 (4 commits por delante) se unió por fast-forward y se archivó; la huella de activación pasa a MachineGuid + CPU del registro (las activaciones antiguas siguen válidas en "transición"); el instalador del proxy ofrece pasar una red Pública a Privada (por defecto NO); runbook de instalación con pendrive en [`docs/proxy-deploy.md`](docs/proxy-deploy.md). Release `v2026.10.07`, 291 tests | `212f300` `ce3f60a` `57a42bc` `12a7960` |
+| 2026-10-07 | **Fase 5, consola owner con actualizaciones y [`AGENTS.md`](AGENTS.md) dividido** — barrido de documentación (19 hallazgos revalidados), 3 bugs de Configurar Proxy del agente arreglados (URL sin `http://`, error real en Probar conexión, keyring), la consola owner busca actualizaciones por SHA-256, [`AGENTS.md`](AGENTS.md) 113 KB → 26 KB (historial en [`docs/historial-agents.md`](docs/historial-agents.md)), "tope de 9.5 h" marcado como medición no concluyente. Release `v2026.10.07.1`, 318 tests | `5f382a5` `46e8a32` `154ba5e` |
 | 2026-10-09 | **Mapa de cobertura y reglas de venta por zona** — página Mapa (`tkintermapview`) con cobertura, fraude, Preferente 2 (score ≥ 401), códigos bloqueados (la Zona F se retiró el 2026-10-13); decisión **antes** de gastar score (bloqueada → no se consulta; sin cobertura pero con cobertura a ≤ 300 m → "extensible"); solo la cobertura en vivo depende de WinForce (si falla se avisa y se dan las condiciones de la zona); capas embebidas en el .exe (datos de terceros, gitignored); ventana de una sola medida + pantalla completa (F11). **Sin Release aún**, 421 tests | `3942e2d` `89a6d03` |
 | 2026-10-13 | **Dirección (Geofinder + respaldo OSM), ficha copiable, mapa solo Perú, Zona F retirada** — dirección de las coordenadas vía el proxy (`/api/direccion`, `geofinder_basic`) con respaldo OpenStreetMap y banner rojo; ficha con APELLIDOS Y NOMBRES, documento, nacionalidad y fecha, score, dirección detallada, departamento, provincia y distrito (dato por dato o Copiar todo); mapa limitado a Perú y barra fija; paquete para actualizar el proxy sin reinstalar. Verificado en vivo; **Release v2026.10.13**, 494 tests | `2247945` … `ae07541` |
 
@@ -74,13 +74,13 @@ oficial y servicio de Windows) quedaron **superados por el despliegue real**:
 el usuario reportó el sistema instalado en **todas las máquinas de la
 oficina**, funcionando **sin incidencias**, con una cuenta de WinForce de
 producción **separada** de la usada en desarrollo. Detalle de los pasos
-seguidos en `PlanesAprobados.md` ("Etapa D — PC owner oficial"). Falta
+seguidos en [`PlanesAprobados.md`](PlanesAprobados.md) ("Etapa D — PC owner oficial"). Falta
 monitorear la primera semana en producción (no es una tarea con pasos, es
 observación).
 
 ### 1. Etapa E — runbook de la PC owner — COMPLETADA (2026-10-07)
 
-Escrito en `docs/proxy-deploy.md` → "Instalación con pendrive", con el procedimiento
+Escrito en [`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Instalación con pendrive", con el procedimiento
 real del usuario: Python 3.14.7 para todos los usuarios, repo + `.exe` +
 `private_key.pem` por pendrive (copiados a `C:\jsconnect`), `install_service.bat`,
 extensión manual, firewall/red y alta de agentes. Falta probarlo de punta a punta
@@ -95,7 +95,7 @@ pendrive es una mejora posible (no existe).
 - Probar un agente W10 real contra el owner W11.
 - Observar por qué la sesión de WinForce muere ~10 min después de renovar (hipótesis del
   dueño: un login ajeno con la misma cuenta; el "tope de 9.5 h" es una medición no
-  concluyente). Pasos en `docs/rotacion-credenciales.md` → "Cómo investigar una muerte
+  concluyente). Pasos en [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) → "Cómo investigar una muerte
   de sesión".
 - Siguiente mejora acordada: que el agente lea la URL y el token de un archivo del
   pendrive (con su propio Release).
@@ -112,8 +112,8 @@ proxy configurado gana y habría que limpiar `JSWinClient` del keyring.
 
 Se revalidaron los 19 hallazgos contra el código (13 ya estaban resueltos), se
 corrigieron los restantes y los 3 bugs de código de la ventana del agente, y se
-dividió `AGENTS.md` (historial en `docs/historial-agents.md`). Detalle en
-`PlanesAprobados.md` (Fase 5). Los snapshots de `resumenes/` permanecen inmutables.
+dividió [`AGENTS.md`](AGENTS.md) (historial en [`docs/historial-agents.md`](docs/historial-agents.md)). Detalle en
+[`PlanesAprobados.md`](PlanesAprobados.md) (Fase 5). Los snapshots de `resumenes/` permanecen inmutables.
 
 ---
 
@@ -124,12 +124,12 @@ dividió `AGENTS.md` (historial en `docs/historial-agents.md`). Detalle en
   **distinta** de la de desarrollo, así que el escenario concreto que se
   investigaba en esta PC (dev y prod compartiendo cuenta) ya no aplica. Sigue
   en observación esta semana por si la sesión de producción muere sin causa
-  clara. Tabla de experimentos lista en `docs/rotacion-credenciales.md`
+  clara. Tabla de experimentos lista en [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md)
   ("¿Por qué se cerró la sesión?") si hace falta retomarla.
 - **`tipo_doc=4` para CE** en el Catálogo 06 de SUNAT — **CONFIRMADO**:
   probado en producción junto con RUC, ambos funcionando (2026-09-29,
   reportado por el usuario).
-- **Duda del usuario en `Escalabilidad.md`** (2026-09-27, comentario a mano
+- **Duda del usuario en [`Escalabilidad.md`](Escalabilidad.md)** (2026-09-27, comentario a mano
   bajo "No hay que reescribir nada para escalar") — **diferida a pedido del
   usuario**, no urgente, se revisa otro día.
 

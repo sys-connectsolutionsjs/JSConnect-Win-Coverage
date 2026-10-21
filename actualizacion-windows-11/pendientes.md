@@ -11,7 +11,7 @@ que se indique lo contrario.)
 - **[2026-10-07]** El dueño del proyecto considera lo más probable que **alguien inicie
   sesión con la misma cuenta desde otro lado** y eso invalide la `PHPSESSID` (al volver
   a iniciar sesión todo regresa a la normalidad). Sin cambios de código: se observa con
-  `logs/sesion_eventos.jsonl` siguiendo `docs/rotacion-credenciales.md` → "Cómo
+  `logs/sesion_eventos.jsonl` siguiendo [`docs/rotacion-credenciales.md`](../docs/rotacion-credenciales.md) → "Cómo
   investigar una muerte de sesión". Ojo: las dos muertes del 2026-10-02 ocurrieron a
   593 y 603 s con el **mismo** `cookie_id`, lo que también encaja con un límite fijo o
   con una cookie ya muerta reinyectada.
@@ -50,7 +50,7 @@ que se indique lo contrario.)
   los Releases de aquí. Para pasarlos a este canal hay que entregarles el `.exe`
   de aquí **a mano una vez**.
 - Los agentes con Windows 10 **no necesitan** el `.exe` nuevo (ver
-  `cambios-por-archivo.md` §9).
+  [`cambios-por-archivo.md`](cambios-por-archivo.md) §9).
 
 ## 4. Elevación de la consola owner corriendo desde el código
 - `_ejecutar_elevado` (`generator/owner_app.py`) relanza
@@ -65,4 +65,4 @@ que se indique lo contrario.)
   de agentes.
 
 ## 6. Verificaciones que faltan
-Ver `verificacion.md` → "NO probado todavía".
+Ver [`verificacion.md`](verificacion.md) → "NO probado todavía".

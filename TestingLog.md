@@ -11,12 +11,12 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (494 en total, a 2026-10-13; el desglose de abajo es de 2026-10-02)
+## Inventario de tests (497 en total, a 2026-10-21; el desglose de abajo es de 2026-10-02)
 
 > 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
 > +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
 > `test_owner_app.py` +3, `test_gui_activacion.py` +1, `test_secretos.py` 1
-> reemplazado. Detalle en `actualizacion-windows-11/cambios-por-archivo.md`. Las
+> reemplazado. Detalle en [`actualizacion-windows-11/cambios-por-archivo.md`](actualizacion-windows-11/cambios-por-archivo.md). Las
 > cifras por archivo de la tabla son las del 2026-09-30 más esos incrementos.
 | Archivo | Casos | Qué cubre |
 |---|---|---|
@@ -40,12 +40,22 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
 | tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 | tests/test_diagramas.py | 5 | guardas estáticas de `docs/diagramas/*.puml` (NUEVO 2026-09-27): `@startuml`/`@enduml` presentes, `!include _comun.puml`, `footer` de verificación, y que las clases citadas (`ValidatorAPI`, `ProxyValidatorAPI`, `ProxyClient`, `OwnerApp`) sigan existiendo en el código |
+| tests/test_enlaces_docs.py | 3 | guardas de los enlaces entre `.md` (NUEVO 2026-10-21): hay documentos, ningún enlace markdown relativo a un `.md` está roto (salvo en `resumenes/`, inmutable) y `HistorialResumenes.md` enlaza cada snapshot de `resumenes/` |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-21 — enlaces entre documentos (grafo de Obsidian) (494 → 497 tests)
+- **Rojo**: `tests/test_enlaces_docs.py` falló en dos tests: `HistorialResumenes.md` no enlazaba
+  ningún snapshot (las rutas iban sueltas entre backticks) y había un enlace roto en
+  `resumenes/2026-10-02.md` (escrito desde la raíz y copiado a `resumenes/`).
+- **Decisión**: `resumenes/` es inmutable, así que el test no revisa los enlaces de esos archivos.
+- **Verde**: un script de un solo uso convirtió 373 referencias `` `X.md` `` (solo si el destino
+  existe y fuera de bloques de código; excluye `resumenes/` y `ResumenDelDia.md`) en enlaces
+  relativos a la carpeta de cada archivo.
 
 ### Sesión 2026-10-13 — mapa solo Perú, dirección (Geofinder/OSM), ficha copiable, sin Zona F (421 → 474 tests)
 - `test_limites_mapa.py` (6): el mapa no sale de Perú (zoom mínimo 5 + borde por bbox), con la fórmula
@@ -114,7 +124,7 @@ validan con `ruff` e import.
   - `.bat` de prueba aislado para la lógica de puerto, `pythonw` y health check;
   - `install_service.bat` re-ejecutado completo, con los 13 pasos OK.
 - **Bug encontrado al probar**: si la ventana de Tk era la dueña del portapapeles, Tk lo vaciaba al cerrarse. Se pasó a una ventana de mensajes propia.
-- Detalle completo: `actualizacion-windows-11/verificacion.md`.
+- Detalle completo: [`actualizacion-windows-11/verificacion.md`](actualizacion-windows-11/verificacion.md).
 
 ### Sesión 2026-09-30 — logo, botones de limpiar y tabla comercial de scores
 - **Test rojo primero**: `clasificar_score()` (rango de 100 puntos, riesgo,
@@ -202,9 +212,9 @@ validan con `ruff` e import.
   con un único `side_effect` (una excepción, no una lista) ya cubrían la
   reconfirmación de forma transparente, porque `mock` la vuelve a lanzar en
   cada llamada.
-- **Documentación**: `docs/rotacion-credenciales.md` (sección nueva "¿Por qué
+- **Documentación**: [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) (sección nueva "¿Por qué
   se cerró la sesión?" con tabla de patrones + qué SÍ/NO mata la sesión),
-  `anotaciones.md` (sección `## B` nueva), `docs/diagramas/02-estados-sesion-proxy.puml`
+  [`anotaciones.md`](anotaciones.md) (sección `## B` nueva), `docs/diagramas/02-estados-sesion-proxy.puml`
   (estado `Reconfirmando` + nota de la bitácora).
 - **Verificación**: 235 tests, ruff limpio. La verificación en vivo (reiniciar
   el servicio real, renovar con la extensión, confirmar la línea en el
@@ -277,8 +287,8 @@ validan con `ruff` e import.
   bien.
 - **Investigación**: `install_service.bat` ya tenía al final una nota con el
   comando `New-NetFirewallRule` correcto, pero solo lo **imprimía** — nunca lo
-  ejecutaba. Gap ya anotado como pendiente en `AGENTS.md`/`Roadmap.md`/
-  `PlanesAprobados.md` desde el ensayo del 2026-09-18.
+  ejecutaba. Gap ya anotado como pendiente en [`AGENTS.md`](AGENTS.md)/[`Roadmap.md`](Roadmap.md)/
+  [`PlanesAprobados.md`](PlanesAprobados.md) desde el ensayo del 2026-09-18.
 - **Rojo**: 3 tests nuevos/ajustados en `tests/test_install_bat.py` — el ajuste de
   `test_extension_manual_...` (marcadores `[7/13]`/`[8/13]` que aún no existían) y
   2 tests completamente nuevos (`test_regla_de_firewall_...`,
@@ -632,9 +642,9 @@ validan con `ruff` e import.
 - [Metadatos] `pyproject.toml` `requires-python` bajado de `>=3.14` a `>=3.12`
   (piso real: los tests corren en 3.12 desde 2026-08-27, cero sintaxis 3.13/3.14
   en el código); `ruff target-version = "py312"`. Requisito de versión unificado
-  en `>=3.12` en README, `docs/proxy-*.md`, `README_PROXY.md`, `install_service.bat`.
-- [Docs] Creados los snapshots faltantes `resumenes/2026-09-04.md` y
-  `resumenes/2026-09-05.md` (recuperados verbatim de git).
+  en `>=3.12` en README, `docs/proxy-*.md`, [`README_PROXY.md`](README_PROXY.md), `install_service.bat`.
+- [Docs] Creados los snapshots faltantes [`resumenes/2026-09-04.md`](resumenes/2026-09-04.md) y
+  [`resumenes/2026-09-05.md`](resumenes/2026-09-05.md) (recuperados verbatim de git).
 - [Verificación] 49 tests pasando, ruff limpio (sin cambios respecto a antes).
 
 ### Sesión 2026-09-04 — Fase 1 (limpiar login muerto del proxy) + helper compartido
@@ -652,7 +662,7 @@ validan con `ruff` e import.
   cookie del keyring en vez de login programático inviable); `session_alive`
   agregado a `/health`/`/admin/status`.
 - [Verificación] 40 tests pasando, ruff limpio.
-- Detalle completo en `PlanesAprobados.md` (Fase 1) y `ResumenDelDia.md`.
+- Detalle completo en [`PlanesAprobados.md`](PlanesAprobados.md) (Fase 1) y [`ResumenDelDia.md`](ResumenDelDia.md).
 
 ### Sesión 2026-08-21 — Primer intento real + diagnóstico de login
 - [Prueba real] El usuario ejecutó `probar_core_gui.py` con sus credenciales
@@ -741,5 +751,5 @@ Proceso seguido para cada caso:
   ejecuta login → cobertura → score. NO muestra la contraseña (getpass).
 
 ## Pendiente de pruebas
-- Prueba de concurrencia (4-5 máquinas, misma cuenta): ver `PlanesAprobados.md`.
+- Prueba de concurrencia (4-5 máquinas, misma cuenta): ver [`PlanesAprobados.md`](PlanesAprobados.md).
 - Prueba real del core con credenciales del responsable (probar_core.py).

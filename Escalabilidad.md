@@ -137,7 +137,7 @@ puerto expuesto a Internet, prohibido (ver "Lo Que NO Hay Que Hacer").
 |-------|---------|----------|
 | Habilitar HTTPS en proxy | `server.py` + `uvicorn --ssl-keyfile --ssl-certfile` | 30 min |
 | Certificado self-signed para LAN/VPN | `mkcert` o `openssl` | 10 min |
-| Documentar en `README_PROXY.md` sección "Agentes Remotos" | `README_PROXY.md` | 15 min |
+| Documentar en [`README_PROXY.md`](README_PROXY.md) sección "Agentes Remotos" | [`README_PROXY.md`](README_PROXY.md) | 15 min |
 | Probar con 1 laptop real | — | 30 min |
 
 ---
@@ -179,14 +179,14 @@ flowchart TB
 
 | Documento | Qué Contiene |
 |-----------|--------------|
-| `docs/arquitectura.md` | Diagrama Mermaid + decisiones clave + flujo datos |
-| `docs/proxy-deploy.md` | Instalación paso a paso PC proxy |
-| `docs/proxy-config.md` | Configuración agentes (GUI + script) |
-| `docs/rotacion-credenciales.md` | Proceso rotación WinForce (RDP v1 → VPN v2) |
-| `docs/escalabilidad-remota.md` | Este documento en detalle + multi-proxy |
+| [`docs/arquitectura.md`](docs/arquitectura.md) | Diagrama Mermaid + decisiones clave + flujo datos |
+| [`docs/proxy-deploy.md`](docs/proxy-deploy.md) | Instalación paso a paso PC proxy |
+| [`docs/proxy-config.md`](docs/proxy-config.md) | Configuración agentes (GUI + script) |
+| [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) | Proceso rotación WinForce (RDP v1 → VPN v2) |
+| [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md) | Este documento en detalle + multi-proxy |
 | `validator_app/proxy/client.py` | `ProxyClient.from_discovery()` |
 | `validator_app/proxy/server.py` | `GET /admin/config` + middleware auth |
-| `anotaciones.md` | Glosario términos técnicos |
+| [`anotaciones.md`](anotaciones.md) | Glosario términos técnicos |
 
 ---
 
@@ -198,7 +198,7 @@ flowchart TB
 
 ## Contacto / Historial
 
-- **Decisión original**: 2026-08-25 (sesión documentada en `ResumenDelDia.md`)
+- **Decisión original**: 2026-08-25 (sesión documentada en [`ResumenDelDia.md`](ResumenDelDia.md))
 - **Arquitecto**: [Tu nombre / equipo]
 - **Próxima revisión**: Cuando pidan primer agente remoto
 - **Issue tracker**: GitHub Issues del repo

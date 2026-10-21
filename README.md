@@ -40,7 +40,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 - Ejecutable único, portable, anclable a la barra de tareas.
 - **Nuevo**: Configuración de proxy via GUI (menú ⚙️ Configuración → Configurar Proxy).
 - **Mapa y reglas de venta por zona** (página 🗺 **Mapa**): pinta sobre OpenStreetMap la cobertura, el fraude, *Preferente 2* (solo score ≥ 401), los códigos bloqueados, con un círculo de 300 m. Decide **antes de gastar una consulta de score**: zona bloqueada → no se vende ni se consulta; sin cobertura en el punto pero con cobertura a ≤ 300 m → "extensible" (el asesor confirma). Las capas van **embebidas en el .exe**, así que **solo la cobertura en vivo depende de WinForce**: si falla, la app lo avisa y da igual las condiciones de venta de la zona. Marcar una capa solo la muestra u oculta (la decisión siempre usa todas).
-- **Dirección y ficha del cliente** (páginas *Cobertura y Score* y *Mapa*): al poner coordenadas muestra la **dirección** (Geofinder de Equifax vía el proxy; si no está disponible, OpenStreetMap con un aviso de que es aproximada y de que el servicio debe reactivarse) y, al sacar el score, los **datos del documento** (apellidos y nombres, documento, fecha de nacimiento…). Cada dato se copia por separado y hay **Copiar todo** en el orden: apellidos y nombres, documento, nacionalidad y fecha de nacimiento, score, dirección detallada, departamento, provincia y distrito. El Geofinder del proxy requiere `geofinder_basic` en su `config.yaml` (ver `docs/proxy-config.md`).
+- **Dirección y ficha del cliente** (páginas *Cobertura y Score* y *Mapa*): al poner coordenadas muestra la **dirección** (Geofinder de Equifax vía el proxy; si no está disponible, OpenStreetMap con un aviso de que es aproximada y de que el servicio debe reactivarse) y, al sacar el score, los **datos del documento** (apellidos y nombres, documento, fecha de nacimiento…). Cada dato se copia por separado y hay **Copiar todo** en el orden: apellidos y nombres, documento, nacionalidad y fecha de nacimiento, score, dirección detallada, departamento, provincia y distrito. El Geofinder del proxy requiere `geofinder_basic` en su `config.yaml` (ver [`docs/proxy-config.md`](docs/proxy-config.md)).
 - Una sola medida de ventana para todas las páginas y **pantalla completa** (`F11`, `Esc` para salir).
 
 ### Requisitos
@@ -60,7 +60,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 6. El score se clasifica con la **tabla comercial**: 0-200 MUY ALTO (rojo, "NO SE LE PUEDE VENDER") · 201-400 ALTO (naranja) · 401-600 REGULAR (dorado) · 601-800 BAJO (verde) · 801-999 MUY BAJO (azul). Se muestra el rango (ej. `SCORE: 401 - 500`) con un botón **Copiar** que lo lleva al portapapeles.
 7. Página **🗺 Mapa**: pega las coordenadas (o clic derecho en el mapa → "Validar esta ubicación") y, si quieres, un documento. Verás la decisión de la zona y el score mínimo (201, o 401 en Preferente 2); el botón **Consultar score** solo se habilita donde corresponde. `F11` = pantalla completa.
 
-En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver `docs/arquitectura.md` ("Control de acceso al proxy").
+En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver [`docs/arquitectura.md`](docs/arquitectura.md) ("Control de acceso al proxy").
 
 ### Modo standalone (desarrollo / pruebas / owner — sin proxy)
 Si no configuras proxy, la app va directa a WinForce. Como el login
@@ -124,7 +124,7 @@ powershell -ExecutionPolicy Bypass -File publish-release.ps1
 adaptación a Windows 11 (antes vivía en `W11-JSConnect-Win-Coverage`, ya archivado).
 El mismo `.exe` sirve en ambos; el actualizador consulta siempre este repo.
 `build.ps1 -RepoName` solo hace falta para un fork de pruebas.
-Ver `actualizacion-windows-11/README.md` para el detalle de la adaptación.
+Ver [`actualizacion-windows-11/README.md`](actualizacion-windows-11/README.md) para el detalle de la adaptación.
 
 **La consola owner también se actualiza sola** (desde `v2026.10.07.1`): botón
 **Buscar actualizaciones** y aviso al abrir. Compara el hash SHA-256 de su `.exe` con el
@@ -149,13 +149,13 @@ El instalador:
 
 Se puede ejecutar más de una vez: cada paso verifica si ya está hecho y lo salta, y si ya hay tokens pregunta si conservarlos o regenerarlos. La ventana no se cierra sola. La extensión de Chrome solo se instala sola en PC gestionadas (dominio/Azure AD); si no aparece en `chrome://extensions`, el instalador imprime cómo cargarla a mano.
 
-Ver `docs/proxy-deploy.md` para detalles completos, firewall, rotación de credenciales y troubleshooting.
+Ver [`docs/proxy-deploy.md`](docs/proxy-deploy.md) para detalles completos, firewall, rotación de credenciales y troubleshooting.
 
 ### Seguridad y avisos
 - Cada usuario usa su propia credencial del sistema de validación (modo standalone) **O** el proxy centralizado (modo producción).
 - **Producción = Proxy Local**: agentes no tienen credenciales WinForce; solo token proxy LAN.
 - Sin certificado de firma, Windows SmartScreen pedirá **Más información → Ejecutar de todas formas** la primera vez.
-- En **Windows 11 con Smart App Control activo**, los `.exe` sin firma se **bloquean** (sin opción de "ejecutar de todas formas"). Alternativas: correr desde el código (`pythonw main.py`) o firmar el ejecutable. Detalle en `actualizacion-windows-11/pendientes.md`.
+- En **Windows 11 con Smart App Control activo**, los `.exe` sin firma se **bloquean** (sin opción de "ejecutar de todas formas"). Alternativas: correr desde el código (`pythonw main.py`) o firmar el ejecutable. Detalle en [`actualizacion-windows-11/pendientes.md`](actualizacion-windows-11/pendientes.md).
 - En Windows 11 las redes nuevas suelen quedar como **Públicas**: el instalador crea la regla de firewall para todos los perfiles, limitada a IP de LAN/Tailscale.
 - Repositorio público sin licencia: todos los derechos reservados (ver Licencia).
 - **NUNCA en repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, credenciales reales, `datos_capas/`, `validator_app/data/*.json.gz` y la URL del mapa de reglas de venta (`capas_kml_url`, solo en `config.yaml`).
@@ -164,7 +164,7 @@ Ver `docs/proxy-deploy.md` para detalles completos, firewall, rotación de crede
 Todos los derechos reservados. Este repositorio no incluye licencia de uso, modificación ni distribución.
 
 ### Implementaciones futuras
-Ofertas/catálogo de venta · Instalador con auto-actualización · Servidor de activación en línea · Validación por lotes (CSV/Excel) · Historial/CRM básico. Detalle en `AGENTS.md`.
+Ofertas/catálogo de venta · Instalador con auto-actualización · Servidor de activación en línea · Validación por lotes (CSV/Excel) · Historial/CRM básico. Detalle en [`AGENTS.md`](AGENTS.md).
 
 ### Documentación técnica (permanente, en `docs/`)
 - `arquitectura.md` — Diagrama + decisiones clave + flujo de datos
@@ -213,7 +213,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 - Single portable executable, pinnable to the taskbar.
 - **New**: Proxy configuration via GUI (menu ⚙️ Configuración → Configurar Proxy).
 - **Map and per-zone sales rules** (🗺 **Mapa** page): draws coverage, fraud, *Preferente 2* (score ≥ 401 only), blocked codes on OpenStreetMap, with a 300 m circle. It decides **before spending a score query**: blocked zone → no sale and no query; no coverage at the point but coverage within ≤ 300 m → "extensible" (the agent confirms). The layers are **embedded in the .exe**, so **only live coverage depends on WinForce**: if it fails the app says so and still gives the zone's sales conditions. Ticking a layer only shows or hides it (the decision always uses all of them).
-- **Address and customer card** (*Coverage & Score* and *Map* pages): with coordinates it shows the **address** (Equifax Geofinder through the proxy; if unavailable, OpenStreetMap with a notice that it is approximate and the service must be reactivated) and, after the score, the **document holder data** (names, document, birth date…). Each field copies on its own and **Copy all** follows this order: surnames and names, document, nationality and birth date, score, detailed address, department, province, district. The proxy's Geofinder needs `geofinder_basic` in its `config.yaml` (see `docs/proxy-config.md`).
+- **Address and customer card** (*Coverage & Score* and *Map* pages): with coordinates it shows the **address** (Equifax Geofinder through the proxy; if unavailable, OpenStreetMap with a notice that it is approximate and the service must be reactivated) and, after the score, the **document holder data** (names, document, birth date…). Each field copies on its own and **Copy all** follows this order: surnames and names, document, nationality and birth date, score, detailed address, department, province, district. The proxy's Geofinder needs `geofinder_basic` in its `config.yaml` (see [`docs/proxy-config.md`](docs/proxy-config.md)).
 - One window size for every page and **full-screen mode** (`F11`, `Esc` to leave).
 
 ### Requirements
@@ -233,7 +233,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 6. The score is classified with the **company table**: 0-200 VERY HIGH risk (red, "CANNOT BE SOLD") · 201-400 HIGH (orange) · 401-600 REGULAR (gold) · 601-800 LOW (green) · 801-999 VERY LOW (dark blue). The range (e.g. `SCORE: 401 - 500`) is shown with a **Copy** button for the clipboard.
 7. **🗺 Mapa** page: paste the coordinates (or right-click the map → "Validar esta ubicación") and, optionally, a document. You get the zone decision and the minimum score (201, or 401 in Preferente 2); the **Consultar score** button is only enabled where it applies. `F11` = full screen.
 
-At any time, **⚙️ Configuración → Activación / Huella de la PC** shows the activation status and the PC fingerprint (to request a code from the manager). If "IP no permitida" appears, the agent IP is not in the proxy allow-list: see `docs/arquitectura.md` ("Control de acceso al proxy").
+At any time, **⚙️ Configuración → Activación / Huella de la PC** shows the activation status and the PC fingerprint (to request a code from the manager). If "IP no permitida" appears, the agent IP is not in the proxy allow-list: see [`docs/arquitectura.md`](docs/arquitectura.md) ("Control de acceso al proxy").
 
 ### Standalone mode (dev / testing / owner — no proxy)
 Without a proxy configured, the app talks to WinForce directly. Since
@@ -298,7 +298,7 @@ powershell -ExecutionPolicy Bypass -File publish-release.ps1
 adaptation (it used to live in `W11-JSConnect-Win-Coverage`, now archived). The same
 `.exe` works on both and the updater always checks this repo. `build.ps1 -RepoName`
 is only needed for a test fork.
-See `actualizacion-windows-11/README.md` for the adaptation details.
+See [`actualizacion-windows-11/README.md`](actualizacion-windows-11/README.md) for the adaptation details.
 
 **The owner console also self-updates** (since `v2026.10.07.1`): **Buscar actualizaciones**
 button plus a notice on startup. It compares its `.exe`'s SHA-256 with the one in the
@@ -323,13 +323,13 @@ The installer:
 
 It can be run more than once: every step checks whether it is already done and skips it, and if tokens already exist it asks whether to keep or regenerate them. The window never closes by itself. The Chrome extension is only installed automatically on managed PCs (domain/Azure AD); if it does not appear in `chrome://extensions`, the installer prints how to load it manually.
 
-See `docs/proxy-deploy.md` for full details, firewall, credential rotation, and troubleshooting.
+See [`docs/proxy-deploy.md`](docs/proxy-deploy.md) for full details, firewall, credential rotation, and troubleshooting.
 
 ### Security & notices
 - Each user uses their own validation-system credentials (standalone mode) **OR** the centralized proxy (production mode).
 - **Production = Local Proxy**: agents have no WinForce credentials; only LAN proxy token.
 - Without a signing certificate, Windows SmartScreen will ask for **More info → Run anyway** on first launch.
-- On **Windows 11 with Smart App Control on**, unsigned `.exe` files are **blocked** (no "run anyway"). Options: run from source (`pythonw main.py`) or sign the executable. See `actualizacion-windows-11/pendientes.md`.
+- On **Windows 11 with Smart App Control on**, unsigned `.exe` files are **blocked** (no "run anyway"). Options: run from source (`pythonw main.py`) or sign the executable. See [`actualizacion-windows-11/pendientes.md`](actualizacion-windows-11/pendientes.md).
 - On Windows 11 new networks are usually **Public**: the installer creates the firewall rule for all profiles, restricted to LAN/Tailscale IPs.
 - Public repository with no license: all rights reserved (see License).
 - **NEVER in repo**: `config.yaml`, `proxy_token.txt`, `admin_key.txt`, `generator/private_key.pem`, `tools/captura.json`, `tools/js/`, real credentials, `datos_capas/`, `validator_app/data/*.json.gz` and the sales-rules map URL (`capas_kml_url`, only in `config.yaml`).
@@ -338,7 +338,7 @@ See `docs/proxy-deploy.md` for full details, firewall, credential rotation, and 
 All rights reserved. This repository carries no license to use, modify or distribute its contents.
 
 ### Future implementations
-Sales offers/catalog · Installer with auto-update · Online activation server · Batch validation (CSV/Excel) · Basic history/CRM. Details in `AGENTS.md`.
+Sales offers/catalog · Installer with auto-update · Online activation server · Batch validation (CSV/Excel) · Basic history/CRM. Details in [`AGENTS.md`](AGENTS.md).
 
 ### Technical documentation (permanent, in `docs/`)
 - `arquitectura.md` — Diagram + key decisions + data flow

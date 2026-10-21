@@ -19,7 +19,7 @@ archivo lo ya usado.
 - El core usa respuestas simuladas (FakeResponse/FakeSesion) para no hacer
   peticiones HTTP reales en los tests.
 - Comandos: `pytest` para tests · `ruff check .` para lint.
-- Detalle de la metodología e inventario de tests en `TestingLog.md`.
+- Detalle de la metodología e inventario de tests en [`TestingLog.md`](TestingLog.md).
 
 ## Entrada: Errores típicos de entorno Windows + Python
 - `pip` / `python` no reconocidos en PowerShell → usar la ruta completa de

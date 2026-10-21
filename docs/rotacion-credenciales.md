@@ -35,7 +35,7 @@ una vez para que aparezca.
 > paralelo pueden invalidar la sesión (hipótesis abierta desde 2026-09-18).
 
 > **Para desarrollo/pruebas** (cargarla descomprimida + proxy local + casos de
-> error): ver `README_PROXY.md` → "Probar la extensión en desarrollo".
+> error): ver [`README_PROXY.md`](../README_PROXY.md) → "Probar la extensión en desarrollo".
 
 ### Para el owner
 
@@ -141,7 +141,7 @@ keyring y responde OK (`/admin/login` es equivalente).
 
 Un acceso remoto real (VPN tipo Tailscale + HTTPS) exigiría **cambiar esa restricción**
 de loopback en el servidor: es una decisión de diseño pendiente, no una configuración.
-Ver `docs/escalabilidad-remota.md`.
+Ver [`docs/escalabilidad-remota.md`](escalabilidad-remota.md).
 
 ---
 
@@ -223,7 +223,7 @@ falso positivo real visto ese día: un `ReadTimeout` de 30s en `/health` marcó
 ### Cómo investigar una muerte de sesión
 
 No hay un tope de 9.5 h demostrado (ver la corrección del 2026-10-07 en
-`anotaciones.md`), así que cada muerte se mira con estos pasos:
+[`anotaciones.md`](../anotaciones.md)), así que cada muerte se mira con estos pasos:
 
 1. `Get-Content logs\sesion_eventos.jsonl -Tail 20` y anotar `ts`, `evento`, `origen`,
    `cookie_id` y `edad_cookie_s` de la muerte y de la renovación anterior.

@@ -38,7 +38,7 @@ Lista de redes CIDR en `validator_app/proxy/config.yaml`. `/api/*` solo responde
   legítima, añadir su CIDR y reiniciar el servicio.
 - **No se agregan las IP públicas del router** (p. ej. `162.120.185.241`): en la LAN
   el proxy ve la IP privada; la pública es la salida NAT que solo ven
-  WinForce/Equifax. Ver "NAT / IP pública" y `docs/arquitectura.md`.
+  WinForce/Equifax. Ver "NAT / IP pública" y [`docs/arquitectura.md`](docs/arquitectura.md).
 
 ### API Interna (WinForce)
 El sistema del ISP (`appwinforce.win.pe`) expone una API JSON interna en `/controllers/*.php` que el navegador usa vía AJAX. **No es pública documentada**, pero no requiere scraping: replicamos las llamadas HTTP directas.
@@ -75,7 +75,7 @@ por evento, junto a `logs/winsw.*.log`).
 - Best-effort: un fallo de disco al escribir nunca propaga (`contextlib.suppress`).
 - Se lee con `Get-Content logs\sesion_eventos.jsonl -Tail 20` o vía
   `/admin/status` (campo `sesion_eventos`, últimos 10). Guía de lectura por
-  patrón en `docs/rotacion-credenciales.md` → "¿Por qué se cerró la sesión?".
+  patrón en [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) → "¿Por qué se cerró la sesión?".
 - Ver también "Reconfirmación antes de declarar sesión muerta" (abajo) y
   "Dos límites de sesión" (sección M).
 
@@ -125,7 +125,7 @@ Usuario/contraseña del sistema del ISP. **Rotan cada 1-2 meses** (desactivan cu
 
 ### DNS Interno (Tailnet)
 En Tailscale: nombre `proxy.oficina.local` → IP Tailscale del proxy (ej. `100.64.12.34`).
-Idea de auto-discovery (hoy **no funciona**: `/admin/config` exige `X-Admin-Key` y solo responde desde la propia PC del proxy, así que un agente no puede usarlo para auto-configurarse; ver `docs/escalabilidad-remota.md`).
+Idea de auto-discovery (hoy **no funciona**: `/admin/config` exige `X-Admin-Key` y solo responde desde la propia PC del proxy, así que un agente no puede usarlo para auto-configurarse; ver [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md)).
 
 ---
 
@@ -333,7 +333,7 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
   DataTables de la app (ej. `table_seguimiento`) muestran `Invalid JSON
   response` — el AJAX que las alimenta devuelve HTML (redirect a login) o un
   warning de PHP en vez de JSON limpio, mismo patrón que el bug de BOM UTF-8
-  ya corregido en `coordenada.php` (`AGENTS.md`, "Bug real 1"), aquí en un
+  ya corregido en `coordenada.php` ([`AGENTS.md`](AGENTS.md), "Bug real 1"), aquí en un
   endpoint distinto de WinForce. Es una señal visible en el navegador de que
   la sesión ya murió, útil para detectar el corte sin depender solo del log
   de `medir_sesion.py`.
@@ -347,10 +347,10 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
 > sesión todo vuelve a la normalidad). Con un solo dato **no se puede distinguir** un
 > tope real de esa interrupción, ni confirmarlo ni descartarlo. Tampoco se resuelve con
 > el patrón de ~10 min tras renovar visto el 2026-10-02 (593 y 603 s, mismo `cookie_id`;
-> ver `actualizacion-windows-11/pendientes.md` §1). **Consecuencia práctica: ninguna** —
+> ver [`actualizacion-windows-11/pendientes.md`](actualizacion-windows-11/pendientes.md) §1). **Consecuencia práctica: ninguna** —
 > el owner igual tiene que renovar la cookie (2FA: no hay re-login programático) y el
 > keepalive sigue siendo necesario. Solo cambia que no hay que dar por hecho un límite
-> de 9.5 h. Cómo averiguarlo: `docs/rotacion-credenciales.md` → "Cómo investigar una
+> de 9.5 h. Cómo averiguarlo: [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) → "Cómo investigar una
 > muerte de sesión". Lo de abajo se conserva como estaba, leído con esta corrección.
 >
 > **ESTADO 2026-09-08 — investigación CERRADA (ver la corrección de arriba).** El punto 2 de abajo ("tope
@@ -630,7 +630,7 @@ Detectadas al instalar la PC oficina en Windows 11 Pro 25H2. Detalle en `actuali
 - **`wmic` eliminado** (24H2+): la huella (`fingerprint.py`) lee lo mismo por CIM (`Win32_Processor.ProcessorId`, `Win32_Volume.SerialNumber`) cuando `wmic` no existe; `huellas_compatibles()` acepta también la huella vieja calculada sin `wmic`. **Reemplazado el 2026-10-07:** la huella pasó a MachineGuid + CPU del registro (sin `wmic`/PowerShell/MAC/volumen); lo anterior quedó en `huellas_legacy()` solo para la transición. **No se borra salvo petición expresa del usuario**: el actualizador salta directo al último Release y un agente que se salte la transición perdería la activación.
 - **Windows Terminal como consola por defecto**: cada `subprocess` lanzado desde una app con ventana abre una Terminal visible que roba el foco → usar `creationflags=subprocess.CREATE_NO_WINDOW`.
 - **Historial del portapapeles (Win+V) y nube**: guardan lo copiado aunque la app lo borre. Para secretos: formatos `ExcludeClipboardContentFromMonitorProcessing`, `CanIncludeInClipboardHistory=0`, `CanUploadToCloudClipboard=0` (`owner_app.copiar_sin_historial`). El dueño del portapapeles NO debe ser una ventana de Tk: Tk lo vacía al cerrarse.
-- **Smart App Control**: bloquea `.exe` sin firma, sin la opción "ejecutar de todas formas" de SmartScreen; queda en el Visor de Eventos → `Microsoft-Windows-CodeIntegrity/Operational` (IDs 3033/3077). Python sí está firmado, así que correr desde el código funciona. Solución de fondo: firmar los `.exe` (`actualizacion-windows-11/pendientes.md`).
+- **Smart App Control**: bloquea `.exe` sin firma, sin la opción "ejecutar de todas formas" de SmartScreen; queda en el Visor de Eventos → `Microsoft-Windows-CodeIntegrity/Operational` (IDs 3033/3077). Python sí está firmado, así que correr desde el código funciona. Solución de fondo: firmar los `.exe` ([`actualizacion-windows-11/pendientes.md`](actualizacion-windows-11/pendientes.md)).
 - **No es de Windows 11 pero salió ahí**: `config.yaml` tiene ACL SYSTEM+Administradores → cualquier proceso **no elevado** que llame `get_config()` recibe `PermissionError`; para `/local/*` usar `config.proxy_local_url_seguro()`.
 
 ---
@@ -659,7 +659,7 @@ Detectadas al instalar la PC oficina en Windows 11 Pro 25H2. Detalle en `actuali
 ### TDD (Test-Driven Development)
 - Tests en `tests/` → `pytest`
 - Flujo: Rojo (test falla) → Verde (implementa mínimo) → Refactor
-- Bitácora: `TestingLog.md`
+- Bitácora: [`TestingLog.md`](TestingLog.md)
 
 ### Typing Moderno (Python 3.12+)
 ```python
@@ -694,17 +694,17 @@ keyring.delete_password("servicio", "usuario")
 
 | Tema | Archivo |
 |------|---------|
-| Arquitectura completa | `docs/arquitectura.md` |
-| Instalación proxy | `docs/proxy-deploy.md` |
-| Config agentes | `docs/proxy-config.md` |
-| Rotación credenciales | `docs/rotacion-credenciales.md` |
-| Escalabilidad remota | `docs/escalabilidad-remota.md` + `Escalabilidad.md` |
-| Historial decisiones | `AGENTS.md` (Historial) + `PlanesAprobados.md` |
-| Tests y bugs | `TestingLog.md` |
-| Control de acceso (whitelist + token) | `docs/arquitectura.md` → "Control de acceso al proxy" |
-| VPN y whitelist | `Escalabilidad.md` + `docs/escalabilidad-remota.md` |
-| Qué llevar a la PC owner oficial | `docs/proxy-deploy.md` → "Qué llevar a la PC owner" |
-| Resumen día actual | `ResumenDelDia.md` |
+| Arquitectura completa | [`docs/arquitectura.md`](docs/arquitectura.md) |
+| Instalación proxy | [`docs/proxy-deploy.md`](docs/proxy-deploy.md) |
+| Config agentes | [`docs/proxy-config.md`](docs/proxy-config.md) |
+| Rotación credenciales | [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) |
+| Escalabilidad remota | [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md) + [`Escalabilidad.md`](Escalabilidad.md) |
+| Historial decisiones | [`AGENTS.md`](AGENTS.md) (Historial) + [`PlanesAprobados.md`](PlanesAprobados.md) |
+| Tests y bugs | [`TestingLog.md`](TestingLog.md) |
+| Control de acceso (whitelist + token) | [`docs/arquitectura.md`](docs/arquitectura.md) → "Control de acceso al proxy" |
+| VPN y whitelist | [`Escalabilidad.md`](Escalabilidad.md) + [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md) |
+| Qué llevar a la PC owner oficial | [`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Qué llevar a la PC owner" |
+| Resumen día actual | [`ResumenDelDia.md`](ResumenDelDia.md) |
 | Resumenes pasados | `resumenes/YYYY-MM-DD.md` |
 
 ## Mapa de cobertura y reglas de venta por zona (2026-10-09)

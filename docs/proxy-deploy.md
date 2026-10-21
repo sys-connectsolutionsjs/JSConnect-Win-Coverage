@@ -86,7 +86,7 @@ agentes avisan "proxy desactualizado".
    `robocopy <pendrive>\proxy-update\validator_app C:\jsconnect\validator_app /E`
    (sin `/MIR` ni `/PURGE`: no borra lo que ya existe), luego `sc start JSWinProxy`.
 3. Para la dirección: agregar `geofinder_basic: "..."` a `validator_app\proxy\config.yaml`
-   (ver `docs/rotacion-credenciales.md` → "Geofinder") **antes** de iniciar el servicio.
+   (ver [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) → "Geofinder") **antes** de iniciar el servicio.
 4. Verificar: `curl http://localhost:8080/health` → `"geofinder":true`.
 5. Si no arranca por un paquete faltante: `install_service.bat` como Administrador y elegir **C**
    (conserva los tokens; los agentes no se reconfiguran).
@@ -256,7 +256,7 @@ Notas:
 - En **Windows 11 con Smart App Control activo**, un `.exe` sin firma se **bloquea** sin
   opción de ejecutarlo (pasó con `JSConnect-Win-Coverage.exe` en la PC oficina,
   2026-10-02). Ahí el agente se corre desde el código (`.venv\Scripts\pythonw.exe
-  main.py`). Ver `actualizacion-windows-11/cambios-en-esta-pc.md`.
+  main.py`). Ver [`actualizacion-windows-11/cambios-en-esta-pc.md`](../actualizacion-windows-11/cambios-en-esta-pc.md).
 - El icono **"Renovar sesion WinForce"** del Escritorio corre **sin elevar** y ya no lee
   `config.yaml` (ACL de administrador): usa `/local/renovar`, que no necesita el admin
   key (corregido 2026-10-02; antes fallaba con `PermissionError`).
@@ -388,7 +388,7 @@ Set-NetFirewallProfile -Name Public -AllowInboundRules True
 
 ## Renovación de la Sesión WinForce
 
-Ver `docs/rotacion-credenciales.md` — proceso detallado.
+Ver [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) — proceso detallado.
 
 Resumen rápido:
 1. El owner inicia sesión normalmente en WinForce, con 2FA si corresponde.

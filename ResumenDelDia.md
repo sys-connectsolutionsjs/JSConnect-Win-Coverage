@@ -1,15 +1,21 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: (se fija al abrir la proxima sesion)
+Fecha: 2026-10-21
 
 ## Rotación del resumen anterior
 
 El detalle íntegro del 2026-10-13 quedó en `resumenes/2026-10-13.md` y su entrada
-condensada en `HistorialResumenes.md`.
+condensada en `HistorialResumenes.md`. La sesión abierta el 2026-10-14 no tuvo trabajo (sin commits),
+por eso no tiene snapshot propio.
 
 ## Qué se hizo hoy
 
-- (nada todavía)
+- Confirmado que el 2026-10-14 no hubo trabajo (sin commits); este resumen pasó a la fecha de hoy.
+- Revertido `validator_app/version.py` a `"unknown"` (lo había dejado el build de v2026.10.13).
+- **Obsidian**: `.obsidian/` en `.gitignore`; 373 referencias entre `.md` pasaron a enlaces
+  markdown relativos (se ven en GitHub y en el grafo); el mapa de conocimiento de `AGENTS.md`
+  enlaza todos los documentos y es el nodo central; convención de enlaces escrita en `AGENTS.md`.
+  Los snapshots de `resumenes/` no se tocaron. Test nuevo `tests/test_enlaces_docs.py` (3).
 
 ## Pendiente al iniciar
 

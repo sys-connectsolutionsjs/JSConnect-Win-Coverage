@@ -139,7 +139,7 @@ Evaluado el 2026-09-21, sin implementar nada. Hechos verificados en el código:
   `workingdirectory`.
 - `server.py` importa `validator_app.core` además de `validator_app.proxy` —
   **no basta con copiar solo la carpeta `proxy/`**, como sugiere de forma un poco
-  optimista un comentario del paso 1 en `docs/proxy-deploy.md`.
+  optimista un comentario del paso 1 en [`docs/proxy-deploy.md`](docs/proxy-deploy.md).
 
 Tres caminos evaluados:
 
@@ -181,7 +181,7 @@ haga falta sería:
 3. Repuntar el hostname interno (`proxy.oficina.local`) a la IP de la PC B.
 4. Confirmar `GET http://proxy.oficina.local:8080/health` desde un agente.
 5. Si no existe hostname interno todavía (sección 3 sin implementar): avisar a
-   los agentes con la IP nueva — ver `docs/proxy-deploy.md`, sección
+   los agentes con la IP nueva — ver [`docs/proxy-deploy.md`](docs/proxy-deploy.md), sección
    "Configuración de Agentes", opción B (script por keyring) para hacerlo masivo
    en vez de PC por PC.
 

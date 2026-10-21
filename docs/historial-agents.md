@@ -1,28 +1,28 @@
 # Historial de AGENTS.md
 
-> Archivo histórico. Aquí vive todo lo que antes estaba en `AGENTS.md` bajo
+> Archivo histórico. Aquí vive todo lo que antes estaba en [`AGENTS.md`](../AGENTS.md) bajo
 > **Tareas pendientes** (las ya completadas, numeradas 1-43) e **Historial** (bitácora por
 > fases y *Cierre de la sesión* de 2026-08-18 a 2026-10-02). Se movió **tal cual**, sin
-> reescribir, el 2026-10-07 (Fase 5): `AGENTS.md` pesaba ~114 KB y ~75 % era historial.
+> reescribir, el 2026-10-07 (Fase 5): [`AGENTS.md`](../AGENTS.md) pesaba ~114 KB y ~75 % era historial.
 > Los resúmenes diarios completos siguen en `resumenes/<fecha>.md` (inmutables) y el índice
-> condensado en `HistorialResumenes.md`.
+> condensado en [`HistorialResumenes.md`](../HistorialResumenes.md).
 >
-> Convención desde el 2026-10-07: `AGENTS.md` conserva solo **el último cierre de sesión**
+> Convención desde el 2026-10-07: [`AGENTS.md`](../AGENTS.md) conserva solo **el último cierre de sesión**
 > ("contexto para la siguiente"). Al escribir el cierre siguiente, el anterior se mueve
 > aquí, debajo de "## Historial", en orden cronológico (el más nuevo al final).
 >
 > Números de línea y rutas que aparecen abajo describen el código **de su fecha**; para
-> el estado actual, `AGENTS.md`, `Roadmap.md` y `PlanesAprobados.md`.
+> el estado actual, [`AGENTS.md`](../AGENTS.md), [`Roadmap.md`](../Roadmap.md) y [`PlanesAprobados.md`](../PlanesAprobados.md).
 
 ---
 
 ## Tareas pendientes (archivo — las completadas)
-1. **FASE 0 DOCUMENTACIÓN** [COMPLETADO — verificado 2026-09-05]: `docs/` (5 archivos), `Escalabilidad.md`, `anotaciones.md`, `resumenes/` existen y están al día. En esta revisión se corrigió `docs/arquitectura.md` (arranque real del servicio, endpoints admin por cookie `PHPSESSID`, clave de keyring `credentials_cookies`), desactualizado desde `1dcecc6`.
+1. **FASE 0 DOCUMENTACIÓN** [COMPLETADO — verificado 2026-09-05]: `docs/` (5 archivos), [`Escalabilidad.md`](../Escalabilidad.md), [`anotaciones.md`](../anotaciones.md), `resumenes/` existen y están al día. En esta revisión se corrigió [`docs/arquitectura.md`](arquitectura.md) (arranque real del servicio, endpoints admin por cookie `PHPSESSID`, clave de keyring `credentials_cookies`), desactualizado desde `1dcecc6`.
 2. **FASE 1 PROXY SERVER** [COMPLETADO — verificado 2026-08-26]: `validator_app/proxy/` completo — `server.py` (7 rutas en esa fecha: `/api/cobertura`, `/api/score`, `/health`, `/admin/config`, `/admin/login`, `/admin/rotar`, `/admin/status`; hoy son 9: se sumaron `/local/renovar` y `/local/estado`), `config.py`, `winsw.xml`, `install_service.bat`, `uninstall_service.bat`.
 3. **FASE 2 CORE ADAPTADO** [COMPLETADO — verificado 2026-08-26]: `auto_relogin_if_needed()` (`core/api.py:267`), `get_session_cookies()`/`set_session_cookies()` (`:282`/`:288`) implementados y usados en `validar_cobertura`/`validar_score`.
 4. **FASE 3 CLIENTE PROXY** [COMPLETADO — verificado 2026-08-26]: `ProxyClient` (`proxy/client.py`) con retries, excepciones tipadas (`ProxyConnectionError`, `ProxyAuthError`, `ProxyServerError`, `ProxyTimeoutError`), `from_discovery()`, `from_keyring()`.
 5. **FASE 4 GUI CONFIG PROXY** [COMPLETADO — verificado 2026-08-26]: menú "⚙️ Configuración" (`gui/main_window.py:33`) → diálogo modal `_abrir_config_proxy` (`:206`) con IP:puerto + token + keyring local.
-6. **FASE 5 DEPLOY & DOCS** [COMPLETADO — verificado 2026-08-26]: `rotate_creds.py`, `README_PROXY.md`, `requirements-proxy.txt` presentes.
+6. **FASE 5 DEPLOY & DOCS** [COMPLETADO — verificado 2026-08-26]: `rotate_creds.py`, [`README_PROXY.md`](../README_PROXY.md), `requirements-proxy.txt` presentes.
 7. **Prueba real del core** con credenciales del usuario [COMPLETADO — verificado 2026-08-27]: login manual (2FA) + cookie inyectada vía `tools/probar_con_cookie.py` → cobertura SI (HORIZONTAL, celda 8764) → score (423, MUY ALTO). Ver Historial "Prueba real end-to-end" para el detalle de los 2 bugs encontrados y corregidos en el camino.
 8. Decidir si la app debe llamar a `actualizar_score_cliente` (registra score) o basta con leerlo — **PENDIENTE**.
 9. Conectar GUI a core end-to-end [COMPLETADO — 2026-09-08, Fase 3]: la rama standalone de `main_window.py` usaba `api.obtener_cliente()` (un `ValidatorAPI` sin sesión → siempre `SessionError`). Ahora `validator_app/gui/session_config.py` (NUEVO) + diálogo "⚙ Configurar Sesión (standalone)" guardan/validan la `PHPSESSID` en keyring (`JSWinCoverage`/`session_cookie`) y `_validar_en_hilo` usa ese cliente. Falta la prueba manual con cookie real contra la GUI.
@@ -31,7 +31,7 @@
 12. **Decisión de geodata del score** [COMPLETADO — verificado 2026-08-27]: **opción C (payload mínimo)** confirmada — el score respondió correctamente enviando solo coordenadas + documento, con todos los campos de geodata vacíos en el payload. No hace falta replicar la geoapi de Equifax ni pedir datos manuales.
 13. **`tools/probar_con_cookie.py`** [NUEVO, 2026-08-27]: herramienta de diagnóstico contra el servidor real (cookie de sesión capturada del navegador). Ya probó su valor detectando 2 bugs reales — conservar para futuras revalidaciones.
 14. **Medición de vida de PHPSESSID** [COMPLETADO — verificado 2026-09-04]: `tools/medir_sesion.py` ejecutado con 4 corridas. Las corridas limpias registraron VIVA a 1155s y MUERTA a 1350s; las corridas de 600s llegaron a 525s. La corrida anómala de 135-210s coincide con recarga/reuse de cookie y no se toma como idle-timeout.
-15. **Investigación de keepalive** [CERRADA — verificado 2026-09-08]: `tools/medir_keepalive.py` **v3** corrigió los dos defectos que invalidaban v1/v2 (no medía la edad real de la sesión; cualquier error cortaba la corrida como "muerte"). Corrida final (arrancó 2026-09-05 21:08, ping fijo 900s, 49 coords; reporte 2026-09-08): **37 pings consecutivos VIVA** hasta ≈ 9 h 16 m de edad de sesión; muerte **limpia** a ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Conclusiones: idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **existe un tope absoluto de sesión ≈ 9.5 h desde el login**. Detalle en `anotaciones.md` ("Dos límites de sesión" + "Revisión del método") y `PlanesAprobados.md` (Fase 0, act. 2026-09-08).
+15. **Investigación de keepalive** [CERRADA — verificado 2026-09-08]: `tools/medir_keepalive.py` **v3** corrigió los dos defectos que invalidaban v1/v2 (no medía la edad real de la sesión; cualquier error cortaba la corrida como "muerte"). Corrida final (arrancó 2026-09-05 21:08, ping fijo 900s, 49 coords; reporte 2026-09-08): **37 pings consecutivos VIVA** hasta ≈ 9 h 16 m de edad de sesión; muerte **limpia** a ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Conclusiones: idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **existe un tope absoluto de sesión ≈ 9.5 h desde el login**. Detalle en [`anotaciones.md`](../anotaciones.md) ("Dos límites de sesión" + "Revisión del método") y [`PlanesAprobados.md`](../PlanesAprobados.md) (Fase 0, act. 2026-09-08).
 16. **Fase 2A — keepalive del proxy** [COMPLETADO — 2026-09-08]: `_keepalive_loop` (`asyncio` en `lifespan`) + `ProxyValidatorAPI._keepalive_tick` en `server.py`; config `keepalive_enabled` / `keepalive_interval_seconds` (900s) en `config.py`. "Latido perezoso": pinga `validar_cobertura` (coord pública rotada de `_KEEPALIVE_COORDS`) solo si no hubo tráfico real de agentes en el intervalo. Ping fallido → confirma con `validar_cookie_sesion()`: endpoint caído = transitorio; **sesión muerta = `log.error` con aviso al owner + `session_dead_since` en `/admin/status`, sin reintentar en silencio**. Prerrequisito arreglado: `_get_client()` neutraliza el guard idle de 120s del cliente-core. **12 tests en `tests/test_proxy.py`** (NUEVO), 61 pasando, ruff limpio. Validado end-to-end contra WinForce real. **Falta Fase 2.5**: login asistido (recolectar la `PHPSESSID` con navegador, sin F12).
 17. **Fase 3 — diálogo de cookie en GUI** [COMPLETADO — 2026-09-08]: `validator_app/gui/session_config.py` + `_abrir_config_sesion()` en `main_window.py`. Arregla el modo standalone (antes siempre `SessionError`). 6 tests en `tests/test_session_config.py`. Ver ítem 9.
 18. **Arranque de los scripts de `tools/`** [COMPLETADO — verificado 2026-09-05, commit `82f9a4c`]: los 6 scripts que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
@@ -44,8 +44,8 @@
     - `pyproject.toml` `requires-python` bajado a `>=3.12` (piso real: tests en
       3.12 desde 2026-08-27, cero sintaxis 3.13/3.14); `ruff target-version =
       "py312"`; requisito unificado en `3.12+` (README, `docs/proxy-*.md`,
-      `README_PROXY.md`, `install_service.bat`).
-    - Creados `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` (recuperados
+      [`README_PROXY.md`](../README_PROXY.md), `install_service.bat`).
+    - Creados [`resumenes/2026-09-04.md`](../resumenes/2026-09-04.md) y [`resumenes/2026-09-05.md`](../resumenes/2026-09-05.md) (recuperados
       verbatim de git). Sin cambios de código; 49 tests / ruff siguen en verde.
 22. **Fase 2.5 — login asistido** [COMPLETADO — 2026-09-08]: `validator_app/proxy/login_asistido.py` NUEVO — Playwright abre Chromium (perfil persistente `.browser_profile/`, gitignored), el owner inicia sesión normalmente y el script captura la `PHPSESSID` de `context.cookies()` (ve las HttpOnly), la valida con `validar_cookie_sesion()` y la guarda. `rotate_creds.py` pasa a "v2": sin args = asistido + `tkinter.messagebox` de resultado; `--manual` = el copiar/pegar de antes (fallback sin Playwright); `--fresh` limpia el perfil; `--preview` abre la ventana para probarla sin guardar nada ni necesitar `config.yaml`. El navegador es el **Google Chrome instalado** (`channel="chrome"`, sin la infobar de automatización → el gestor de contraseñas autocompleta; fallback a Chromium si no hay Chrome). `install_service.bat` descarga Chromium (`playwright install chromium`) y crea el `.lnk` "Renovar sesion WinForce" en el Escritorio (`pythonw.exe`, sin consola). `playwright>=1.45` → `requirements-proxy.txt`. **10 tests en `tests/test_login_asistido.py`** (NUEVO), 71 pasando, ruff limpio. Smoke real: Chromium abre/cierra limpio y lanza el error esperado sin login.
 23. **Fase 2.5d — extensión de Chrome (renovar con un clic)** [COMPLETADO — 2026-09-08]: la **vía principal** de renovación pasa a ser una extensión MV3 (`validator_app/proxy/extension/`) en el Chrome cotidiano del owner — adjuntarse a ese Chrome con Playwright NO se puede (Chrome 136+ bloquea `--remote-debugging-port` en el perfil por defecto). La extensión: badge rojo cuando la sesión muere → 1 clic → `chrome.cookies.get` (lee HttpOnly) → `POST 127.0.0.1:<puerto>/local/renovar`. Endpoints `/local/renovar` y `/local/estado` en `server.py` (solo `127.0.0.1`, sin admin key; reusan `set_session_cookie` / `get_status`). `_instalar_extension.py` (NUEVO, lo llama `install_service.bat`) empaqueta un `.crx` firmado, escribe `updates.xml` y la política `ExtensionSettings\<id>` = `force_installed` (winreg). `uninstall_service.bat --uninstall` borra la política. **10 tests nuevos** (`tests/test_proxy.py` con FastAPI TestClient — adelanta parte de la Fase 4 — + `tests/test_instalar_extension.py`), 84 pasando, ruff limpio. Smoke real: `_instalar_extension` empaqueta el crx y computa un id estable (`oclimnkhjeeamemdkdkfdliadmkdafkl`). El login asistido (`.lnk` del Escritorio) y `--manual` quedan de fallback.
@@ -54,11 +54,11 @@
 26. **Etapa 0 — desbloquear el arranque del proxy** [COMPLETADO — verificado 2026-09-09]: `config.yaml` ahora se lee (`config.py` con `settings_customise_sources` + `YamlConfigSettingsSource` + `_CONFIG_YAML` absoluto; `pyyaml` a `requirements-proxy.txt`; `tests/test_config.py` NUEVO, 5 tests) — cierra la "Observación" del cierre 2026-09-08. `install_service.bat`: 3 bugs que lo detenían (`requirements-proxy.txt` en la raíz, `python -c` multilínea, `!PROXY_PORT!` con delayed expansion) + `where python` → `sys.executable` + el mensaje `:262` que mandaba al Visor de Eventos. `winsw.xml` → `winsw.xml.example` (plantilla) + gitignore; ACL `icacls` de `config.yaml`/`proxy_token.txt`/`admin_key.txt`. Commits `d9c1ef7`, `ffa213a`, `b70dacf`.
 27. **Etapas A/B/C — validación end-to-end del proxy** [COMPLETADO — verificado 2026-09-09]: A) proxy en primer plano + auth (401/403 donde toca). B) sesión WinForce viva (perfil `.browser_profile/`, sin 2FA) → **validación real**: cobertura `SI/HORIZONTAL/8764`, score `423/MUY ALTO` (= baseline 2026-08-27). Bug real `3f63e8f`: `deuda_total` reventaba con HTTP 500 porque WinForce manda `DeudaTotal: 0` (int). C) la GUI Tkinter contra el proxy (keyring `JSWinClient`) validando cobertura+score reales — cierra la prueba manual de la Fase 3. C.12 (standalone) ya no es alcanzable desde la UI (el modo proxy siempre gana). **Incidente**: la suite escribía `cookie-nueva` en el keyring real `JSWinProxy/credentials_cookies` (`test_proxy.py:169` sin mock) → `tests/conftest.py` NUEVO (aísla keyring en memoria, autouse). Commits `3f63e8f`, `898b9ab`, `ffc5296`, `f91b9fb`.
 28. **Etapa R — robustez de la detección de sesión muerta** [COMPLETADO — verificado 2026-09-09]: el proxy podía quedarse sin sesión WinForce sin avisar. R1: `auto_relogin_if_needed()` ya NO refresca `_last_activity` (solo el éxito real cuenta — ese era el bug que cegaba la alarma bajo carga) + validación de la cookie al arrancar (`_load_session_cookies`) + primer keepalive a 60s + `_marcar_sesion_muerta/viva()` centralizado. R2: `SesionCaducadaError` → HTTP 503 + `Retry-After`, lanzado antes de tocar WinForce; `ProxyClient` lo trata como terminal; GUI con aviso suave; `HealthResult.session_alive`. R3: aviso al owner por 3 capas — evento de Windows ID 101/102 + tarea `schtasks JSWinProxy-AvisoSesion` (`install_service.bat` paso 11/12) · toast de la extensión en la transición (permiso `storage`) · webhook opcional `config.alert_webhook_url`. `tests/test_client.py` NUEVO; `conftest.py` gana `avisos_capturados`. Commits `82f3604`→`67ec0e4`. **124 tests**. La parte del instalador se verifica en la Etapa D.
-29. **`Roadmap.md` NUEVO** [2026-09-09]: vista única del proyecto — línea de tiempo de lo entregado + cola aprobada en orden (R→0.5→C.12→D→E→Fase 5) + backlog v1.1 + bloqueos. Registrado en el mapa de conocimiento (punto 2 del orden de lectura) y en `.claude/hooks/historial_sync.py`. Hasta ahora el estado se narraba en 4 sitios distintos y esa duplicación multiplicaba las incoherencias.
-30. **`PlanesAprobados.md` — cola actualizada** [2026-09-09]: añadido el "Plan de puesta en marcha del proxy" (Etapas 0/A–E con estado; antes solo vivía en `~/.claude/plans/`, contra la regla de que es una COLA). El one-liner "Fase 5 — docs" pasó a ser el **checklist completo de las 19 incoherencias doc↔código** (11 previas + 8 de la Etapa C), cada una con `archivo:línea` del doc y del código. **La Fase 5 sigue siendo la última** — se ejecuta después de 0.5/C.12/D/E.
+29. **[`Roadmap.md`](../Roadmap.md) NUEVO** [2026-09-09]: vista única del proyecto — línea de tiempo de lo entregado + cola aprobada en orden (R→0.5→C.12→D→E→Fase 5) + backlog v1.1 + bloqueos. Registrado en el mapa de conocimiento (punto 2 del orden de lectura) y en `.claude/hooks/historial_sync.py`. Hasta ahora el estado se narraba en 4 sitios distintos y esa duplicación multiplicaba las incoherencias.
+30. **[`PlanesAprobados.md`](../PlanesAprobados.md) — cola actualizada** [2026-09-09]: añadido el "Plan de puesta en marcha del proxy" (Etapas 0/A–E con estado; antes solo vivía en `~/.claude/plans/`, contra la regla de que es una COLA). El one-liner "Fase 5 — docs" pasó a ser el **checklist completo de las 19 incoherencias doc↔código** (11 previas + 8 de la Etapa C), cada una con `archivo:línea` del doc y del código. **La Fase 5 sigue siendo la última** — se ejecuta después de 0.5/C.12/D/E.
 31. **Etapa 0.5 — coherencia del almacén de la cookie con LocalSystem** [COMPLETADO — verificado 2026-09-11]: `rotate_creds.py` ya no escribe la cookie directo al keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía); ahora `push_session_cookie()` la empuja por HTTP: `/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza. `config.py` gana `proxy_local_url` (ignora `proxy_host=0.0.0.0` de producción) — arregla de paso un bug latente de `_verificar_proxy()`. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo (cookie falsa → 401 real de `/local/renovar`). **129 tests, ruff limpio.**
 32. **Activación RSA real + consola owner** [COMPLETADO — verificado 2026-09-16]: `signer.py` contiene la llave pública real y diagnósticos de activación; la GUI del agente copia la huella y pega el código; `generator/owner_app.py` genera/copia códigos, consulta proxy/servicio y lanza la renovación WinForce; `build-owner.ps1` genera el ejecutable separado. La privada permanece ignorada y con ACL restringida. Prueba manual completa aprobada en esta PC y builds limpios de agente/owner. **141 tests, ruff limpio.** La Etapa D en la PC owner oficial sigue pendiente.
-33. **Ensayo del proxy en la PC de desarrollo + instalador re-ejecutable** [COMPLETADA — el ensayo de 2026-09-18 quedó superado por la Etapa D real del 2026-09-29]: `install_service.bat` se relanza en `cmd /k` (ventana persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un resumen final; el paso 5 avisa si ya hay tokens y pregunta Conservar/Regenerar (por defecto Conservar a los 20 s; al regenerar reutiliza el puerto y reinicia el servicio). Bug corregido: `)` sin escapar en `echo` dentro de bloques `( ... )` abortaba el script en el paso 5; guarda en `tests/test_install_bat.py`. La extensión de Chrome no se carga sola en una PC no gestionada (Windows Home/WORKGROUP: Chrome ignora la política `file:///`): el paso 7 detecta dominio/Azure AD, solo avisa y el final imprime la carga manual (`.extension_build`). `generator/owner_app.py`: usa `127.0.0.1:8080` si `config.yaml` no se puede cargar (ACL o `.exe` empaquetado) y gana el botón **Reiniciar servicio** (PowerShell elevado con UAC; el servicio carga código/config solo al arrancar). Agente: menú ⚙ → **Activación / Huella de la PC** (`activacion_vigente()`). Proxy: loopback siempre permitido en `_ip_in_allowed_networks` (las IP públicas del router NO se agregan; whitelist + token; VPN futura documentada en `Escalabilidad.md`). `tests/conftest.py` aísla el `config.yaml` real. **157 tests, ruff limpio.** Pendiente: sesión WinForce que murió 3 veces (hipótesis: dos logins en paralelo), persistencia tras reinicio, firewall desde otra PC, carga (`probar_concurrencia.py`), desinstalar el ensayo y repetir en la PC oficial (Etapa D/E).
+33. **Ensayo del proxy en la PC de desarrollo + instalador re-ejecutable** [COMPLETADA — el ensayo de 2026-09-18 quedó superado por la Etapa D real del 2026-09-29]: `install_service.bat` se relanza en `cmd /k` (ventana persistente), verifica cada paso ("ya estaba" / "hecho ahora") y muestra un resumen final; el paso 5 avisa si ya hay tokens y pregunta Conservar/Regenerar (por defecto Conservar a los 20 s; al regenerar reutiliza el puerto y reinicia el servicio). Bug corregido: `)` sin escapar en `echo` dentro de bloques `( ... )` abortaba el script en el paso 5; guarda en `tests/test_install_bat.py`. La extensión de Chrome no se carga sola en una PC no gestionada (Windows Home/WORKGROUP: Chrome ignora la política `file:///`): el paso 7 detecta dominio/Azure AD, solo avisa y el final imprime la carga manual (`.extension_build`). `generator/owner_app.py`: usa `127.0.0.1:8080` si `config.yaml` no se puede cargar (ACL o `.exe` empaquetado) y gana el botón **Reiniciar servicio** (PowerShell elevado con UAC; el servicio carga código/config solo al arrancar). Agente: menú ⚙ → **Activación / Huella de la PC** (`activacion_vigente()`). Proxy: loopback siempre permitido en `_ip_in_allowed_networks` (las IP públicas del router NO se agregan; whitelist + token; VPN futura documentada en [`Escalabilidad.md`](../Escalabilidad.md)). `tests/conftest.py` aísla el `config.yaml` real. **157 tests, ruff limpio.** Pendiente: sesión WinForce que murió 3 veces (hipótesis: dos logins en paralelo), persistencia tras reinicio, firewall desde otra PC, carga (`probar_concurrencia.py`), desinstalar el ensayo y repetir en la PC oficial (Etapa D/E).
 34. **Credenciales en la consola owner + `/admin/*` loopback-only + releases de owner+agente** [COMPLETADO — 2026-09-21]: panel "Credenciales del proxy" (Mostrar/Copiar/Rotar) en `owner_app.py`, vía relanzo elevado con UAC (`secretos.py` NUEVO: lee/rota `proxy_token`/`admin_key` preservando el resto de `config.yaml`, reaplica ACL, reinicia el servicio). `/admin/*` restringido a loopback (no configurable, a diferencia de `allowed_networks`); comparación de tokens con `secrets.compare_digest`. Primer Release conjunto de owner+agente (`v2026.09.21`); bug encontrado y corregido en el updater: con dos `.exe` en el mismo Release podía elegir el asset equivocado o cruzar checksums (`check.py`/`download.py`). **191 tests, ruff limpio.**
 35. **Fix: UAC falso-cancelado + `sc qc` en español en la consola owner** [COMPLETADO — 2026-09-22]: `_ejecutar_elevado()` combinaba `-Verb RunAs` con `-RedirectStandardOutput` en el mismo `Start-Process` — combinación inválida en PowerShell que hacía fallar la elevación **antes** de mostrar el UAC real, reportado como "UAC cancelado" sin serlo. Fix: la ruta de salida se pasa como argumento posicional; el subcomando elevado escribe el JSON al archivo en vez de stdout. Además, `ruta_instalacion()` (`secretos.py`) buscaba la etiqueta `BINARY_PATH_NAME` de `sc qc` solo en inglés — en Windows en español (toda la oficina) sale como `NOMBRE_RUTA_BINARIO` y nunca matcheaba, así que fallaba con "config.yaml no encontrado" aunque el servicio y el archivo sí existían; ahora reconoce ambas etiquetas (inglés primero, español como segunda opción). Se agregó confirmación propia antes del UAC en **Mostrar** (no tenía ninguna) y se amplió el aviso/mensaje final de **Rotar** (menciona el UAC, indica dónde colocar el valor nuevo). Verificado en vivo de punta a punta (Mostrar y Rotar, ambos secretos) en una PC con el servicio real instalado. Release `v2026.09.22` publicado con ambos `.exe` corregidos. **193 tests, ruff limpio.**
 36. **Fix: "URL para los agentes" en la consola owner (WinError 10061)** [COMPLETADO — 2026-09-25]: primer despliegue real con agente y owner en PC distintas — configurar el agente con `http://localhost:8080` fallaba con `[WinError 10061]` porque `localhost` en la PC del agente apunta al propio agente, no a la del proxy. `generator/owner_app.py` gana `detectar_ip_lan()` (socket UDP a `8.8.8.8:80` + `getsockname()`, respaldo `getaddrinfo` sin ruta por defecto, descarta loopback/APIPA), `puerto_proxy_local()` y `url_para_agentes()`; la UI muestra "URL para los agentes" lista para copiar junto al estado del proxy. Verificado en esta PC: detecta `192.168.18.49`, coincide con `ipconfig`. Release `v2026.09.25` publicado con ambos `.exe` reconstruidos. **201 tests, ruff limpio.**
@@ -110,10 +110,10 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
     leyendo el código.** Falta monitorear la primera semana de uso real
     (observación, no una tarea con pasos) y escribir el runbook de la Etapa E
     con el detalle operativo real de esta instalación (pendiente de que el
-    usuario lo comparta). Detalle en `PlanesAprobados.md`/`Roadmap.md`.
+    usuario lo comparta). Detalle en [`PlanesAprobados.md`](../PlanesAprobados.md)/[`Roadmap.md`](../Roadmap.md).
 42. **Ventana del agente: logo, limpiar campos y tabla comercial de scores** [COMPLETADO — 2026-09-30]: logo de la empresa (`assets/LogoJSConnectSolutionsLogo.png`, margen recortado con `_recortar_margen`) a la derecha de los campos; botón de borrador (`assets/icons/borrador.png`, `tools/generar_iconos.py`) en coordenadas y documento; `clasificar_score()` reemplaza a `_bootstyle_riesgo`: rango de 100 puntos + riesgo + categoría + color según la tabla de la empresa (0-200 MUY ALTO/rojo + "NO SE LE PUEDE VENDER" · 201-400 ALTO/naranja · 401-600 REGULAR/dorado · 601-800 BAJO/verde · 801-999 MUY BAJO/azul oscuro); el `NivelRiesgo` de WinForce ya no se muestra (no coincidía: 423 → WinForce "MUY ALTO", tabla REGULAR). Fila `Rango: SCORE: x - y` con botón Copiar y leyenda de las 5 categorías. `build.ps1` embebe logo y borrador con `--add-data`. **264 tests, ruff limpio.** Release `v2026.09.30`.
-43. **Plugin de documentación `documentation`** [COMPLETADO — 2026-09-30]: repo aparte y público, https://github.com/AngelSanchezDev/Documentation-plugin (v1.0.1). Automatiza el **arranque** (hook `SessionStart`: crea los archivos de documentación que falten sin pisar ninguno y avisa si `ResumenDelDia.md` es de otro día) y el **cierre** (`/documentation:cerrar-sesion`: audita, actualiza `AGENTS.md`/`Roadmap.md`/`PlanesAprobados.md`/`TestingLog.md` y rota el resumen del día con `doc_sync.py rotar`). Se instala una vez por PC: `claude plugin marketplace add AngelSanchezDev/Documentation-plugin` + `claude plugin install documentation@documentation-plugin`. Sus 21 tests viven en ese repo, no aquí. Verificado de punta a punta en un proyecto nuevo (bootstrap por el hook + cierre completo). **No registra solo el trabajo del día**: el resumen diario lo sigue narrando Claude. Las reglas de esta sección siguen vigentes; el plugin las aplica.
-44. **Dirección por coordenadas con Geofinder en el proxy** [COMPLETADO — 2026-10-13]: `proxy/geofinder.py` + `GET /api/direccion` + `geofinder_basic` solo en `config.yaml` + `/health.geofinder`; respaldo OpenStreetMap con banner rojo. Verificado en vivo en la PC de oficina (`/health` → `geofinder: true`; dirección idéntica a WinForce). Si la credencial rota, repetir `docs/rotacion-credenciales.md` → "Geofinder"; para llevar código nuevo al proxy sin reinstalar: `tools/empaquetar_actualizacion_proxy.ps1` + `docs/proxy-deploy.md`.
+43. **Plugin de documentación `documentation`** [COMPLETADO — 2026-09-30]: repo aparte y público, https://github.com/AngelSanchezDev/Documentation-plugin (v1.0.1). Automatiza el **arranque** (hook `SessionStart`: crea los archivos de documentación que falten sin pisar ninguno y avisa si [`ResumenDelDia.md`](../ResumenDelDia.md) es de otro día) y el **cierre** (`/documentation:cerrar-sesion`: audita, actualiza [`AGENTS.md`](../AGENTS.md)/[`Roadmap.md`](../Roadmap.md)/[`PlanesAprobados.md`](../PlanesAprobados.md)/[`TestingLog.md`](../TestingLog.md) y rota el resumen del día con `doc_sync.py rotar`). Se instala una vez por PC: `claude plugin marketplace add AngelSanchezDev/Documentation-plugin` + `claude plugin install documentation@documentation-plugin`. Sus 21 tests viven en ese repo, no aquí. Verificado de punta a punta en un proyecto nuevo (bootstrap por el hook + cierre completo). **No registra solo el trabajo del día**: el resumen diario lo sigue narrando Claude. Las reglas de esta sección siguen vigentes; el plugin las aplica.
+44. **Dirección por coordenadas con Geofinder en el proxy** [COMPLETADO — 2026-10-13]: `proxy/geofinder.py` + `GET /api/direccion` + `geofinder_basic` solo en `config.yaml` + `/health.geofinder`; respaldo OpenStreetMap con banner rojo. Verificado en vivo en la PC de oficina (`/health` → `geofinder: true`; dirección idéntica a WinForce). Si la credencial rota, repetir [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) → "Geofinder"; para llevar código nuevo al proxy sin reinstalar: `tools/empaquetar_actualizacion_proxy.ps1` + [`docs/proxy-deploy.md`](proxy-deploy.md).
 
 ## Historial (bitácora del proyecto)
 ### Fase 0 — Descubrimiento de la API interna (COMPLETADA)
@@ -180,12 +180,12 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   archivos JS cargados en `tools/js/` (gitignored).
 - [Avance] Tests del núcleo (`tests/test_api.py`, 14 casos): payloads de login/cobertura/
   score, parseo del reporte, errores. Total del proyecto: 25 tests, ruff limpio.
-  Bitácora TDD (problemas y soluciones) en `TestingLog.md`.
+  Bitácora TDD (problemas y soluciones) en [`TestingLog.md`](../TestingLog.md).
 
 ### Fase 1.5 — Decisión de Autenticación: Proxy Local (DECIDIDA 2026-08-25)
 **2026-08-25** — Sesión de definición arquitectónica
 - [Hallazgo crítico] Login WinForce redirige a `login.microsoftonline.com` para **2FA Microsoft** con la misma cuenta. Esto hace **inviable la prueba de concurrencia** planificada (4-5 máquinas simultáneas requerirían 2FA manual cada una).
-- [Decisión] **Opción B (Proxy Local) APROBADA** por las razones documentadas en `PlanesAprobados.md`:
+- [Decisión] **Opción B (Proxy Local) APROBADA** por las razones documentadas en [`PlanesAprobados.md`](../PlanesAprobados.md):
   - 1-2 sesiones WinForce desde UNA IP (PC oficina) → sin riesgo bloqueo
   - Credenciales SOLO en keyring de PC proxy → rotación = actualizar 1 PC
   - Offline (LAN), costo ~$0, escalable a remotos via VPN (Tailscale)
@@ -205,7 +205,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   4. Puerto 8080 por defecto; `install_service.bat` verifica y permite cambiar si ocupado
   5. Menú GUI: "⚙️ Configuración" → items: "Configurar Proxy", "Buscar actualizaciones"
   6. Escalabilidad remota: VPN (Tailscale) + mismo proxy + mismo token; endpoint `/admin/config` para auto-discovery
-  7. Documentación técnica en `docs/` (permanente); glosario en `anotaciones.md`
+  7. Documentación técnica en `docs/` (permanente); glosario en [`anotaciones.md`](../anotaciones.md)
   8. `requirements-proxy.txt` con comentario explicando tradeoff separación vs simplicidad
 
 ### Fase Proxy — Implementación [COMPLETADA, verificada 2026-08-26]
@@ -271,15 +271,15 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   redirects, profundidad de encoding. Conservar para futuras revalidaciones.
 
 ### Cierre de la sesión 2026-08-25 [CONTEXTO PARA LA SIGUIENTE — histórico, ver corrección abajo]
-- Se completó **FASE 0 Documentación**: creados `docs/` (5 archivos), `resumenes/2026-08-19.md`, `Escalabilidad.md`, `anotaciones.md`, actualizados `AGENTS.md`, `PlanesAprobados.md`, `README.md`, `ResumenDelDia.md`
+- Se completó **FASE 0 Documentación**: creados `docs/` (5 archivos), [`resumenes/2026-08-19.md`](../resumenes/2026-08-19.md), [`Escalabilidad.md`](../Escalabilidad.md), [`anotaciones.md`](../anotaciones.md), actualizados [`AGENTS.md`](../AGENTS.md), [`PlanesAprobados.md`](../PlanesAprobados.md), [`README.md`](../README.md), [`ResumenDelDia.md`](../ResumenDelDia.md)
 - **Decisión arquitectónica definitiva**: Proxy Local (Opción B) — 2FA Microsoft bloquea concurrencia
 - Estado general al cierre: Fase 0 completa, Fase 1 (core) completa, Fase 1.5 decidida (Proxy Local), FASE 0 Docs completada
 - **Nota de corrección (2026-08-26)**: este cierre decía "listo para FASE 1 Proxy Implementation" como próximo paso, pero según el commit log (`877689f`, `801ce05`, `f63660b`, `7cf7ea1`) las FASES 1–5 del proxy y el sistema de códigos de error **ya se implementaron en commits posteriores el mismo 2026-08-25**, sin que este archivo se actualizara. Ver `### Cierre de la sesión 2026-08-26` para el estado real verificado.
 
 ### Cierre de la sesión 2026-08-26 [CONTEXTO PARA LA SIGUIENTE]
-- **Auditoría de inicio de sesión**: se detectó que este archivo (entonces `Claude.md` en disco, aunque el tracked de git ya era `AGENTS.md`) tenía las "Tareas pendientes" desfasadas del código real — daba por pendiente todo el proxy (FASES 1–5) y el cierre 2026-08-25 decía "listo para FASE 1", pero el código ya estaba implementado.
+- **Auditoría de inicio de sesión**: se detectó que este archivo (entonces `Claude.md` en disco, aunque el tracked de git ya era [`AGENTS.md`](../AGENTS.md)) tenía las "Tareas pendientes" desfasadas del código real — daba por pendiente todo el proxy (FASES 1–5) y el cierre 2026-08-25 decía "listo para FASE 1", pero el código ya estaba implementado.
 - **Verificado en el árbol real**: `validator_app/proxy/` completo (server.py con 7 rutas, config.py, client.py, rotate_creds.py, winsw.xml, install/uninstall .bat), `core/api.py` con `auto_relogin_if_needed()` (`:267`) y persistencia de cookies (`:282`/`:288`), GUI con menú "⚙️ Configuración" y diálogo de proxy (`main_window.py:33`/`:206`). **35 tests pasando, ruff limpio.**
-- **Corregido**: archivo en disco renombrado de `Claude.md` a `AGENTS.md` (coincide con el nombre tracked en git y con el título interno; cero referencias rotas, todo el proyecto ya decía "AGENTS.md"). Marcadas `[COMPLETADO]` las tareas 1–6 y 11 de "Tareas pendientes" (dejadas visibles, no borradas). Añadida la regla de auto-actualización (3 momentos: inicio/durante/cierre) y la regla de rotación de resúmenes.
+- **Corregido**: archivo en disco renombrado de `Claude.md` a [`AGENTS.md`](../AGENTS.md) (coincide con el nombre tracked en git y con el título interno; cero referencias rotas, todo el proyecto ya decía "AGENTS.md"). Marcadas `[COMPLETADO]` las tareas 1–6 y 11 de "Tareas pendientes" (dejadas visibles, no borradas). Añadida la regla de auto-actualización (3 momentos: inicio/durante/cierre) y la regla de rotación de resúmenes.
 - **Pendiente real para la próxima sesión**: prueba real del core con credenciales (login→cobertura→score), decidir `actualizar_score_cliente`, conectar GUI↔core end-to-end, evaluar creación del lead final, y resolver la decisión de geodata del score (A/B/C, ver arriba).
 
 ### Cierre de la sesión 2026-08-27 [CONTEXTO PARA LA SIGUIENTE]
@@ -305,7 +305,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Keepalive**: `tools/medir_keepalive.py` usa `validar_cobertura` como actividad real y crea una instancia nueva de `ValidatorAPI` por ping para no disparar el guard interno de 120s del cliente. La v1 sobrevivió hasta 2100s y murió a 2400s; la v2 con intervalos variables murió a 1100s. La hipótesis de un tope absoluto de 40 min queda **sin confirmar**; el patrón sugiere posible detección anti-bot por sesiones automatizadas repetidas.
 - **Decisión operativa**: pausar nuevas pruebas automatizadas por hoy. La próxima corrida requiere una lista de coordenadas reales del usuario y debe dejar pasar tiempo antes de encadenar sesiones. `tools/medir_keepalive.py` ya acepta `--coords-lista`.
 - **Proxy corregido**: `validar_cookie_sesion()` quedó centralizado en `core/api.py`; `rotate_creds.py`, `/admin/login` y `/admin/rotar` trabajan con `{php_sessid}`; `_relogin_silent()` recarga y valida la cookie del keyring en lugar de intentar login programático; `/health` y `/admin/status` exponen `session_alive`. Resultado: **40 tests pasando, ruff limpio**.
-- **Pendiente real**: cerrar la investigación del endpoint/intervalo de keepalive; luego implementar Fase 2, el diálogo de cookie de Fase 3, tests y documentación. El historial completo está en `ResumenDelDia.md` y debe rotarse a `HistorialResumenes.md` al comenzar otro día.
+- **Pendiente real**: cerrar la investigación del endpoint/intervalo de keepalive; luego implementar Fase 2, el diálogo de cookie de Fase 3, tests y documentación. El historial completo está en [`ResumenDelDia.md`](../ResumenDelDia.md) y debe rotarse a [`HistorialResumenes.md`](../HistorialResumenes.md) al comenzar otro día.
 
 ### Cierre de la sesión 2026-09-05 [CONTEXTO PARA LA SIGUIENTE]
 - ~~**AL RETOMAR, LO PRIMERO: leer `medir_keepalive.log`.**~~ **[RESUELTO
@@ -315,7 +315,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   inviable (2FA), así que la Fase 2 avisa al owner y este reinyecta la cookie al
   inicio del turno. Ver `### Cierre de la sesión 2026-09-08`.
 - **5 commits, todos en `origin/main`**: `5506ed4` (visibilidad de fallos del
-  proxy + caché `session_alive` + sync `docs/arquitectura.md` y árbol `tools/`),
+  proxy + caché `session_alive` + sync [`docs/arquitectura.md`](arquitectura.md) y árbol `tools/`),
   `44d1132` (rotación 2026-09-04 → historial), `3925dbf` (`medir_keepalive.py`
   v3 + `tests/test_medir_keepalive.py`), `26e7567` (`coords_prueba.txt` a 49),
   `82f9a4c` (arranque de `tools/` sin `PYTHONPATH`).
@@ -323,15 +323,15 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   tiempo de test, no edad de sesión; cualquier error contaba como muerte). Con
   el método bueno, 2h+ de pings cada 15 min sin un fallo → el keepalive
   funciona, y "tope a 40 min" + "anti-bot" quedan muy debilitados. Detalle en
-  `anotaciones.md` ("Revisión del método" + "Dos límites de sesión", con nota de
+  [`anotaciones.md`](../anotaciones.md) ("Revisión del método" + "Dos límites de sesión", con nota de
   estado 2026-09-05).
 - **49 tests pasando, ruff limpio** (eran 40; +9 del clasificador de
   `medir_keepalive`). Sin cambios de código en el proxy más allá de `5506ed4`.
-- **`AGENTS.md` entró al commit con ediciones del usuario** (nota "Informes
+- **[`AGENTS.md`](../AGENTS.md) entró al commit con ediciones del usuario** (nota "Informes
   diarios", ítems 14–17 previos, este propio bloque de contexto) además de las
   de la sesión.
 - **Deuda vieja sin cerrar** (no tocada hoy) [→ CERRADA 2026-09-08, ver ese
-  cierre]: `resumenes/2026-09-04.md` nunca se creó (la rotación de esa fecha solo
+  cierre]: [`resumenes/2026-09-04.md`](../resumenes/2026-09-04.md) nunca se creó (la rotación de esa fecha solo
   hizo la entrada condensada); `requirements.txt` sin `httpx`; `pyproject.toml`
   exige Python≥3.14.
 - **Pendiente real**: leer el log → fijar `keepalive_interval_seconds` y
@@ -349,21 +349,21 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   ≈ 9 h 31 m, confirmada por `validar_cookie_sesion()`. Idle-timeout, anti-bot y
   "tope a 40 min" **descartados**; **tope absoluto de sesión ≈ 9.5 h desde el
   login** confirmado. `keepalive_interval_seconds = 900` fijado; Fase 2 lista.
-- **Documentación sincronizada** con la investigación cerrada: `PlanesAprobados.md`
-  (addendum, Fase 0 act. 2026-09-08, Fase 2, cola activa), `anotaciones.md`
+- **Documentación sincronizada** con la investigación cerrada: [`PlanesAprobados.md`](../PlanesAprobados.md)
+  (addendum, Fase 0 act. 2026-09-08, Fase 2, cola activa), [`anotaciones.md`](../anotaciones.md)
   ("Dos límites de sesión" + "Revisión del método", ambos con el desenlace),
-  `AGENTS.md` (ítems 15–16 + este cierre). `README.md` no se tocó (la
+  [`AGENTS.md`](../AGENTS.md) (ítems 15–16 + este cierre). [`README.md`](../README.md) no se tocó (la
   investigación es interna; la gestión de sesión que describe sigue vigente).
 - **Nuevo: hook de auto-actualización de docs** — `.claude/settings.json` +
   `.claude/hooks/historial_sync.py` (hook `PostToolUse`). Al agregar entradas a
-  `HistorialResumenes.md` recuerda sincronizar `anotaciones.md` /
-  `PlanesAprobados.md` / `AGENTS.md`; cada 3 entradas nuevas, también `README.md`.
+  [`HistorialResumenes.md`](../HistorialResumenes.md) recuerda sincronizar [`anotaciones.md`](../anotaciones.md) /
+  [`PlanesAprobados.md`](../PlanesAprobados.md) / [`AGENTS.md`](../AGENTS.md); cada 3 entradas nuevas, también [`README.md`](../README.md).
   Estado local en `.claude/hooks/historial_sync_state.local.json` (gitignored).
   Ver "Regla de auto-actualización de la documentación".
 - **Deuda técnica cerrada (2ª parte de la sesión)**: `httpx` → `requirements.txt`;
   `requires-python` → `>=3.12` + versión unificada en todo el repo; snapshots
-  `resumenes/2026-09-04.md` y `2026-09-05.md` creados. Ver Tareas pendientes ítem 21
-  y `TestingLog.md`. Sin cambios de código; 49 tests / ruff en verde.
+  [`resumenes/2026-09-04.md`](../resumenes/2026-09-04.md) y `2026-09-05.md` creados. Ver Tareas pendientes ítem 21
+  y [`TestingLog.md`](../TestingLog.md). Sin cambios de código; 49 tests / ruff en verde.
 - **Fase 2A — keepalive del proxy (3ª parte de la sesión)**: `_keepalive_loop` +
   `ProxyValidatorAPI._keepalive_tick` (`server.py`), config `keepalive_*`
   (`config.py`), "latido perezoso" (no pinga si los agentes ya generan tráfico),
@@ -463,14 +463,14 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   - `tests/test_client.py` NUEVO (el cliente no tenía tests). `conftest.py` gana
     `avisos_capturados` (el aviso toca el Event Log real → se aísla como el
     keyring).
-- **`Roadmap.md` NUEVO** — vista única de qué se hizo / qué falta / en qué orden.
+- **[`Roadmap.md`](../Roadmap.md) NUEVO** — vista única de qué se hizo / qué falta / en qué orden.
   Registrado en el mapa de conocimiento de este archivo (punto 2) y en
-  `historial_sync.py`. `PlanesAprobados.md` recibió el plan de puesta en marcha
+  `historial_sync.py`. [`PlanesAprobados.md`](../PlanesAprobados.md) recibió el plan de puesta en marcha
   (Etapas 0/A–E, antes solo en `~/.claude/plans/`) y el **checklist completo de
   las 19 incoherencias doc↔código** con `archivo:línea`.
 - **Estado al cierre**: **124 tests, ruff limpio, TODO pusheado a `origin/main`**
   (hasta el commit de este cierre). Working tree limpio.
-- **Lo que sigue — Etapa 0.5** (spec completa en `PlanesAprobados.md`, "Puesta en
+- **Lo que sigue — Etapa 0.5** (spec completa en [`PlanesAprobados.md`](../PlanesAprobados.md), "Puesta en
   marcha del proxy"): `rotate_creds.py` debe empujar la cookie por HTTP, no
   escribir el keyring del owner — el servicio corre como LocalSystem y lee otro
   almacén. Bloquea la Etapa D.
@@ -491,7 +491,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 ### Cierre de la sesión 2026-09-11 [CONTEXTO PARA LA SIGUIENTE]
 
 - **Inicio**: la sesión anterior había dejado la **Etapa 0.5 a medio hacer y sin
-  commitear** — 1 commit local sin pushear (rotación de `ResumenDelDia.md`) + 4
+  commitear** — 1 commit local sin pushear (rotación de [`ResumenDelDia.md`](../ResumenDelDia.md)) + 4
   archivos modificados (`rotate_creds.py`, `config.py`, `test_config.py`,
   `test_login_asistido.py`) con el cambio de fondo ya escrito pero
   **`tests/test_login_asistido.py` roto** (seguía mockeando la función vieja
@@ -505,21 +505,21 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   `httpx.post` monkeypatcheado + un smoke en vivo contra el proxy real (cookie
   falsa → 401 real de `/local/renovar`, no mockeado).
 - **Documentación sincronizada** con lo que la 0.5 volvió obsoleto (no un barrido
-  completo — eso sigue siendo la Fase 5): `anotaciones.md`, `docs/rotacion-credenciales.md`,
-  `PlanesAprobados.md`, `Roadmap.md`. Ningún archivo del repo menciona ya
+  completo — eso sigue siendo la Fase 5): [`anotaciones.md`](../anotaciones.md), [`docs/rotacion-credenciales.md`](rotacion-credenciales.md),
+  [`PlanesAprobados.md`](../PlanesAprobados.md), [`Roadmap.md`](../Roadmap.md). Ningún archivo del repo menciona ya
   `save_session_to_keyring`.
 - **Estado al cierre**: **129 tests, ruff limpio**, todo commiteado y pusheado a
   `origin/main`. Working tree limpio.
 - **Lo que sigue — Etapa D** (servicio de Windows en la PC de oficina): ya no la
   bloquea nada (R y 0.5 completadas). Checklist de los 12 pasos en
-  `PlanesAprobados.md` ("Puesta en marcha del proxy" → Etapa D).
+  [`PlanesAprobados.md`](../PlanesAprobados.md) ("Puesta en marcha del proxy" → Etapa D).
 - **Lección para la próxima sesión**: si `git status` muestra cambios sin
   commitear al retomar, no asumir que son ruido — correr `pytest`/`ruff`
   primero; puede ser una fase real a medio terminar (como esta vez).
 
 ### Cierre de la sesión 2026-09-16 [CONTEXTO PARA LA SIGUIENTE]
 
-- **Continuidad del 15-sep**: se archivó `resumenes/2026-09-15.md`. El ensayo del
+- **Continuidad del 15-sep**: se archivó [`resumenes/2026-09-15.md`](../resumenes/2026-09-15.md). El ensayo del
   instalador había llegado hasta la descarga de WinSW; `abff2e4` corrigió la URL
   inexistente, añadió `curl.exe` + fallback TLS 1.2 y escapó flechas que CMD
   trataba como redirecciones.
@@ -576,12 +576,12 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Construcción desde cero ensayada**: clon limpio → `venv` → `requirements-dev.txt` →
   `build-owner.ps1` + `build.ps1` (≈3 min, 157 tests, ambos `.exe` arrancan). Usar
   carpeta corta (WinError 206), restaurar `validator_app/version.py`, `gh` no instalado.
-  Runbook: `docs/proxy-deploy.md` → "Construir los ejecutables en la PC oficial".
+  Runbook: [`docs/proxy-deploy.md`](proxy-deploy.md) → "Construir los ejecutables en la PC oficial".
 - **Siguiente sesión**: confirmar sesión estable; persistencia tras reiniciar el
   servicio; firewall probado desde otra PC; `tools/probar_concurrencia.py`;
   `uninstall_service.bat`; publicar el agente con `publish-release.ps1` para los 15
   PC; luego Etapa D/E en la PC oficial (llevar `private_key.pem`; ver
-  `docs/proxy-deploy.md`) y Fase 5 (barrido de documentación). Decidir si el firewall
+  [`docs/proxy-deploy.md`](proxy-deploy.md)) y Fase 5 (barrido de documentación). Decidir si el firewall
   y el acceso directo de la consola owner deben crearse automáticamente.
 
 ### Cierre de la sesión 2026-09-21 [CONTEXTO PARA LA SIGUIENTE]
@@ -596,7 +596,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   resto de `config.yaml` + ACL + reinicio del servicio); panel "Credenciales del
   proxy" en `owner_app.py` (Mostrar 30 s / Copiar 60 s / Rotar, vía relanzo elevado
   con UAC). `private_key.pem` nunca aparece en la GUI.
-- **Traspaso futuro**: `TraspasoInmediato.md` NUEVO (plan sin implementar) para el
+- **Traspaso futuro**: [`TraspasoInmediato.md`](../TraspasoInmediato.md) NUEVO (plan sin implementar) para el
   día que el proxy tenga que moverse de PC.
 - **Releases**: primer Release conjunto de owner+agente (`v2026.09.21`). Bug real
   encontrado: el updater podía elegir el `.exe` equivocado o cruzar checksums con
@@ -651,10 +651,10 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   coincide con `ipconfig`; la URL armada es `http://192.168.18.49:8080`.
 - **Tests**: 193 → **201** (8 nuevos en `test_owner_app.py`, TDD rojo→verde),
   ruff limpio.
-- **Documentación**: `docs/proxy-deploy.md` (aviso de no usar `localhost` en
-  agentes remotos + fila en troubleshooting), `README.md` (es/en),
-  `TestingLog.md`, `anotaciones.md` (nota en "Loopback" para no confundir este
-  bug con el de 2026-09-18, + entrada nueva "URL para los agentes"), `Roadmap.md`.
+- **Documentación**: [`docs/proxy-deploy.md`](proxy-deploy.md) (aviso de no usar `localhost` en
+  agentes remotos + fila en troubleshooting), [`README.md`](../README.md) (es/en),
+  [`TestingLog.md`](../TestingLog.md), [`anotaciones.md`](../anotaciones.md) (nota en "Loopback" para no confundir este
+  bug con el de 2026-09-18, + entrada nueva "URL para los agentes"), [`Roadmap.md`](../Roadmap.md).
 - **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos,
   reemplazando `v2026.09.22` como "Latest".
 - **Segundo hallazgo, mismo día — el chequeo de actualización siempre "encontraba"
@@ -694,8 +694,8 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   fix del instalador. 3 tests nuevos en `test_install_bat.py`, incluida una guarda
   genérica (`test_los_pasos_numerados_son_consistentes`) contra volver a olvidar
   renumerar un paso al agregar/quitar uno. 206 → **209 tests, ruff limpio**.
-  Documentación: `docs/proxy-deploy.md` (sección Firewall + fila de troubleshooting
-  para el caso timeout), `Roadmap.md`, `PlanesAprobados.md` (Etapa D). Sin Release
+  Documentación: [`docs/proxy-deploy.md`](proxy-deploy.md) (sección Firewall + fila de troubleshooting
+  para el caso timeout), [`Roadmap.md`](../Roadmap.md), [`PlanesAprobados.md`](../PlanesAprobados.md) (Etapa D). Sin Release
   (no afecta a ningún `.exe`, el `.bat` no se empaqueta).
 - **Cuarta parte, mismo día — validar cobertura o score por separado**: con el
   proxy ya conectando de punta a punta, el pedido pasó a una función nueva: el
@@ -762,7 +762,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   ttkbootstrap, sin `ProxyError`, sin la validación separada de
   cobertura/score, sin las guardas reales de `/admin/*` y `/local/*`).
 - **Fix**: movidos y corregidos a `docs/diagramas/` — **8 diagramas** + tema
-  compartido `_comun.puml` + `docs/diagramas/README.md`. Se agregó la consola
+  compartido `_comun.puml` + [`docs/diagramas/README.md`](diagramas/README.md). Se agregó la consola
   owner (faltaba, pese a ser el segundo `.exe` del Release) y 2 diagramas
   nuevos: secuencia de renovación de sesión (extensión Chrome vs. consola
   owner) y actividad del owner. `tests/test_diagramas.py` NUEVO valida sintaxis
@@ -770,27 +770,27 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   contenido semántico — cada diagrama lleva un `footer` con el SHA corto contra
   el que se verificó por última vez).
 - **Commit aparte** (`6119b6e`, anterior a los diagramas): el usuario agregó a
-  mano una nota de duda en `Escalabilidad.md`, bajo la afirmación "No hay que
+  mano una nota de duda en [`Escalabilidad.md`](../Escalabilidad.md), bajo la afirmación "No hay que
   reescribir nada. La arquitectura ya está preparada. Solo activar VPN y
   configurar DNS.": *"mi seguridad ante esta afirmacion es dudosa... revisa por
   siacaso"*. **Sigue sin resolver.**
-- **Documentación sincronizada**: `AGENTS.md` (árbol del proyecto),
-  `docs/arquitectura.md` (enlaza a `docs/diagramas/README.md`), `README.md`,
-  `TestingLog.md`, `.gitignore`.
-- **Commits**: `6119b6e`, `a465d56`. Sin cierre propio de `ResumenDelDia.md` en
-  esa PC — reconstruido el 2026-09-29 en `resumenes/2026-09-27.md` a partir de
+- **Documentación sincronizada**: [`AGENTS.md`](../AGENTS.md) (árbol del proyecto),
+  [`docs/arquitectura.md`](arquitectura.md) (enlaza a [`docs/diagramas/README.md`](diagramas/README.md)), [`README.md`](../README.md),
+  [`TestingLog.md`](../TestingLog.md), `.gitignore`.
+- **Commits**: `6119b6e`, `a465d56`. Sin cierre propio de [`ResumenDelDia.md`](../ResumenDelDia.md) en
+  esa PC — reconstruido el 2026-09-29 en [`resumenes/2026-09-27.md`](../resumenes/2026-09-27.md) a partir de
   los commits.
 - **Pendiente real para la próxima sesión**: verificar contra el código la
-  afirmación de `Escalabilidad.md` que el usuario puso en duda. Resto de
+  afirmación de [`Escalabilidad.md`](../Escalabilidad.md) que el usuario puso en duda. Resto de
   pendientes de cierres anteriores sigue abierto.
 
 ### Cierre de la sesión 2026-09-29 [CONTEXTO PARA LA SIGUIENTE]
 
 - **Rotación de resúmenes** al abrir la sesión: `git pull --ff-only` trajo los
-  2 commits del 2026-09-27 (diagramas); `resumenes/2026-09-27.md` reconstruido
-  desde esos commits + entrada en `HistorialResumenes.md` + tarea/cierre en
+  2 commits del 2026-09-27 (diagramas); [`resumenes/2026-09-27.md`](../resumenes/2026-09-27.md) reconstruido
+  desde esos commits + entrada en [`HistorialResumenes.md`](../HistorialResumenes.md) + tarea/cierre en
   este archivo, ya que esa sesión (hecha en otra PC) no había dejado su propio
-  `ResumenDelDia.md`.
+  [`ResumenDelDia.md`](../ResumenDelDia.md).
 - **Sesión del proxy — falso positivo real corregido**: el usuario reportó
   "a veces la sesión se cierra"; en `logs/winsw.err.log` de esa misma mañana
   apareció un caso real (renovada → timeout puntual de WinForce en `/health`
@@ -840,12 +840,12 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
   la de desarrollo — esto además confirma la hipótesis `tipo_doc=4` de CE
   (probado junto con RUC) y recontextualiza la hipótesis de "dos logins en
   paralelo" (ya no aplica al escenario dev/prod compartiendo cuenta).
-- **Documentación sincronizada** con todo lo de arriba: `Roadmap.md`
+- **Documentación sincronizada** con todo lo de arriba: [`Roadmap.md`](../Roadmap.md)
   (Etapa D→completada, Etapa E→ya no bloqueada, investigaciones abiertas
-  actualizadas), `PlanesAprobados.md` (mismo criterio + cola activa),
-  `TestingLog.md`, `ResumenDelDia.md`.
+  actualizadas), [`PlanesAprobados.md`](../PlanesAprobados.md) (mismo criterio + cola activa),
+  [`TestingLog.md`](../TestingLog.md), [`ResumenDelDia.md`](../ResumenDelDia.md).
 - **Diferido explícitamente por el usuario, no urgente**: la duda de
-  `Escalabilidad.md` (2026-09-27) se revisa otro día; la decisión de
+  [`Escalabilidad.md`](../Escalabilidad.md) (2026-09-27) se revisa otro día; la decisión de
   `actualizar_score_cliente`/`newsearch.php` y el backlog v1.1 se hablan en
   la próxima sesión.
 - **Pendiente real para la próxima sesión**: monitorear la primera semana de
@@ -855,8 +855,8 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 
 ### Cierre de la sesión 2026-09-30 [CONTEXTO PARA LA SIGUIENTE]
 
-- **Rotación** de `ResumenDelDia.md` (2026-09-29 → `resumenes/2026-09-29.md` +
-  entrada en `HistorialResumenes.md`).
+- **Rotación** de [`ResumenDelDia.md`](../ResumenDelDia.md) (2026-09-29 → [`resumenes/2026-09-29.md`](../resumenes/2026-09-29.md) +
+  entrada en [`HistorialResumenes.md`](../HistorialResumenes.md)).
 - **Ventana del agente** (tarea 42): logo, botones de borrador, tabla comercial
   de scores con rango copiable y leyenda; ventana de 700 a 440 px de alto. Dos
   rondas de revisión del `.exe` con el usuario (logo equivocado, posición, icono).
@@ -865,7 +865,7 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Tests**: 240 → **264**, ruff limpio. Release `v2026.09.30` (agente reconstruido;
   el `.exe` del owner se reutilizó, no cambió).
 - **Pendiente**: el mismo de los cierres anteriores (monitoreo de producción,
-  runbook de la Etapa E, Fase 5, duda de `Escalabilidad.md`, `actualizar_score_cliente`).
+  runbook de la Etapa E, Fase 5, duda de [`Escalabilidad.md`](../Escalabilidad.md), `actualizar_score_cliente`).
 
 ### Cierre de la sesión 2026-10-02 [CONTEXTO PARA LA SIGUIENTE — PC oficina en Windows 11]
 
@@ -919,23 +919,23 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Red del owner** (`install_service.bat`): si la red es Pública y el PC no está en
   dominio, OFRECE pasarla a Privada (`choice`, por defecto NO, 60 s); avisa si el perfil
   Público bloquea todo lo entrante. Nunca la cambia sin preguntar.
-- **Etapa E (runbook) completada**: `docs/proxy-deploy.md` → "Instalación con pendrive"
+- **Etapa E (runbook) completada**: [`docs/proxy-deploy.md`](proxy-deploy.md) → "Instalación con pendrive"
   (Python 3.14.7 para todos los usuarios, repo copiado a `C:\jsconnect`, `.exe` del
   Release, `private_key.pem` protegida, agentes con `.exe` + URL + token). Falta probarlo
-  de punta a punta en una PC limpia. `Roadmap.md` puesto al día (estaba en 2026-09-30).
+  de punta a punta en una PC limpia. [`Roadmap.md`](../Roadmap.md) puesto al día (estaba en 2026-09-30).
 - **Release `v2026.10.07`** (tag → `57a42bc`, agente + owner). El repo W11 recibió el mismo
   código, un aviso en su README y un release puente `v2026.10.07`; quedó **archivado**
   (público). Pasarlo a privado solo cuando los `.exe` del canal W11 ya se hayan actualizado.
 - **Punto 6 (sesión de WinForce)**: el "tope de 9.5 h" es **una medición no concluyente**
   (hipótesis del dueño: login ajeno con la misma cuenta). Solo docs; protocolo en
-  `docs/rotacion-credenciales.md` → "Cómo investigar una muerte de sesión".
+  [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) → "Cómo investigar una muerte de sesión".
 - **Fase 5 completada** (barrido de docs; 13 de 19 hallazgos ya estaban resueltos) y 3 bugs de
   la ventana del agente arreglados (URL sin `http://`, error real en "Probar conexión",
   `None` del keyring). Dato: `/admin/*` es solo loopback, así que no hay renovación ni
   discovery remoto por VPN (`ProxyClient.from_discovery()` no puede funcionar; sin tocar).
 - **La consola owner busca actualizaciones** (botón + aviso al abrir; compara SHA-256, ver
   "Versionado y actualizaciones"). `build-owner.ps1` graba `version.py`.
-- **`AGENTS.md` dividido**: el historial pasó a `docs/historial-agents.md`; aquí solo el último
+- **[`AGENTS.md`](../AGENTS.md) dividido**: el historial pasó a `docs/historial-agents.md`; aquí solo el último
   cierre (convención en "Reglas de trabajo").
 - **Release `v2026.10.07.1`** (tag → `154ba5e`, agente + owner), verificado contra GitHub.
   Tests 287 → **318**, ruff limpio.

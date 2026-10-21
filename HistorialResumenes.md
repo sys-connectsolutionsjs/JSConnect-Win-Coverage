@@ -5,7 +5,7 @@ Fecha de creación: 2026-08-21 · Proyecto: JSConnect-Win-Coverage
 ## Qué es este archivo
 Índice cronológico CONDENSADO de las sesiones pasadas. Existe para ubicar rápido
 qué ocurrió y enlazar el snapshot completo en `resumenes/<fecha>.md`, mientras
-`ResumenDelDia.md` conserva únicamente el estado de la jornada en curso.
+[`ResumenDelDia.md`](ResumenDelDia.md) conserva únicamente el estado de la jornada en curso.
 
 **Regla de rotación**: al cerrar una jornada, el contenido íntegro se copia a
 `resumenes/<fecha>.md` y aquí se agrega solo una entrada condensada, con lo más
@@ -16,7 +16,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 ### 2026-10-13 — Sesión — dirección Geofinder + respaldo OSM, ficha copiable, mapa solo Perú, Zona F retirada y Release v2026.10.13
-- **Snapshot completo**: `resumenes/2026-10-13.md`.
+- **Snapshot completo**: [`resumenes/2026-10-13.md`](resumenes/2026-10-13.md).
 - **Por qué**: el asesor necesita la dirección de las coordenadas y los datos del documento para
   copiarlos a WinForce sin reescribir, y el mapa no debía cargar el mundo entero.
 - **Dirección**: Geofinder (API de Equifax que usa WinForce) vía el proxy (`proxy/geofinder.py`,
@@ -28,7 +28,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - **Mapa**: solo Perú (`gui/limites_mapa.py`) y barra de desplazamiento fija; **Zona F retirada**
   (copia de Fraude).
 - **Proxy**: `tools/empaquetar_actualizacion_proxy.ps1` (paquete de pendrive sin secretos) +
-  `docs/proxy-deploy.md` → "Actualizar el proxy sin reinstalar".
+  [`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Actualizar el proxy sin reinstalar".
 - **Release `v2026.10.13`** (agente + owner, tag en `5abb5d2`): SHA embebido, commit del tag y
   hashes de las notas verificados.
 - **Tests**: 421 → **494**, `ruff` limpio. **Commits**: `2247945`, `5809c72`, `43dd799`, `9ac9fbe`,
@@ -37,7 +37,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   `capas_kml_url` (opcional), reemplazar a mano el `.exe` del owner, reactivar agentes.
 
 ### 2026-10-09 — Sesión — mapa de cobertura y reglas de venta por zona antes del score (sin Release)
-- **Snapshot completo**: `resumenes/2026-10-09.md`.
+- **Snapshot completo**: [`resumenes/2026-10-09.md`](resumenes/2026-10-09.md).
 - **Por qué**: cada score gasta una consulta de Equifax (riesgo de desactivar la cuenta) y "sin
   cobertura" perdía ventas que se resuelven con un cable del vecino. Se decide la zona **antes** del
   score: bloqueada/fraude → no se vende ni se consulta; Preferente 2 → score ≥ 401; resto ≥ 201; sin
@@ -60,7 +60,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   detección automática de avenidas de doble vía.
 
 ### 2026-10-07 — Sesión — repos W10+W11 unificados, huella estable, Fase 5, owner con actualizador + Releases v2026.10.07 / v2026.10.07.1
-- **Snapshot completo**: `resumenes/2026-10-07.md`.
+- **Snapshot completo**: [`resumenes/2026-10-07.md`](resumenes/2026-10-07.md).
 - **Un solo repo**: `W11-JSConnect-Win-Coverage` se unió a este por fast-forward (4 commits +
   tag `v2026.10.02-w11`); el repo W11 quedó archivado (público) con un release puente.
 - **Huella estable** (`fingerprint.py`): MachineGuid + CPU del registro, sin `wmic`/MAC/volumen.
@@ -68,14 +68,14 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   hay que reactivar los agentes. **No borrar `huellas_legacy()`** sin pedido expreso.
 - **Red del owner** (`install_service.bat`): si la red es Pública, OFRECE pasarla a Privada;
   la causa del fallo "owner W11 + agentes W10" era el firewall `Domain,Private`.
-- **Etapa E**: runbook "Instalación con pendrive" en `docs/proxy-deploy.md` (sin probar en PC limpia).
+- **Etapa E**: runbook "Instalación con pendrive" en [`docs/proxy-deploy.md`](docs/proxy-deploy.md) (sin probar en PC limpia).
 - **Punto 6**: el "tope de 9.5 h" de la sesión de WinForce es una medición no concluyente.
 - **Fase 5** (barrido de docs) y 3 bugs de Configurar Proxy. **La consola owner busca
-  actualizaciones** (compara SHA-256). `AGENTS.md` dividido (historial → `docs/historial-agents.md`).
+  actualizaciones** (compara SHA-256). [`AGENTS.md`](AGENTS.md) dividido (historial → [`docs/historial-agents.md`](docs/historial-agents.md)).
 - **Releases** `v2026.10.07` (`57a42bc`) y `v2026.10.07.1` (`154ba5e`). Tests 287 → **318**.
 
 ### 2026-10-02 — Sesión — PC oficina en Windows 11 (owner + proxy) + Release v2026.10.02-w11 (repo W11, hoy unificado)
-- **Snapshot completo**: `resumenes/2026-10-02.md`.
+- **Snapshot completo**: [`resumenes/2026-10-02.md`](resumenes/2026-10-02.md).
 - **Windows 11**: la PC oficina (Windows 11 Pro 25H2) quedó como owner + proxy. Seis
   problemas reales corregidos: firewall `-Profile Any` limitado a la LAN (la red era
   Pública), huella sin `wmic` por CIM, renovar sesión sin elevar, `CREATE_NO_WINDOW`,
@@ -84,11 +84,11 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   (`ReportEventW` en vez de `eventcreate`). Smart App Control bloquea el `.exe` sin firma.
 - **Repo W11**: el trabajo se hizo en `W11-JSConnect-Win-Coverage` (commits `5cb8768`,
   `a40a0d5`, `4fe66d3`, `84aa745`; Release `v2026.10.02-w11`). El 2026-10-07 se unió a
-  este repo por fast-forward (ver `ResumenDelDia.md`).
+  este repo por fast-forward (ver [`ResumenDelDia.md`](ResumenDelDia.md)).
 - **Plugin `documentation`** (tarea 43): repo `AngelSanchezDev/Documentation-plugin`
   v1.0.1, instalado en esta PC (nota del 2026-10-06).
 ### 2026-09-30 — Sesión — logo, botones de borrador y tabla comercial de scores + Release v2026.09.30
-- **Snapshot completo**: `resumenes/2026-09-30.md`.
+- **Snapshot completo**: [`resumenes/2026-09-30.md`](resumenes/2026-09-30.md).
 - **Ventana del agente**: logo de la empresa a la derecha de los campos (margen
   recortado), botón de borrador en coordenadas y documento, ventana de 700 a 440 px.
   Dos rondas de revisión del `.exe` con el usuario (logo equivocado, posición,
@@ -100,10 +100,10 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - **Decisión**: el riesgo mostrado sale solo de la tabla de la empresa; el
   `NivelRiesgo` de WinForce ya no se muestra (no coincidía).
 - **Release** `v2026.09.30` (tag = commit `2e49cd2`). Tests 240 → **264**.
-- **Documentación**: `README.md` (es/en), `TestingLog.md`, `AGENTS.md` (tarea 42).
+- **Documentación**: [`README.md`](README.md) (es/en), [`TestingLog.md`](TestingLog.md), [`AGENTS.md`](AGENTS.md) (tarea 42).
 
 ### 2026-09-29 — Sesión — falso positivo de sesión muerta, fix del updater, score de RUC, Etapa D en producción
-- **Snapshot completo**: `resumenes/2026-09-29.md`.
+- **Snapshot completo**: [`resumenes/2026-09-29.md`](resumenes/2026-09-29.md).
 - **Sesión del proxy**: el log mostró un falso positivo real (un timeout puntual
   de WinForce en `/health` marcaba la sesión "MUERTA"; la misma cookie seguía
   viva tras reiniciar). `_confirmar_muerte()` reconfirma antes de declarar
@@ -122,29 +122,29 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - **Etapa D completada en producción** (reporte del usuario): instalado en todas
   las máquinas de la oficina sin incidencias, con cuenta WinForce de producción
   separada; RUC y CE confirmados.
-- **Diferido**: duda de `Escalabilidad.md`, `actualizar_score_cliente`/
+- **Diferido**: duda de [`Escalabilidad.md`](Escalabilidad.md), `actualizar_score_cliente`/
   `newsearch.php`, backlog v1.1. **240 tests, ruff limpio.**
 - Commits: `3c3d4c1`, `dc7f4ea`, `c30f783`, `71337be`, `9395033`, `136d225`,
   `df6c645`, `c4ac753`.
 
 ### 2026-09-27 — Sesión (otra PC) — diagramas PlantUML versionados y corregidos
-- **Snapshot completo (reconstruido desde git el 2026-09-29)**: `resumenes/2026-09-27.md`.
+- **Snapshot completo (reconstruido desde git el 2026-09-29)**: [`resumenes/2026-09-27.md`](resumenes/2026-09-27.md).
 - **Hallazgo**: `docs/DiagramasUML/` (6 diagramas) nunca se había commiteado — el
   `.gitignore` apuntaba a `diagramas-locales/`, carpeta inexistente — y reflejaba
   una versión vieja del sistema.
 - **Fix**: movidos y corregidos a `docs/diagramas/` (8 diagramas + tema
-  compartido `_comun.puml` + `README.md`); se sumó la consola owner (faltaba) y
+  compartido `_comun.puml` + [`README.md`](README.md)); se sumó la consola owner (faltaba) y
   2 diagramas nuevos (renovación de sesión, actividad del owner).
   `tests/test_diagramas.py` NUEVO valida sintaxis y que las clases citadas sigan
   existiendo en el código.
-- **Commit aparte**: nota de duda del usuario en `Escalabilidad.md` sobre la
+- **Commit aparte**: nota de duda del usuario en [`Escalabilidad.md`](Escalabilidad.md) sobre la
   afirmación "no hay que reescribir nada" para escalar — **sigue sin resolver**.
-- **Documentación**: `AGENTS.md`, `docs/arquitectura.md`, `README.md`,
-  `TestingLog.md`, `.gitignore`.
+- **Documentación**: [`AGENTS.md`](AGENTS.md), [`docs/arquitectura.md`](docs/arquitectura.md), [`README.md`](README.md),
+  [`TestingLog.md`](TestingLog.md), `.gitignore`.
 - Commits: `6119b6e`, `a465d56`.
 
 ### 2026-09-25 — Sesión — "URL para los agentes" en la consola owner (fix WinError 10061) + release v2026.09.25
-- **Snapshot completo**: `resumenes/2026-09-25.md`.
+- **Snapshot completo**: [`resumenes/2026-09-25.md`](resumenes/2026-09-25.md).
 - **Origen**: primer despliegue real con agente y owner en PC distintas. Al
   configurar el agente con `http://localhost:8080` falló con
   `[WinError 10061] ... denegó expresamente dicha conexión`, porque `localhost`
@@ -157,8 +157,8 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - **Verificado**: en esta PC detecta `192.168.18.49`, coincide con `ipconfig`.
 - **Calidad**: 193 → **201 tests** (8 nuevos en `test_owner_app.py`, TDD
   rojo→verde), ruff limpio.
-- **Documentación**: `docs/proxy-deploy.md` (aviso de no usar `localhost` +
-  fila en troubleshooting), `README.md` (es/en), `TestingLog.md`.
+- **Documentación**: [`docs/proxy-deploy.md`](docs/proxy-deploy.md) (aviso de no usar `localhost` +
+  fila en troubleshooting), [`README.md`](README.md) (es/en), [`TestingLog.md`](TestingLog.md).
 - **Release**: `v2026.09.25` publicado con ambos `.exe` reconstruidos,
   reemplazando `v2026.09.22`.
 - **Segunda parte de la sesión — fix del chequeo de actualización**: la
@@ -236,7 +236,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   **`v2026.09.25.2`** publicado.
 
 ### 2026-09-22 — Sesión — UAC falso-cancelado + `sc qc` en español, y release v2026.09.22
-- **Snapshot completo**: `resumenes/2026-09-22.md`.
+- **Snapshot completo**: [`resumenes/2026-09-22.md`](resumenes/2026-09-22.md).
 - **Origen**: al probar en vivo (PC de casa, proxy de desarrollo instalado) el panel de
   credenciales agregado ayer, el botón **Mostrar** fallaba con "UAC cancelado"
   **sin que apareciera ningún diálogo real**, incluso corriendo la consola como
@@ -267,7 +267,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   2026-09-21 sigue abierto.
 
 ### 2026-09-21 — Sesión — credenciales en la consola owner, `/admin/*` loopback-only, y releases de owner+agente
-- **Snapshot completo**: `resumenes/2026-09-21.md`.
+- **Snapshot completo**: [`resumenes/2026-09-21.md`](resumenes/2026-09-21.md).
 - **Origen**: el owner propuso exponer `proxy_token`/`admin_key` en la consola owner
   bajo la premisa de un `key.pem` generado por el instalador — premisa incorrecta (el
   instalador solo genera los dos tokens; la llave crítica es `private_key.pem`, de otro
@@ -281,7 +281,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   (lectura/rotación preservando el resto de `config.yaml` + ACL + reinicio del servicio);
   panel "Credenciales del proxy" en `owner_app.py` (Mostrar/Copiar/Rotar vía relanzo
   elevado con UAC, sin debilitar la ACL). `private_key.pem` nunca aparece en la GUI.
-- **Traspaso futuro**: `TraspasoInmediato.md` nuevo (plan sin implementar) para el día que
+- **Traspaso futuro**: [`TraspasoInmediato.md`](TraspasoInmediato.md) nuevo (plan sin implementar) para el día que
   el proxy tenga que moverse de PC — por qué no usar una semilla compartida para los
   tokens, sincronizar `config.yaml` en su lugar, y que el problema real es la IP fija de
   cada agente, no los tokens.
@@ -302,7 +302,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   2026-09-18.
 
 ### 2026-09-18 — Sesión — ensayo del proxy en la PC dev: instalador re-ejecutable, consola owner y control de acceso
-- **Snapshot completo**: `resumenes/2026-09-18.md`.
+- **Snapshot completo**: [`resumenes/2026-09-18.md`](resumenes/2026-09-18.md).
 - **Decisión**: ensayo completo del proxy en la PC de desarrollo antes de la PC owner
   oficial (sin coexistir con el proxy de la oficina). La oficina tiene 15 PC hoy; meta
   35; piloto de 2 agentes primero.
@@ -320,13 +320,13 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - **Calidad**: 157 tests, ruff limpio; `conftest.py` aísla el `config.yaml` real.
 - **Semana decisiva**: ensayo de construcción de ambos `.exe` desde un clon limpio (≈3
   min; rutas cortas por WinError 206; `version.py` a restaurar; sin `gh`). Runbook en
-  `docs/proxy-deploy.md`; el usuario lleva `private_key.pem` a la PC oficial.
+  [`docs/proxy-deploy.md`](docs/proxy-deploy.md); el usuario lleva `private_key.pem` a la PC oficial.
 - **Pendiente al cierre**: sesión WinForce que murió 3 veces (hipótesis: dos logins en
   paralelo, sin confirmar); persistencia tras reinicio, firewall desde otra PC, carga,
   desinstalar el ensayo; luego Etapa D/E en la PC oficial y Fase 5.
 
 ### 2026-09-16 — Sesión — activación RSA real y consola del owner
-- **Snapshot completo**: `resumenes/2026-09-16.md`.
+- **Snapshot completo**: [`resumenes/2026-09-16.md`](resumenes/2026-09-16.md).
 - **Activación habilitada**: se derivó e incorporó la llave pública del PEM
   privado del owner; el agente verifica firmas RSA ligadas a su huella. La llave
   privada sigue fuera de Git, con ACL restringida.
@@ -341,7 +341,7 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   oficial, con transferencia privada del PEM y prueba del servicio LocalSystem.
 
 ### 2026-09-15 — Sesión — ensayo de la Etapa D y corrección del instalador
-- **Rotación**: se preserva el snapshot completo en `resumenes/2026-09-15.md`.
+- **Rotación**: se preserva el snapshot completo en [`resumenes/2026-09-15.md`](resumenes/2026-09-15.md).
 - **Ensayo del servicio**: `install_service.bat` llegó correctamente a los pasos
   de Python, dependencias y Chromium, pero falló al descargar WinSW.
 - **Bug corregido** (`abff2e4`): la URL de WinSW apuntaba a la inexistente
@@ -353,63 +353,63 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 ### 2026-09-11 — Sesión — Etapa 0.5 (cookie por HTTP, no keyring) + planificación de la D
 - **Arranque**: la sesión anterior había dejado la Etapa 0.5 a medio hacer y sin commitear (código cambiado, tests rotos, `ruff` con un import sin usar). Se detectó al preguntar "¿ya hicimos la Fase 0.5?" y correr `git status`/`pytest`.
-- **Etapa 0.5 — HECHA** (`f5eb257`, `a6e90da`): `rotate_creds.py` deja de escribir la `PHPSESSID` directo en el keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía) → `push_session_cookie()` la empuja por HTTP (`/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza). Bug latente arreglado de paso: `config.proxy_local_url` nueva, ignora `proxy_host=0.0.0.0` de producción. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo contra el proxy real (cookie falsa → 401 real). Docs sincronizados (`anotaciones.md`, `docs/rotacion-credenciales.md`, `PlanesAprobados.md`, `Roadmap.md`) — ya no describen el mecanismo viejo.
+- **Etapa 0.5 — HECHA** (`f5eb257`, `a6e90da`): `rotate_creds.py` deja de escribir la `PHPSESSID` directo en el keyring del owner (`save_session_to_keyring()`, código muerto — el servicio LocalSystem nunca la veía) → `push_session_cookie()` la empuja por HTTP (`/local/renovar` primero, `/admin/rotar` de fallback si no conecta, sin reintento si el local la rechaza). Bug latente arreglado de paso: `config.proxy_local_url` nueva, ignora `proxy_host=0.0.0.0` de producción. 4 tests nuevos con `httpx.post` monkeypatcheado + smoke en vivo contra el proxy real (cookie falsa → 401 real). Docs sincronizados ([`anotaciones.md`](anotaciones.md), [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md), [`PlanesAprobados.md`](PlanesAprobados.md), [`Roadmap.md`](Roadmap.md)) — ya no describen el mecanismo viejo.
 - **Calidad**: 129 tests pasando, ruff limpio.
 - **Etapa D planificada** (más tarde el mismo día): con R y 0.5 hechas, nada la bloquea. Se decidió con el owner: ensayo en esta PC (no producción real), `config.yaml` de pruebas (puerto 8090) con backup y borrado para forzar la rama de generación fresca del instalador, y se acepta que fuerce la extensión de Chrome por política HKLM. **No se llegó a ejecutar** `install_service.bat`.
 - **Trabajo suelto sin relación**: 6 diagramas UML de análisis en `diagramas-locales/` (no versionados a propósito).
-- **Pendiente al cierre**: Etapa D (instalar el servicio, nada la bloquea) → E (runbook oficina, bloqueada por acceso físico) → Fase 5 (19 incoherencias doc↔código). Snapshot completo: `resumenes/2026-09-11.md`.
+- **Pendiente al cierre**: Etapa D (instalar el servicio, nada la bloquea) → E (runbook oficina, bloqueada por acceso físico) → Fase 5 (19 incoherencias doc↔código). Snapshot completo: [`resumenes/2026-09-11.md`](resumenes/2026-09-11.md).
 
 ### 2026-09-09 — Sesión — Puesta en marcha end-to-end del proxy (Etapas 0/A/B/C/R)
-- **Objetivo del día — HECHO**: activar todo lo construido contra WinForce real por primera vez (hasta entonces cada pieza se había validado por separado con mocks/smoke tests). Rotación previa: `resumenes/2026-09-08.md` creado, entrada condensada agregada aquí.
+- **Objetivo del día — HECHO**: activar todo lo construido contra WinForce real por primera vez (hasta entonces cada pieza se había validado por separado con mocks/smoke tests). Rotación previa: [`resumenes/2026-09-08.md`](resumenes/2026-09-08.md) creado, entrada condensada agregada aquí.
 - **Etapa 0 — desbloquear el arranque** (`d9c1ef7`, `ffa213a`): `config.yaml` no se leía (`settings_customise_sources` faltante) → corregido; 3 bugs de `install_service.bat` (ruta de `requirements-proxy.txt`, `python -c` multilínea roto por cmd.exe, `%PROXY_PORT%` sin expansión retrasada, `where python` cogía el stub de Store); `winsw.xml` sacado de git (`winsw.xml.example` como plantilla) + ACL `icacls` para `config.yaml`/tokens. Etapa 0.5 (coherencia del keyring bajo LocalSystem) pospuesta a después de la C.
 - **Etapa A — proxy en primer plano + auth** (`7992e01`): `config.yaml` local en puerto 8090 confirma que se lee de verdad; auth de `/api/*` y `/admin/*` verificada (401 sin token/key, 200 con); pipeline OK, sesión aún muerta.
 - **Etapa B — sesión viva + validación real** (`3f63e8f`, `898b9ab`): login asistido recuperado reabriendo el perfil persistente tras un fallo de captura; cobertura SI / score 423 MUY ALTO contra WinForce real (idéntico al baseline 2026-08-27). Bug real corregido: `ScoreResponse.deuda_total` reventaba con `DeudaTotal: 0` (int) de WinForce. Hallazgo operativo: reabrir el login asistido con sesión viva puede invalidarla — renovar solo cuando el proxy reporta sesión muerta.
 - **Etapa C — GUI (Tkinter) contra el proxy** (`b70dacf`, `ffc5296`, `f91b9fb`): validación real desde la GUI (cobertura + score, dos DNIs); paso 12 (standalone) no aplica, el modo proxy siempre gana. **Hallazgo crítico corregido**: la suite de tests envenenaba el keyring real del proxy (`tests/test_proxy.py` escribía `credentials_cookies` sin mockear) → `tests/conftest.py` con fixture autouse que aísla keyring por test. `install_service.bat:262` seguía mandando al Visor de Eventos en la rama de error — corregido.
-- **Etapa R — robustez de detección de sesión muerta** (`82f3604`→`67ec0e4`, no estaba en el plan original, nació del hallazgo C.2): fix del bug que cegaba la alarma (`auto_relogin_if_needed()` ya no refresca `_last_activity`, solo lo hace una llamada real exitosa); validación de la cookie al arrancar; fail-fast HTTP 503 + `Retry-After` antes de tocar WinForce; aviso al owner por 3 capas (GUI · Evento de Windows + tarea programada · toast de la extensión · webhook opcional). `Roadmap.md` nuevo (vista única del proyecto); plan de puesta en marcha registrado en `PlanesAprobados.md`.
+- **Etapa R — robustez de detección de sesión muerta** (`82f3604`→`67ec0e4`, no estaba en el plan original, nació del hallazgo C.2): fix del bug que cegaba la alarma (`auto_relogin_if_needed()` ya no refresca `_last_activity`, solo lo hace una llamada real exitosa); validación de la cookie al arrancar; fail-fast HTTP 503 + `Retry-After` antes de tocar WinForce; aviso al owner por 3 capas (GUI · Evento de Windows + tarea programada · toast de la extensión · webhook opcional). [`Roadmap.md`](Roadmap.md) nuevo (vista única del proyecto); plan de puesta en marcha registrado en [`PlanesAprobados.md`](PlanesAprobados.md).
 - **Calidad**: 124 tests pasando, ruff limpio.
-- **Pendiente al cierre**: Etapa 0.5 (coherencia del keyring con LocalSystem — bloquea la D) → C.12 (standalone, opcional) → D (servicio de Windows en la PC de oficina) → E (runbook, bloqueada por acceso físico) → Fase 5 (barrido final de 19 incoherencias doc↔código). Sesión del proxy dejada muerta a propósito. Snapshot completo: `resumenes/2026-09-09.md`.
+- **Pendiente al cierre**: Etapa 0.5 (coherencia del keyring con LocalSystem — bloquea la D) → C.12 (standalone, opcional) → D (servicio de Windows en la PC de oficina) → E (runbook, bloqueada por acceso físico) → Fase 5 (barrido final de 19 incoherencias doc↔código). Sesión del proxy dejada muerta a propósito. Snapshot completo: [`resumenes/2026-09-09.md`](resumenes/2026-09-09.md).
 
 ### 2026-09-08 — Sesión — Fases 2A/2.5/3/4: keepalive, renovación sin F12 y tests del proxy
 - **Arranque**: repo 6 commits por detrás (sesión 2026-09-05, otra máquina); `git pull --ff-only` limpio. **10 commits hoy** (`cae2702` → `76afb9d`), **104 tests pasando, `ruff` limpio**. Esta PC en Python 3.14.7.
-- **Investigación de keepalive CERRADA** (reporte final de la corrida v3 recibido hoy): 37 pings consecutivos VIVA hasta ~9 h 16 m de edad de sesión; muerte limpia a ~9 h 31 m (HTTP 200 + HTML de login, confirmada por `validar_cookie_sesion()`). Idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **sí existe un tope absoluto de sesión ≈ 9.5 h desde el login**, independiente de la actividad → reinyectar la cookie al inicio del turno. Sincronizado en `PlanesAprobados.md` / `anotaciones.md` / `AGENTS.md`.
+- **Investigación de keepalive CERRADA** (reporte final de la corrida v3 recibido hoy): 37 pings consecutivos VIVA hasta ~9 h 16 m de edad de sesión; muerte limpia a ~9 h 31 m (HTTP 200 + HTML de login, confirmada por `validar_cookie_sesion()`). Idle-timeout, anti-bot acumulativo y "tope a 40 min" **descartados**; **sí existe un tope absoluto de sesión ≈ 9.5 h desde el login**, independiente de la actividad → reinyectar la cookie al inicio del turno. Sincronizado en [`PlanesAprobados.md`](PlanesAprobados.md) / [`anotaciones.md`](anotaciones.md) / [`AGENTS.md`](AGENTS.md).
 - **Fase 2A — keepalive del proxy "latido perezoso" (`b3adb38`)**: `_keepalive_loop` (asyncio en el `lifespan`) + `ProxyValidatorAPI._keepalive_tick` (síncrono, testeable); omite el ping si hubo tráfico de agentes en el intervalo; ping = `validar_cobertura` con coord aleatoria de 12 puntos de Lima embebidos; fallo → confirma con `validar_cookie_sesion()` y clasifica `TRANSITORIO` / `SESION_MUERTA` (log.error una vez con remedio) / indeterminado, nunca reintenta en silencio. Config `keepalive_enabled` / `keepalive_interval_seconds=900`; bloque `keepalive` en `/admin/status`. **Bug latente arreglado**: el guard idle de 120 s del cliente-core (`auto_relogin_if_needed`) lanzaba `SessionError` en cada hueco de tráfico > 120 s antes de tocar la red → `_get_client()` pone `_session_max_idle = 10**9`.
 - **Fase 2.5 — renovación de la sesión sin F12** (por el tope ≈ 9.5 h el owner renueva ~1 vez por jornada): **login asistido** `login_asistido.py` NUEVO (`28b7698`) abre un navegador, el owner inicia sesión, el script sondea `context.cookies()` (ve la `PHPSESSID` HttpOnly), la valida y la guarda directo en keyring; `rotate_creds.py` → v2 (sin args = asistido bajo `pythonw`, `--manual` = copiar/pegar, `--fresh`, `--preview` `c96de4c`). `cb085da`: abre el **Chrome instalado** (`channel="chrome"`) para el autofill de contraseñas.
-- **Fase 2.5d — extensión de Chrome (`499ba5f`) — VÍA PRINCIPAL**: Chrome 136+ bloquea `--remote-debugging-port` con el perfil por defecto → no se puede adjuntar Playwright al Chrome cotidiano. `validator_app/proxy/extension/` MV3 (permisos `cookies`/`alarms`/`notifications`); badge rojo cuando la sesión murió (poll `GET /local/estado` cada 5 min); clic → `chrome.cookies.get` → `POST /local/renovar`. Endpoints locales nuevos en `server.py` (`_es_local`: solo 127.0.0.1, sin admin key). `_instalar_extension.py` NUEVO empaqueta un `.crx` firmado (id estable vía `extension.pem`) y fuerza-instala por política `HKLM\...\ExtensionSettings`. Guía de prueba en `README_PROXY.md` (`e517a2b`).
+- **Fase 2.5d — extensión de Chrome (`499ba5f`) — VÍA PRINCIPAL**: Chrome 136+ bloquea `--remote-debugging-port` con el perfil por defecto → no se puede adjuntar Playwright al Chrome cotidiano. `validator_app/proxy/extension/` MV3 (permisos `cookies`/`alarms`/`notifications`); badge rojo cuando la sesión murió (poll `GET /local/estado` cada 5 min); clic → `chrome.cookies.get` → `POST /local/renovar`. Endpoints locales nuevos en `server.py` (`_es_local`: solo 127.0.0.1, sin admin key). `_instalar_extension.py` NUEVO empaqueta un `.crx` firmado (id estable vía `extension.pem`) y fuerza-instala por política `HKLM\...\ExtensionSettings`. Guía de prueba en [`README_PROXY.md`](README_PROXY.md) (`e517a2b`).
 - **Fase 3 — diálogo de cookie en la GUI (`5cf8e3f`)**: el modo standalone estaba **roto de raíz** (llamaba `api.obtener_cliente().validar(...)` sobre un `ValidatorAPI` sin sesión → siempre `SessionError`). `validator_app/gui/session_config.py` NUEVO (keyring `JSWinCoverage`/`session_cookie` + validación + `cliente_standalone()` con `_session_max_idle = 10**9`); menú "⚙ Configurar Sesión (standalone)" + diálogo modal en `main_window.py`. `api.obtener_cliente()` se conserva (lo usan `tools/`).
 - **Fase 4 — cubrir la capa FastAPI del proxy (`76afb9d`)**: 14 tests de `/api/*`, `/health`, `/admin/*`, middleware de auth y exception handlers. `tests/test_proxy.py` estrena `TestClient`. **Ningún bug en `server.py`** — la capa HTTP quedó cubierta sin cambios de código.
-- **Deuda técnica cerrada (`b3aca38`)**: `httpx>=0.27` → `requirements.txt` (la GUI importa `ProxyClient` siempre); `requires-python` `>=3.14` → **`>=3.12`** (piso real; cero sintaxis 3.13/3.14), `ruff target-version = "py312"`, versión unificada en `3.12+` en todo el repo; `resumenes/2026-09-04.md` y `2026-09-05.md` creados (recuperados de git).
-- **Hook de auto-sync de docs (`cae2702`)**: `.claude/settings.json` + `.claude/hooks/historial_sync.py` (`PostToolUse` sobre `Write|Edit`) — al agregar entradas `### YYYY-MM-DD` a este archivo, recuerda sincronizar `anotaciones.md` / `PlanesAprobados.md` / `AGENTS.md`; cada 3 entradas nuevas, además `README.md`. Solo avisa, no edita. Estado local gitignored.
+- **Deuda técnica cerrada (`b3aca38`)**: `httpx>=0.27` → `requirements.txt` (la GUI importa `ProxyClient` siempre); `requires-python` `>=3.14` → **`>=3.12`** (piso real; cero sintaxis 3.13/3.14), `ruff target-version = "py312"`, versión unificada en `3.12+` en todo el repo; [`resumenes/2026-09-04.md`](resumenes/2026-09-04.md) y `2026-09-05.md` creados (recuperados de git).
+- **Hook de auto-sync de docs (`cae2702`)**: `.claude/settings.json` + `.claude/hooks/historial_sync.py` (`PostToolUse` sobre `Write|Edit`) — al agregar entradas `### YYYY-MM-DD` a este archivo, recuerda sincronizar [`anotaciones.md`](anotaciones.md) / [`PlanesAprobados.md`](PlanesAprobados.md) / [`AGENTS.md`](AGENTS.md); cada 3 entradas nuevas, además [`README.md`](README.md). Solo avisa, no edita. Estado local gitignored.
 - **Descubrimientos clave para el próximo dev**: tope absoluto de sesión ≈ 9.5 h desde el login (re-login programado inviable por 2FA); Chrome 136+ bloquea el remote-debugging con el perfil por defecto (anti-robo-de-cookies); `chrome.cookies` y `context.cookies()` SÍ leen HttpOnly, `document.cookie` NO (un bookmarklet no serviría); **`config.yaml` NO se está leyendo** — `SettingsConfigDict` declara `yaml_file` pero falta `settings_customise_sources` con `YamlConfigSettingsSource`; el proxy funciona por defaults + variables `PROXY_*`.
-- **Validado end-to-end contra WinForce real**: al arrancar el proxy en esta PC el keepalive pingó con la `PHPSESSID` muerta del keyring, la detectó (HTTP 200 + HTML), la confirmó y disparó el `ERROR` de aviso al owner — exactamente lo diseñado. El proxy de la demo quedó **parado** (`taskkill` — incidente en `TestingLog.md`).
-- **Pendiente al cierre**: **Fase 5** (barrido final de docs — `docs/proxy-config.md`, `docs/proxy-deploy.md`, `docs/rotacion-credenciales.md`, coherencia general: extensión = principal, login asistido + `--manual` = fallback). Verificaciones manuales con cookie real: GUI standalone, extensión end-to-end, login asistido (`.lnk` del Escritorio). Deuda vieja: `config.yaml` no se lee; decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
-- Snapshot completo: `resumenes/2026-09-08.md`.
+- **Validado end-to-end contra WinForce real**: al arrancar el proxy en esta PC el keepalive pingó con la `PHPSESSID` muerta del keyring, la detectó (HTTP 200 + HTML), la confirmó y disparó el `ERROR` de aviso al owner — exactamente lo diseñado. El proxy de la demo quedó **parado** (`taskkill` — incidente en [`TestingLog.md`](TestingLog.md)).
+- **Pendiente al cierre**: **Fase 5** (barrido final de docs — [`docs/proxy-config.md`](docs/proxy-config.md), [`docs/proxy-deploy.md`](docs/proxy-deploy.md), [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md), coherencia general: extensión = principal, login asistido + `--manual` = fallback). Verificaciones manuales con cookie real: GUI standalone, extensión end-to-end, login asistido (`.lnk` del Escritorio). Deuda vieja: `config.yaml` no se lee; decidir si la app llama a `actualizar_score_cliente` y/o `newsearch.php`.
+- Snapshot completo: [`resumenes/2026-09-08.md`](resumenes/2026-09-08.md).
 
 ### 2026-09-05 — Sesión — Visibilidad de fallos del proxy, método de keepalive v3 y corrida final
 - **Fix `5506ed4` — el proxy deja de fallar en silencio**: `_relogin_silent()` y `_load_session_cookies()` tenían `except Exception: pass`; ahora cada fallo se loguea con causa + error concreto + remedio (sin cookies en keyring / JSON corrupto / sin `PHPSESSID` / cookie expirada / fallo de red / éxito). Se mantiene el contrato (`_relogin_silent()` no propaga). Los 6 caminos se ejercitaron en la sesión.
-- **Fix `5506ed4` — `/health` deja de pegar a WinForce en cada request**: nuevo `_is_session_alive()` cachea `session_alive` 30s (`SESSION_ALIVE_TTL_SECONDS`), atado al valor de la cookie; los fallos de red no se cachean. `logging.basicConfig(level=INFO)` en el `__main__` de `server.py` para que los mensajes se vean. `docs/arquitectura.md` sincronizado (arranque real `python -m`, endpoints admin por cookie `PHPSESSID`, clave de keyring `credentials_cookies`); árbol de `tools/` completado en `AGENTS.md`.
+- **Fix `5506ed4` — `/health` deja de pegar a WinForce en cada request**: nuevo `_is_session_alive()` cachea `session_alive` 30s (`SESSION_ALIVE_TTL_SECONDS`), atado al valor de la cookie; los fallos de red no se cachean. `logging.basicConfig(level=INFO)` en el `__main__` de `server.py` para que los mensajes se vean. [`docs/arquitectura.md`](docs/arquitectura.md) sincronizado (arranque real `python -m`, endpoints admin por cookie `PHPSESSID`, clave de keyring `credentials_cookies`); árbol de `tools/` completado en [`AGENTS.md`](AGENTS.md).
 - **`medir_keepalive.py` v3 (`3925dbf`)** — reescritura del método porque v1/v2 no permitían concluir nada: medían tiempo de test y no la edad real de la sesión (el cronómetro arrancaba con el script, no con el login; `acceso.php` no regenera la `PHPSESSID`), y trataban cualquier error como muerte. v3: `--login-hora`/`--edad-inicial` obligatorios, columna `edad_sesion_s`, `_clasificar()` (`SESION_MUERTA`/`TRANSITORIO`/`OTRO` según `code` + status HTTP), `_confirmar_muerte()` revalida con `validar_cookie_sesion()` antes de cortar, `--coords-archivo`. 9 tests del clasificador (`tests/test_medir_keepalive.py`).
 - **`coords_prueba.txt` a 49 puntos (`26e7567`)**: 10 del usuario + 39 generados con rejilla + jitter dentro de su polígono (Jesús María / Lince / San Isidro, ubicaciones públicas, no domicilios) para no repetir el mismo query en una corrida larga.
 - **`82f9a4c`**: los 6 scripts de `tools/` que importan `validator_app` insertan la raíz del repo en `sys.path` antes del import → `python tools/X.py` funciona desde la raíz sin `PYTHONPATH` ni `pip install -e .`. Cierra el workaround que arrastraban los cierres 2026-08-27 y 2026-09-04.
 - **Corrida keepalive v3 — desenlace (reporte final recibido 2026-09-08)**: arrancó 21:08 con la sesión a 70s de edad, ping fijo cada 900s, 49 coords rotativas. **37 pings consecutivos VIVA** (última confirmación a los 33 370s / 9 h 16 m de edad de sesión); murió **limpia** a los 34 270s (9 h 31 m) con patrón HTTP 200 + HTML de login, confirmado de forma independiente por `validar_cookie_sesion()`. Lecturas: idle-timeout **descartado como causa** (ping real cada 900s); anti-bot acumulativo **descartado** (37 pings variados, 0 fallos); "tope a 40 min" **descartado** (era el 404 ambiguo de v1). **Sí existe un tope absoluto de sesión ≈ 9.5 h desde el login**, por encima de la jornada de 8 h con ~1.5 h de margen (reinyectar la cookie al inicio del turno). **Investigación de keepalive CERRADA.**
 - **Calidad**: 49 tests pasando, ruff limpio (eran 40; +9 del clasificador). Commits: `5506ed4`, `44d1132` (rotación 09-04 → historial), `3925dbf`, `26e7567`, `82f9a4c` — todos en `origin/main`.
-- **Pendiente al cierre**: Fase 2 (keepalive en el proxy) desbloqueada — `keepalive_interval_seconds = 900`, diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de los agentes) + **aviso al owner** cuando la sesión muera por el tope absoluto (re-login programado inviable por el 2FA); sincronizar `PlanesAprobados.md` / `anotaciones.md` / `AGENTS.md` con la investigación cerrada; luego Fase 3 (diálogo de cookie en la GUI), Fase 4 (`tests/test_proxy.py`), Fase 5 (docs). Deuda vieja: `resumenes/2026-09-04.md` y `resumenes/2026-09-05.md` nunca se crearon (solo la entrada condensada); `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.
+- **Pendiente al cierre**: Fase 2 (keepalive en el proxy) desbloqueada — `keepalive_interval_seconds = 900`, diseño "latido perezoso" (pinguear solo tras N min sin tráfico real de los agentes) + **aviso al owner** cuando la sesión muera por el tope absoluto (re-login programado inviable por el 2FA); sincronizar [`PlanesAprobados.md`](PlanesAprobados.md) / [`anotaciones.md`](anotaciones.md) / [`AGENTS.md`](AGENTS.md) con la investigación cerrada; luego Fase 3 (diálogo de cookie en la GUI), Fase 4 (`tests/test_proxy.py`), Fase 5 (docs). Deuda vieja: [`resumenes/2026-09-04.md`](resumenes/2026-09-04.md) y [`resumenes/2026-09-05.md`](resumenes/2026-09-05.md) nunca se crearon (solo la entrada condensada); `requirements.txt` sin `httpx`; `pyproject.toml` exige Python≥3.14.
 
 ### 2026-09-04 — Sesión — Medición de vida de PHPSESSID y limpieza del login muerto del proxy
 - **Fix de entorno**: `tools/medir_sesion.py` fallaba con `ModuleNotFoundError: validator_app` con `C:\Python314\python.exe` directo (paquete no instalado en modo editable en ese intérprete). Resuelto con `python -m pip install -e .`.
 - **Fase 0 completada** (`tools/medir_sesion.py`, 4 corridas): la corrida limpia `--max 3600` dio el dato bueno — **VIVA a 1155s, MUERTA a 1350s** (~19–22 min de inactividad real). Las de `--max 600` llegaron a 525s sin morir; una muerte a 135–210s fue anómala (coincidió con recarga que reemplazó la `PHPSESSID`). El idle-timeout real queda algo por debajo del `gc_maxlifetime` default de PHP (1440s) pero en el mismo orden; el `keepalive_interval` planeado da margen amplio.
-- **Hallazgo de autenticación**: `acceso.php` **no regenera el PHPSESSID** al loguear (reusa la cookie anónima ya presente); el 2FA de Microsoft pasa por SSO silencioso de Azure AD si ya hay sesión de Microsoft. Documentado en `anotaciones.md`.
+- **Hallazgo de autenticación**: `acceso.php` **no regenera el PHPSESSID** al loguear (reusa la cookie anónima ya presente); el 2FA de Microsoft pasa por SSO silencioso de Azure AD si ya hay sesión de Microsoft. Documentado en [`anotaciones.md`](anotaciones.md).
 - **Keepalive en investigación** (`tools/medir_keepalive.py`, pings de interacción real): v1 (intervalo fijo 5 min) sobrevivió hasta 2100s y murió a 2400s; v2 (intervalos variables 180–420s) murió antes, a **1100s** — más rápido haciendo *más* actividad. Esto rompe el modelo "idle-timeout + tope absoluto de 40 min" (que queda como hipótesis sin confirmar) y apunta a **detección anti-bot acumulativa**: ~4 sesiones automatizadas en ~2 h, todas contra la misma coordenada exacta repetida decenas de veces.
 - **Decisión**: pausar pruebas automatizadas; reanudar con `--coords-lista` (coordenadas rotativas que dará el usuario) dejando tiempo entre sesiones. Guard interno de 120s en `ValidatorAPI` (`core/api.py:197`) da falso "sesión expirada" si se reutiliza la instancia entre pings — el script usa instancia nueva por ping.
-- **Fase 1 (C) — limpiar login muerto del proxy** (commit `1dcecc6`): `core/api.py` nuevo helper compartido `validar_cookie_sesion()` (reutiliza `_verificar_sesion_activa`); `rotate_creds.py` delega en él (elimina duplicación); `server.py` `AdminLoginRequest` → `AdminCookieRequest` (`{php_sessid}`), `/admin/login` y `/admin/rotar` intercambiables, `_relogin_silent()` recarga+revalida la cookie del keyring en vez del login programático inviable (código muerto en dos capas), `session_alive` añadido a `/health` y `/admin/status`; `docs/rotacion-credenciales.md` actualizado; 3 tests nuevos.
-- **Calidad**: 40 tests pasando, ruff limpio. Detalle en `PlanesAprobados.md` (Fases 0 y 1) y `anotaciones.md`. Commits: `1dcecc6`.
-- **Pendiente al cierre**: correr keepalive con `--coords-lista`; registrar `keepalive_interval_seconds` final en `PlanesAprobados.md`; Fase 2 (keepalive) bloqueada hasta cerrar la investigación; Fases 3 (diálogo cookie GUI), 4 (tests), 5 (docs).
+- **Fase 1 (C) — limpiar login muerto del proxy** (commit `1dcecc6`): `core/api.py` nuevo helper compartido `validar_cookie_sesion()` (reutiliza `_verificar_sesion_activa`); `rotate_creds.py` delega en él (elimina duplicación); `server.py` `AdminLoginRequest` → `AdminCookieRequest` (`{php_sessid}`), `/admin/login` y `/admin/rotar` intercambiables, `_relogin_silent()` recarga+revalida la cookie del keyring en vez del login programático inviable (código muerto en dos capas), `session_alive` añadido a `/health` y `/admin/status`; [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) actualizado; 3 tests nuevos.
+- **Calidad**: 40 tests pasando, ruff limpio. Detalle en [`PlanesAprobados.md`](PlanesAprobados.md) (Fases 0 y 1) y [`anotaciones.md`](anotaciones.md). Commits: `1dcecc6`.
+- **Pendiente al cierre**: correr keepalive con `--coords-lista`; registrar `keepalive_interval_seconds` final en [`PlanesAprobados.md`](PlanesAprobados.md); Fase 2 (keepalive) bloqueada hasta cerrar la investigación; Fases 3 (diálogo cookie GUI), 4 (tests), 5 (docs).
 
 ### 2026-08-28 — Sesión (mañana) — Retomar contexto + planificar sesión WinForce robusta
 - [Inicio] Repo al día con `origin/main` (`7bc6550`), GitHub CLI conectado, Python 3.14.7
   cumple el requisito de `pyproject.toml`. Baseline: 37 tests pasando, ruff limpio.
-- [Docs] Rotación de resúmenes ejecutada: `resumenes/2026-08-26.md` y `resumenes/2026-08-27.md`
+- [Docs] Rotación de resúmenes ejecutada: [`resumenes/2026-08-26.md`](resumenes/2026-08-26.md) y [`resumenes/2026-08-27.md`](resumenes/2026-08-27.md)
   creados como snapshots completos; entradas condensadas agregadas a este archivo;
-  `ResumenDelDia.md` reiniciado.
+  [`ResumenDelDia.md`](ResumenDelDia.md) reiniciado.
 - [Hallazgo] Código muerto en el proxy: `_relogin_silent()`, `login_winforce()` y
   `/admin/login` siguen llamando a `client.login()`, que es inviable por 2FA — aparentan
   un mecanismo de recuperación que no existe.
@@ -418,11 +418,11 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   `rotate_creds.py`.
 - [Problema real] El proxy se cae solo: WinForce cierra la sesión tras ~3 min de
   inactividad y no hay keepalive.
-- [Plan aprobado] "Sesión WinForce robusta" (`PlanesAprobados.md`): Fase 0 medir vida de
+- [Plan aprobado] "Sesión WinForce robusta" ([`PlanesAprobados.md`](PlanesAprobados.md)): Fase 0 medir vida de
   sesión, Fase 1 limpiar login muerto del proxy, Fase 2 keepalive, Fase 3 diálogo
   `⚙️ Configurar Sesión` en la GUI, Fase 4 tests, Fase 5 docs.
 - [Pendiente] Ejecutar Fase 0 (requiere login manual + 2FA del usuario) e implementar
-  Fases 1–5. Snapshot: `resumenes/2026-08-28.md`.
+  Fases 1–5. Snapshot: [`resumenes/2026-08-28.md`](resumenes/2026-08-28.md).
 - Commits: `fc81da8`.
 
 ### 2026-08-27 — Sesión (primera prueba real end-to-end del core)
@@ -445,22 +445,22 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - [Seguridad] `.gitignore` no cubría `config.yaml` / `proxy_token.txt` / `admin_key.txt`
   del proxy — corregido antes de que se generen en la PC del proxy.
 - [Entorno] En una máquina con Python 3.12.2 `pip install -e .` falla (pyproject exige
-  ≥3.14); workaround `PYTHONPATH=.`. Snapshot: `resumenes/2026-08-27.md`.
+  ≥3.14); workaround `PYTHONPATH=.`. Snapshot: [`resumenes/2026-08-27.md`](resumenes/2026-08-27.md).
 - Commits: `c72188c`, `7bc6550`.
 
 ### 2026-08-26 — Sesión (setup máquina nueva + sincronización de documentación)
 - [Entorno] Repo clonado en máquina nueva; `git user.name=AngelSanchezDev`. Acceso de
   escritura resuelto: `AngelSanchezDev` se agregó como colaborador con permiso de escritura
   en `sys-connectsolutionsjs/JSConnect-Win-Coverage` (antes daba 403).
-- [Auditoría] Detectado desfase doc↔código: `AGENTS.md` (en disco como `Claude.md`) daba
+- [Auditoría] Detectado desfase doc↔código: [`AGENTS.md`](AGENTS.md) (en disco como `Claude.md`) daba
   por pendientes las FASES 1–5 del proxy, pero ya estaban implementadas en commits
   posteriores del 2026-08-25 (`877689f`, `801ce05`, `f63660b`, `7cf7ea1`).
-- [Corregido] `Claude.md` → `AGENTS.md` en disco (coincide con el tracked de git). Tareas
+- [Corregido] `Claude.md` → [`AGENTS.md`](AGENTS.md) en disco (coincide con el tracked de git). Tareas
   1–6 y 11 marcadas `[COMPLETADO]` con evidencia file:line. Añadidas la regla de
   auto-actualización de docs (3 momentos) y la regla de rotación de resúmenes.
-- [Docs] Creado `resumenes/2026-08-25.md` (snapshot faltante); `HistorialResumenes.md` y
-  `PlanesAprobados.md` sincronizados con el estado real.
-- [Verificado] 35 tests pasando, ruff limpio. Snapshot: `resumenes/2026-08-26.md`.
+- [Docs] Creado [`resumenes/2026-08-25.md`](resumenes/2026-08-25.md) (snapshot faltante); `HistorialResumenes.md` y
+  [`PlanesAprobados.md`](PlanesAprobados.md) sincronizados con el estado real.
+- [Verificado] 35 tests pasando, ruff limpio. Snapshot: [`resumenes/2026-08-26.md`](resumenes/2026-08-26.md).
 
 ### 2026-08-25 — Sesión (tarde + noche)
 - [Hallazgo crítico] Login WinForce redirige a 2FA Microsoft → inviable simular 4-5
@@ -469,8 +469,8 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   proxy (PC oficina) → 1-2 sesiones WinForce desde una sola IP. Stack: FastAPI +
   uvicorn, token compartido + IP LAN, admin key separada, winsw service, config.yaml
   gitignored.
-- [Avance] FASE 0 Documentación completada: `docs/` (5 archivos), `Escalabilidad.md`,
-  `anotaciones.md`, `resumenes/2026-08-19.md`.
+- [Avance] FASE 0 Documentación completada: `docs/` (5 archivos), [`Escalabilidad.md`](Escalabilidad.md),
+  [`anotaciones.md`](anotaciones.md), [`resumenes/2026-08-19.md`](resumenes/2026-08-19.md).
 - [Avance] FASES 1–5 del Proxy implementadas: `validator_app/proxy/` completo
   (server.py con 7 rutas, config.py, client.py, rotate_creds.py, winsw.xml,
   install/uninstall .bat), `auto_relogin_if_needed()` + persistencia de cookies en
@@ -478,9 +478,9 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 - [Avance] Sistema de códigos de error: excepciones tipadas con `code` + diccionario
   `ERROR_CODES` (32 códigos) en `api.py`.
 - [Verificado] 35 tests pasando, ruff limpio.
-- [Nota] El cierre de esta sesión en `AGENTS.md` quedó desactualizado (decía "listo
+- [Nota] El cierre de esta sesión en [`AGENTS.md`](AGENTS.md) quedó desactualizado (decía "listo
   para FASE 1 Proxy Implementation" pese a que ya se implementó todo el mismo día);
-  corregido en la sesión 2026-08-26. Ver `resumenes/2026-08-25.md` para el detalle
+  corregido en la sesión 2026-08-26. Ver [`resumenes/2026-08-25.md`](resumenes/2026-08-25.md) para el detalle
   completo.
 
 ### 2026-08-19 — Sesión (tarde)
@@ -513,10 +513,10 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   guarda de instancia única ahora busca `captura.py`), requirements/pyproject/
   .gitignore y los 6 MD propios (AGENTS, PlanesAprobados, ResumenDelDia, TestingLog,
   README, SkillsPropuestas). Verificado: 4 tests + ruff limpio.
-- [Docs] `AGENTS.md` raíz: regla explícita de automantenimiento, `SkillsPropuestas.md`
+- [Docs] [`AGENTS.md`](AGENTS.md) raíz: regla explícita de automantenimiento, [`SkillsPropuestas.md`](SkillsPropuestas.md)
   registrado en el mapa de conocimiento, sección "Proyectos relacionados" con la
   herramienta Captura de API, y historial de la sesión.
-- [Docs] Creado `SkillsPropuestas.md` (cola/historial de skills) en el repo raíz.
+- [Docs] Creado [`SkillsPropuestas.md`](SkillsPropuestas.md) (cola/historial de skills) en el repo raíz.
 - [Error→Solución] `pip`/`python` no reconocidos: Python no estaba instalado
   (solo stub de Microsoft Store). → Instalar Python 3.14.7 con winget y añadir al
   PATH de usuario.
@@ -536,16 +536,16 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
   en https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage (32 archivos).
 - [Contexto] Revisión de los .md de conocimiento (AGENTS.md, PlanesAprobados.md,
   TestingLog.md, README.md) para retomar dónde se quedó la sesión anterior.
-- [Reglas] Definidas las reglas de trabajo del proyecto y reflejadas en `AGENTS.md`:
-  - `ResumenDelDia.md` = historial del día (ese archivo), se actualiza a medida
+- [Reglas] Definidas las reglas de trabajo del proyecto y reflejadas en [`AGENTS.md`](AGENTS.md):
+  - [`ResumenDelDia.md`](ResumenDelDia.md) = historial del día (ese archivo), se actualiza a medida
     que se trabaja y sirve de base para el resumen de cierre de sesión.
-  - `PlanesAprobados.md` = COLA de trabajo (no historial): lo implementado se saca
+  - [`PlanesAprobados.md`](PlanesAprobados.md) = COLA de trabajo (no historial): lo implementado se saca
     de ahí.
-  - `README.md` se actualiza con avances cuando el plan lo amerita (seguridad,
+  - [`README.md`](README.md) se actualiza con avances cuando el plan lo amerita (seguridad,
     funciones nuevas, etc.).
-  - Al terminar la sesión se actualiza `AGENTS.md` con el resumen del día; luego se
+  - Al terminar la sesión se actualiza [`AGENTS.md`](AGENTS.md) con el resumen del día; luego se
     pregunta al usuario si quiere ver el resumen del día desde ese archivo.
-- [Docs] Creado `ResumenDelDia.md` y actualizados `AGENTS.md` y `PlanesAprobados.md`
+- [Docs] Creado [`ResumenDelDia.md`](ResumenDelDia.md) y actualizados [`AGENTS.md`](AGENTS.md) y [`PlanesAprobados.md`](PlanesAprobados.md)
   con las reglas y el estado de la cola.
 - [Git] Commit + push de los cambios de la mañana a GitHub (rama `main`).
 - [Pospuesto] Prueba de concurrencia (Fase 1.5, Paso 1 — `tools/probar_concurrencia.py`)

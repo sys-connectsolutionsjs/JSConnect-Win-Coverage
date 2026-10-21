@@ -141,7 +141,7 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
 - La llave privada de activación, tokens y archivos de captura NUNCA van al repo.
 - **TDD (semáforo)**: los tests se escriben PRIMERO (rojo → falla), luego se
   implementa lo mínimo para que pasen (verde). Cualquier cambio de comportamiento
-  va acompañado de su test. Bitácora detallada en `TestingLog.md`.
+  va acompañado de su test. Bitácora detallada en [`TestingLog.md`](TestingLog.md).
 
 ## README.md (obligatorio)
 - El README.md debe mantenerse **ACTUALIZADO** con todos los cambios relevantes
@@ -221,31 +221,31 @@ Guardar validaciones pasadas (local, SQLite) para consulta rápida sin re-valida
 SQLite ya viene en Python; no añade dependencias.
 
 ## Reglas de trabajo (flujo del día)
-- **`ResumenDelDia.md`** = historial del DÍA. Lleva la fecha dentro y se va
+- **[`ResumenDelDia.md`](ResumenDelDia.md)** = historial del DÍA. Lleva la fecha dentro y se va
   actualizando a medida que se trabaja (lo que se hizo, lo que se pospuso, lo que
   queda pendiente al volver). Sirve de base para el resumen de cierre de sesión.
-- **`PlanesAprobados.md`** es una **COLA de trabajo, NO un historial**: cada vez que
+- **[`PlanesAprobados.md`](PlanesAprobados.md)** es una **COLA de trabajo, NO un historial**: cada vez que
   se implementa algo que estaba en la cola, se **saca** de ahí (se marca como hecho o
-  se elimina). El historial de lo hecho vive en `docs/historial-agents.md` (bitácora
+  se elimina). El historial de lo hecho vive en [`docs/historial-agents.md`](docs/historial-agents.md) (bitácora
   archivada), en el último cierre de AGENTS.md y en ResumenDelDia.md.
-- **`README.md`** se actualiza con los avances cuando el plan implementado lo amerite
+- **[`README.md`](README.md)** se actualiza con los avances cuando el plan implementado lo amerite
   (seguridad, funciones nuevas, estructura, comandos, etc.).
 - **Cierre de sesión** (automatizable con `/documentation:cerrar-sesion`, ver tarea 43 en
-  `docs/historial-agents.md`): al terminar una sesión se actualiza AGENTS.md con el resumen
+  [`docs/historial-agents.md`](docs/historial-agents.md)): al terminar una sesión se actualiza AGENTS.md con el resumen
   de lo hecho en el día **en un solo `### Cierre de la sesión <fecha>`** (el último). Antes de
-  escribirlo, el cierre anterior se **mueve** tal cual a `docs/historial-agents.md`
+  escribirlo, el cierre anterior se **mueve** tal cual a [`docs/historial-agents.md`](docs/historial-agents.md)
   (sección "Historial", el más nuevo al final); así `AGENTS.md` no vuelve a crecer sin
   límite. Las tareas completadas también van a ese archivo; en `## Tareas pendientes`
   solo queda lo abierto. Después, al confirmar el usuario que ya terminó la
   sesión, se le pregunta si desea presentar el resumen del día desde
-  `ResumenDelDia.md`.
-- **Rotación de resúmenes** (al abrir un día nuevo): el contenido de `ResumenDelDia.md`
+  [`ResumenDelDia.md`](ResumenDelDia.md).
+- **Rotación de resúmenes** (al abrir un día nuevo): el contenido de [`ResumenDelDia.md`](ResumenDelDia.md)
   se reparte en dos destinos que NO compiten, cada uno con un rol distinto:
   - `resumenes/<fecha>.md`: snapshot COMPLETO e inmutable de la sesión que cierra (todo
-    el detalle, tal cual quedó en `ResumenDelDia.md`).
-  - `HistorialResumenes.md`: entrada CONDENSADA de esa sesión, agregada arriba del todo
+    el detalle, tal cual quedó en [`ResumenDelDia.md`](ResumenDelDia.md)).
+  - [`HistorialResumenes.md`](HistorialResumenes.md): entrada CONDENSADA de esa sesión, agregada arriba del todo
     (orden cronológico inverso) — es el índice navegable, no el detalle completo.
-  - Después de rotar, `ResumenDelDia.md` empieza limpio con la fecha del día nuevo.
+  - Después de rotar, [`ResumenDelDia.md`](ResumenDelDia.md) empieza limpio con la fecha del día nuevo.
 
 ## Regla de auto-actualización de la documentación
 
@@ -264,8 +264,8 @@ sesión 2026-08-25, que quedó desfasado del código real), se sigue este proces
 
 2. **Durante la sesión — registro narrativo (sin auditar)**
    Al terminar cada tarea significativa (fase, feature o fix con tests en verde),
-   anotar en `ResumenDelDia.md` lo que se hizo, y sacar de la cola de
-   `PlanesAprobados.md` lo que ya se implementó. Basta con narrar lo trabajado; esta
+   anotar en [`ResumenDelDia.md`](ResumenDelDia.md) lo que se hizo, y sacar de la cola de
+   [`PlanesAprobados.md`](PlanesAprobados.md) lo que ya se implementó. Basta con narrar lo trabajado; esta
    anotación intermedia NO exige re-verificar el estado global del proyecto.
 
 3. **Al CERRAR sesión — actualización auditada**
@@ -273,60 +273,87 @@ sesión 2026-08-25, que quedó desfasado del código real), se sigue este proces
    (¿existen los archivos/funciones que se van a declarar completados?, ¿`pytest` y
    `ruff check .` en verde?). Recién con eso verificado:
    - Lo que se comprobó implementado en `## Tareas pendientes` se marca
-     `[COMPLETADO — <fecha>]` **y se mueve** a `docs/historial-agents.md` (sección
+     `[COMPLETADO — <fecha>]` **y se mueve** a [`docs/historial-agents.md`](docs/historial-agents.md) (sección
      "Tareas pendientes (archivo)"); en `AGENTS.md` solo quedan las abiertas.
    - Añadir un nuevo `### Cierre de la sesión <fecha>` en `## Historial` (mover antes el
-     anterior a `docs/historial-agents.md`).
-   - Actualizar `README.md` si el cambio lo amerita (seguridad, funciones nuevas,
+     anterior a [`docs/historial-agents.md`](docs/historial-agents.md)).
+   - Actualizar [`README.md`](README.md) si el cambio lo amerita (seguridad, funciones nuevas,
      estructura, comandos) y `docs/` si cambió algo técnico permanente.
-   - Rotar `ResumenDelDia.md` según la regla de rotación de arriba.
+   - Rotar [`ResumenDelDia.md`](ResumenDelDia.md) según la regla de rotación de arriba.
 
    **Regla de oro**: nunca marcar algo como completado o pendiente en la documentación
    sin haberlo comprobado en el código.
 
 **Recordatorio automático (hook)**: `.claude/hooks/historial_sync.py` (registrado en
-`.claude/settings.json` como hook `PostToolUse`) vigila `HistorialResumenes.md`.
+`.claude/settings.json` como hook `PostToolUse`) vigila [`HistorialResumenes.md`](HistorialResumenes.md).
 Cada vez que se le agregan entradas nuevas (`### YYYY-MM-DD`), inyecta un
-recordatorio para sincronizar `anotaciones.md` / `PlanesAprobados.md` / `AGENTS.md`;
-cada 3 entradas nuevas acumuladas, además recuerda revisar `README.md`. Es solo un
+recordatorio para sincronizar [`anotaciones.md`](anotaciones.md) / [`PlanesAprobados.md`](PlanesAprobados.md) / `AGENTS.md`;
+cada 3 entradas nuevas acumuladas, además recuerda revisar [`README.md`](README.md). Es solo un
 aviso — no edita nada y no reemplaza la verificación contra el código.
 
 ## Archivos de documentación (mapa de conocimiento)
 Estos archivos son el punto de partida de cualquier persona (o IA) que retome el
-proyecto. Leerlos en este orden ANTES de tocar código:
-1. **AGENTS.md** (este archivo): reglas del proyecto, contexto, tareas abiertas y el
+proyecto. Leerlos en este orden ANTES de tocar código. Esta sección es además el
+**nodo central del grafo** de Obsidian (el repo se puede abrir como bóveda; `.obsidian/`
+está en `.gitignore`):
+1. **[AGENTS.md](AGENTS.md)** (este archivo): reglas del proyecto, contexto, tareas abiertas y el
    último cierre de sesión. Es la puerta de entrada. Su historial viejo está en
-   **docs/historial-agents.md** (ver abajo).
-2. **Roadmap.md**: vista única de qué se hizo, qué falta y en qué orden (línea de
+   **[docs/historial-agents.md](docs/historial-agents.md)** (ver abajo).
+2. **[Roadmap.md](Roadmap.md)**: vista única de qué se hizo, qué falta y en qué orden (línea de
    tiempo + cola aprobada + backlog v1.1 + bloqueos). Leer para ubicarse rápido
    antes de decidir en qué trabajar.
-3. **PlanesAprobados.md**: **cola** de trabajo con los planes YA aprobados, el
+3. **[PlanesAprobados.md](PlanesAprobados.md)**: **cola** de trabajo con los planes YA aprobados, el
    razonamiento y las decisiones tomadas (ej: decisión de autenticación). Contiene
    además diseños listos para implementar. Leer antes de empezar una fase para no repetir
    análisis ni ignorar decisiones. Se actualiza SACANDO de la cola lo implementado.
-4. **TestingLog.md**: metodología TDD del proyecto (test rojo -> verde), inventario de
+4. **[TestingLog.md](TestingLog.md)**: metodología TDD del proyecto (test rojo -> verde), inventario de
    tests y bitácora de problemas -> causa -> solución. Leer antes de escribir o
    modificar tests.
-5. **README.md**: documentación pública del proyecto (español primero, luego inglés).
-   Mantenerla actualizada ANTES de subir a GitHub.
-6. **ResumenDelDia.md**: historial del día en curso (fecha dentro, se actualiza al
+5. **[README.md](README.md)**: documentación pública del proyecto (español primero, luego inglés).
+   Mantenerla actualizada ANTES de subir a GitHub. Su guía corta del proxy para el owner es
+   **[README_PROXY.md](README_PROXY.md)**.
+6. **[ResumenDelDia.md](ResumenDelDia.md)**: historial del día en curso (fecha dentro, se actualiza al
    trabajar). Fuente del resumen de cierre de sesión.
-7. **Escalabilidad.md**: guía para futuros programadores (cómo escalar a remotos).
-8. **anotaciones.md**: glosario técnico para términos que futuros devs desconozcan.
-9. **docs/**: documentación técnica permanente (arquitectura, deploy, config, rotación, escalabilidad).
-10. **HistorialResumenes.md**: índice cronológico condensado de resúmenes pasados (lo
-   más nuevo arriba). Ver ahí si se necesita ubicar rápido en qué sesión pasó algo.
+7. **[Escalabilidad.md](Escalabilidad.md)**: guía para futuros programadores (cómo escalar a remotos).
+8. **[anotaciones.md](anotaciones.md)**: glosario técnico para términos que futuros devs desconozcan.
+9. **docs/**: documentación técnica permanente:
+   - [docs/arquitectura.md](docs/arquitectura.md): componentes, flujos y control de acceso al proxy;
+     sus diagramas PlantUML están en [docs/diagramas/README.md](docs/diagramas/README.md).
+   - [docs/proxy-deploy.md](docs/proxy-deploy.md): instalar y actualizar el proxy en la PC de la oficina.
+   - [docs/proxy-config.md](docs/proxy-config.md): configurar cada agente para usar el proxy.
+   - [docs/rotacion-credenciales.md](docs/rotacion-credenciales.md): renovar la sesión de WinForce y
+     cambiar credenciales (incluye Geofinder y cómo investigar una muerte de sesión).
+   - [docs/escalabilidad-remota.md](docs/escalabilidad-remota.md): extender la arquitectura a agentes
+     fuera de la LAN.
+10. **[HistorialResumenes.md](HistorialResumenes.md)**: índice cronológico condensado de resúmenes pasados (lo
+   más nuevo arriba), con un enlace a cada snapshot. Ver ahí si se necesita ubicar rápido en qué
+   sesión pasó algo.
 11. **resumenes/**: snapshots COMPLETOS e inmutables de cada sesión pasada
-    (`resumenes/<fecha>.md`), con el detalle íntegro que tenía `ResumenDelDia.md` al
-    cerrar esa sesión.
-12. **docs/historial-agents.md**: archivo histórico de AGENTS.md — las 43 tareas ya
-    completadas y la bitácora por fases + cierres de sesión de 2026-08-18 a 2026-10-02
-    (movidos tal cual el 2026-10-07). Consultar ahí el "por qué" de una decisión antigua;
-    no es lectura obligatoria al retomar el proyecto.
+    (`resumenes/<fecha>.md`), con el detalle íntegro que tenía [ResumenDelDia.md](ResumenDelDia.md) al
+    cerrar esa sesión. No se editan (tampoco para añadir enlaces).
+12. **[docs/historial-agents.md](docs/historial-agents.md)**: archivo histórico de AGENTS.md — las tareas ya
+    completadas y la bitácora por fases + cierres de sesión anteriores. Consultar ahí el
+    "por qué" de una decisión antigua; no es lectura obligatoria al retomar el proyecto.
+13. **[actualizacion-windows-11/README.md](actualizacion-windows-11/README.md)**: adaptación de la PC
+    owner/proxy a Windows 11 (2026-10-02): cambios, verificación y pendientes de esa migración.
+14. **[TraspasoInmediato.md](TraspasoInmediato.md)**: plan futuro (no implementado) para traspasar el
+    proxy rápido entre dos PC.
+15. **[SkillsPropuestas.md](SkillsPropuestas.md)**: cola de tareas repetitivas que podrían volverse
+    skills personalizadas.
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
 DecisionesArquitectura.md, ManualOperador.md), se registra AQUÍ su existencia, propósito
 e importancia, para que el mapa de conocimiento nunca quede incompleto.
+
+**Enlaces entre documentos**: un `.md` que cita a otro lo hace con un enlace markdown
+**relativo a la carpeta del archivo** (destino `docs/proxy-deploy.md` desde la raíz,
+`../AGENTS.md` desde `docs/`), no con la ruta suelta entre backticks: así funciona en
+GitHub y en el grafo de Obsidian. No usar wikilinks `[[...]]` (GitHub no los muestra). Al
+**mover texto entre carpetas** (cierre de AGENTS.md -> `docs/historial-agents.md`,
+ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
+[ResumenDelDia.md](ResumenDelDia.md) conviene citar sin enlace, porque termina copiado en `resumenes/`.
+`tests/test_enlaces_docs.py` falla si queda un enlace roto (salvo en `resumenes/`, inmutable) o si
+[HistorialResumenes.md](HistorialResumenes.md) no enlaza algún snapshot.
 
 ## Notas de seguridad
 - No subir a GitHub: llave privada de activación, credenciales reales, archivos de
@@ -341,14 +368,14 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 - El repo es público: el código de la API interna será visible. Los endpoints ya son
   públicos de facto (los usa el navegador), pero revisar antes de publicar.
 - **Proxy**: `config.yaml`, `proxy_token.txt`, `admin_key.txt` son GITIGNORED — solo en PC proxy.
-- **Control de acceso (whitelist + token, loopback siempre permitido)**: ver `docs/arquitectura.md`, sección "Control de acceso al proxy". Las IP públicas del router NO se agregan a `allowed_networks`. `/admin/*` exige además origen `127.0.0.1` (no configurable): el admin key expone el `proxy_token` vía `/admin/config`, así que nunca viaja por LAN.
+- **Control de acceso (whitelist + token, loopback siempre permitido)**: ver [`docs/arquitectura.md`](docs/arquitectura.md), sección "Control de acceso al proxy". Las IP públicas del router NO se agregan a `allowed_networks`. `/admin/*` exige además origen `127.0.0.1` (no configurable): el admin key expone el `proxy_token` vía `/admin/config`, así que nunca viaja por LAN.
 - **Credenciales del proxy desde la consola owner**: `JSConnect-Win-Owner.exe` tiene un panel "Credenciales del proxy" (Mostrar/Copiar/Rotar) que pide UAC para leer/rotar `config.yaml`. `private_key.pem` **no** se expone ahí ni en ningún otro lugar de la consola — es la única credencial no rotable.
 - Repositorio remoto: https://github.com/sys-connectsolutionsjs/JSConnect-Win-Coverage
 
 ## Tareas pendientes
 > Solo lo que sigue **abierto**. Las tareas completadas (1-44) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). La cola con el detalle y el orden
-> está en `PlanesAprobados.md` y `Roadmap.md`.
+> está en [`PlanesAprobados.md`](PlanesAprobados.md) y [`Roadmap.md`](Roadmap.md).
 
 1. **Reactivar los agentes** con la huella estable (25 hoy: 18 + 7; 41 a futuro). Funcionan en
    "transición" mientras tanto. **NO borrar `huellas_legacy()`** salvo petición expresa
@@ -356,9 +383,9 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
 2. **Probar un agente W10 real contra el owner W11** y revisar en el owner
    `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
 3. **Observar las muertes de la sesión de WinForce** (~10 min tras renovar el 2026-10-02): hipótesis
-   del dueño = login ajeno con la misma cuenta; pasos en `docs/rotacion-credenciales.md` →
+   del dueño = login ajeno con la misma cuenta; pasos en [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) →
    "Cómo investigar una muerte de sesión". El tope de 9.5 h es una medición no concluyente.
-4. **Probar el pendrive en una PC owner limpia** (`docs/proxy-deploy.md` → "Instalación con pendrive").
+4. **Probar el pendrive en una PC owner limpia** ([`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Instalación con pendrive").
 5. **Firma de código** de los `.exe` (Smart App Control en Windows 11).
 6. **Pasar `W11-JSConnect-Win-Coverage` (archivado) a privado**, solo cuando sus `.exe` ya se
    hayan actualizado a `v2026.10.07`.
@@ -399,7 +426,7 @@ e importancia, para que el mapa de conocimiento nunca quede incompleto.
     desplazamiento fija** en el panel lateral (sin saltos al perder el foco).
   - **Zona F retirada** (era copia de Fraude; `capas_de_json` la ignora en datos viejos).
   - **Actualizar el proxy sin reinstalar**: `tools/empaquetar_actualizacion_proxy.ps1` (solo código,
-    sin secretos) + `docs/proxy-deploy.md`.
+    sin secretos) + [`docs/proxy-deploy.md`](docs/proxy-deploy.md).
 - **Verificado en vivo** (proxy de la oficina, DNI de prueba): dirección idéntica a WinForce para
   `-12.02894226054663, -77.0938731550291`; orden del paréntesis confirmado con un punto de Lima;
   score + `persona` + Copiar todo con el formato pedido.
