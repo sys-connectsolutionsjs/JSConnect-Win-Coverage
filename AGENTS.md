@@ -391,15 +391,22 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
    hayan actualizado a `v2026.10.07`.
 7. **Que el agente lea la URL y el token de un archivo del pendrive** (idea acordada; después de la
    Fase 5, con su propio Release).
-7b. **Mapa de cobertura**: probarlo con los asesores y llevar la URL de `capas_kml_url` al
-   `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas embebidas; `/api/capas`
-   responde 503 sin ella, lo esperado). Release publicado en `v2026.10.13`. La "Zona F" ya se retiró.
+7b. **Mapa de cobertura**: probarlo con los asesores y poner en `capas_kml_url` del `config.yaml` del
+   proxy la URL KML del **My Maps de la empresa** (creado y verificado el 2026-10-21; la URL no va al
+   repo). Sin ella `/api/capas` responde 503 y los agentes usan las reglas embebidas.
     **`v2026.10.23`** arregla el mapa sin fondo (OSM bloqueaba el User-Agent `TkinterMapView`).
 7c. **Cuenta dedicada de WinForce para el proxy** (aprobada): renovar la sesión con ella, que nadie
     la use a mano, y medir 1-2 semanas con `logs/sesion_eventos.jsonl` (hoy las muertes son por logins
     ajenos en horario de oficina). Si aun así muere: **autologin desatendido** con Playwright
     (`login_asistido.py`) + usuario/contraseña en el keyring del host — viable, el login es solo el SSO
     de Microsoft (sin 2FA).
+7d. **Mini PC como host 24/7 del proxy**: instalar con `install_service.bat`, encendido tras corte de
+    luz (BIOS), sin suspensión, idealmente UPS; para lo "online", túnel (Tailscale) en vez de abrir
+    puertos. Se diseña cuando 7c esté confirmada.
+7e. **Cobertura observada** (TDD): el proxy registra cada `validar_cobertura` real (SQLite,
+    gitignored), marca discrepancias con la capa local y las sirve como capa en `/api/capas`;
+    sondeos extra acotados, apagados por defecto; exportar a KML desde la consola owner. Fraude /
+    bloqueados / preferente no se pueden contrastar (WinForce solo responde cobertura).
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —
@@ -409,49 +416,35 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     tarea con pasos.
 
 ## Historial (bitácora del proyecto)
-> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-02) están en
+> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-13) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-10-13 [CONTEXTO PARA LA SIGUIENTE — dirección Geofinder, ficha copiable, mapa solo Perú, Release v2026.10.13]
+### Cierre de la sesión 2026-10-21 → 2026-10-23 [CONTEXTO PARA LA SIGUIENTE — mapa sin fondo arreglado (v2026.10.23), SSO en vez de 2FA, log de sesiones, My Maps propio, docs enlazadas]
 
-- **Para qué**: el asesor necesita la **dirección** de las coordenadas y los **datos del documento**
-  para copiarlos a WinForce sin reescribir, y el mapa no debía cargar el mundo entero.
-- **Hecho** (commits `2247945`, `5809c72`, `43dd799`, `9ac9fbe`, `ae07541`, en `main`):
-  - **Dirección**: Geofinder (API de Equifax que usa WinForce) vía el proxy: `proxy/geofinder.py`
-    (token OAuth `client_credentials` cacheado ~24 min; flujo del navegador: `coordinates-ref` con
-    el punto tal cual → punto ajustado → `coordinates`), `GET /api/direccion`, `geofinder_basic`
-    **solo** en el `config.yaml` del proxy y `/health.geofinder`. Respaldo OpenStreetMap
-    (`core/direccion.py`) con **banner rojo** "DIRECCIÓN APROXIMADA… NO es la de WinForce" y el motivo.
-    `DIRECCIÓN DETALLADA` sale como Geofinder: `DETALLE (DISTRITO, PROVINCIA, DEPARTAMENTO)`.
-  - **Ficha copiable** (`gui/ficha.py`) en Cobertura/Score y Mapa: dato por dato y **Copiar todo**:
-    APELLIDOS Y NOMBRES, DOCUMENTO DE IDENTIDAD, NACIONALIDAD Y FECHA DE NACIMIENTO, SCORE (rango),
-    DIRECCIÓN DETALLADA, DEPARTAMENTO, PROVINCIA, DISTRITO. Datos de la persona del reporte
-    (`persona`, módulos 602/877) como campo opcional de proxy y cliente. El score del Mapa ya se copia.
-  - **Mapa solo Perú** (`gui/limites_mapa.py`: zoom mínimo 5 + borde por bbox) y **barra de
-    desplazamiento fija** en el panel lateral (sin saltos al perder el foco).
-  - **Zona F retirada** (era copia de Fraude; `capas_de_json` la ignora en datos viejos).
-  - **Actualizar el proxy sin reinstalar**: `tools/empaquetar_actualizacion_proxy.ps1` (solo código,
-    sin secretos) + [`docs/proxy-deploy.md`](docs/proxy-deploy.md).
-- **Verificado en vivo** (proxy de la oficina, DNI de prueba): dirección idéntica a WinForce para
-  `-12.02894226054663, -77.0938731550291`; orden del paréntesis confirmado con un punto de Lima;
-  score + `persona` + Copiar todo con el formato pedido.
-- **Hallazgos**: el proxy de la oficina era anterior al 2026-10-09 (404 en `/api/direccion` y
-  `/api/capas`): el agente cayó a OpenStreetMap, que devuelve el objeto OSM más cercano ("Mercado 3
-  de enero, 4298") y no la dirección de Equifax. El reporte **no trae lugar de nacimiento**; `Nombres`
-  llega como nombre completo (APELLIDOS NOMBRES) y en personas con RUC 10 `RazonSocial` repite ese
-  nombre. Un "nombre de otro DNI" fue un DNI mal digitado. `captura.py` oculta `Authorization`: la
-  credencial de Geofinder se saca a mano con F12.
-- **Decisiones del usuario**: respaldo OSM visible y copiable pero con alerta roja; solo documento →
-  dirección en blanco; lugar de nacimiento reemplazado por nacionalidad; apellidos primero.
-- **Estado**: tests 421 → **494**, `ruff` limpio. **Release `v2026.10.13` PUBLICADO**
-  (2026-10-13, agente + consola owner, tag en `5abb5d2`, SHA-256 verificados contra las notas). El proxy de la oficina ya corre
-  Geofinder, pero con un `core/api.py` anterior al fix de nombres (funciona igual con el agente nuevo).
-- **Pendiente**:
-  - recopiar `proxy-update\` a la PC owner cuando convenga (fix de nombres en `core/api.py`);
-  - `capas_kml_url` en el `config.yaml` del proxy (opcional); probar el mapa con asesores;
-  - detección automática de "no cruzar avenida de doble vía" (vías OSM) y dibujar los huecos;
-  - los de siempre: reactivar los agentes (**NO borrar `huellas_legacy()`**), reemplazar a mano el
-    `.exe` del owner si sigue en `v2026.10.07`, probar un agente W10 contra el owner W11, el archivo
-    del pendrive con URL+token, firma de código, observar las muertes de sesión y probar el pendrive
-    en una PC limpia.
+- **Hecho** (commits `f5437fb`, `bc032e8`, `c1ae3f1`, `9a4cec9`, en `main`):
+  - **Mapa sin fondo**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView` de
+    `tkintermapview` (responde 200 + `x-blocked` + imagen "Access blocked"). `gui/tiles.py` envuelve
+    el `requests` de `tkintermapview.map_widget` para usar `core/direccion.py::USER_AGENT`;
+    `map_page.al_mostrar()` lo aplica. **Release `v2026.10.23` publicado** (tag en `bc032e8`): el
+    `.exe` se probó abierto (Lima con calles y capas), SHA-256 verificados, un agente en
+    `v2026.10.13` lo detecta; el owner es el mismo archivo de `v2026.10.13`.
+  - **2FA → SSO de Microsoft (Entra ID)**: el usuario confirmó que el login solo pide correo y
+    contraseña. Corregido en docs vivas, README (es/en) y textos del código; los históricos llevan
+    nota de corrección; `ERR_LOGIN_2FA` conserva el nombre. El autologin pasa a ser viable.
+  - **Log de sesiones** (`logs/sesion_eventos.jsonl`, 2026-09-29 → 2026-10-21): 49 muertes, todas
+    de lunes a viernes entre 9 y 17 h; sesiones de ~15 h por la noche y ~66-69 h el fin de semana.
+    **No hay tope de 9.5 h**: mueren por otro login con la misma cuenta. La jefatura aprobó una
+    **cuenta dedicada**.
+  - **My Maps propio** (Preferente 2 + Códigos bloqueados): el KML de origen (138 polígonos) se
+    separó por capa en `datos_capas/` y el usuario lo importó; su KML público es idéntico y
+    `proxy/capas.py` lo interpreta. La URL va solo al `config.yaml` del proxy.
+  - **Docs enlazadas**: 373 referencias pasaron a enlaces relativos (GitHub + grafo de Obsidian);
+    mapa de conocimiento completo; `.obsidian/` ignorado; `tests/test_enlaces_docs.py`.
+- **Decisiones**: no se implementa el escaneo masivo de Lima (permiso de WinForce; riesgo de perder
+  la cuenta dedicada); solo la capa de cobertura se puede contrastar con WinForce → "cobertura
+  observada"; autologin solo si la cuenta dedicada no basta; proxy a una mini PC 24/7.
+- **Estado**: tests 494 → **500**, `ruff` limpio.
+- **Siguiente paso**: `capas_kml_url` + recopiar `proxy-update\` en el proxy; cuenta dedicada y
+  medir (7c); que los asesores actualicen a `v2026.10.23`; luego mini PC (7d) y cobertura
+  observada (7e).

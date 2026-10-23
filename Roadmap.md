@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en [`HistorialResumenes.md`](HistorialResumenes.md) y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-10-13.
+Última actualización: 2026-10-23.
 
 ---
 
@@ -62,6 +62,7 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | 2026-10-07 | **Fase 5, consola owner con actualizaciones y [`AGENTS.md`](AGENTS.md) dividido** — barrido de documentación (19 hallazgos revalidados), 3 bugs de Configurar Proxy del agente arreglados (URL sin `http://`, error real en Probar conexión, keyring), la consola owner busca actualizaciones por SHA-256, [`AGENTS.md`](AGENTS.md) 113 KB → 26 KB (historial en [`docs/historial-agents.md`](docs/historial-agents.md)), "tope de 9.5 h" marcado como medición no concluyente. Release `v2026.10.07.1`, 318 tests | `5f382a5` `46e8a32` `154ba5e` |
 | 2026-10-09 | **Mapa de cobertura y reglas de venta por zona** — página Mapa (`tkintermapview`) con cobertura, fraude, Preferente 2 (score ≥ 401), códigos bloqueados (la Zona F se retiró el 2026-10-13); decisión **antes** de gastar score (bloqueada → no se consulta; sin cobertura pero con cobertura a ≤ 300 m → "extensible"); solo la cobertura en vivo depende de WinForce (si falla se avisa y se dan las condiciones de la zona); capas embebidas en el .exe (datos de terceros, gitignored); ventana de una sola medida + pantalla completa (F11). **Sin Release aún**, 421 tests | `3942e2d` `89a6d03` |
 | 2026-10-13 | **Dirección (Geofinder + respaldo OSM), ficha copiable, mapa solo Perú, Zona F retirada** — dirección de las coordenadas vía el proxy (`/api/direccion`, `geofinder_basic`) con respaldo OpenStreetMap y banner rojo; ficha con APELLIDOS Y NOMBRES, documento, nacionalidad y fecha, score, dirección detallada, departamento, provincia y distrito (dato por dato o Copiar todo); mapa limitado a Perú y barra fija; paquete para actualizar el proxy sin reinstalar. Verificado en vivo; **Release v2026.10.13**, 494 tests | `2247945` … `ae07541` |
+| 2026-10-21 → 23 | **Mapa sin fondo arreglado, SSO en vez de 2FA, log de sesiones, My Maps propio** — OSM bloqueaba el User-Agent `TkinterMapView` (`gui/tiles.py` usa el del proyecto); el login es solo el SSO de Microsoft (autologin viable); el log confirma que las sesiones mueren por logins ajenos (no hay tope de 9.5 h) → cuenta dedicada aprobada; My Maps de la empresa con Preferente 2 y Bloqueados; docs enlazadas para Obsidian. **Release v2026.10.23**, 500 tests | `f5437fb` `bc032e8` `c1ae3f1` `9a4cec9` |
 
 ---
 

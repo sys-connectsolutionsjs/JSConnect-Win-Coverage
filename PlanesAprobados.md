@@ -474,7 +474,18 @@ Barrido de docs hecho el 2026-10-07 (detalle en la lista de la Fase 5 de arriba)
   en su propio keyring.
 
 ## Pendientes adicionales (cola activa)
-- **Mapa de cobertura**: probar con asesores (el Release salió como `v2026.10.13`, 2026-10-13).
+- **Mapa de cobertura**: probar con asesores (Release `v2026.10.23`, 2026-10-23: arregla el mapa sin
+  fondo) y poner en `capas_kml_url` la URL del My Maps de la empresa (creado 2026-10-21).
+- **Aprobado 2026-10-21 — Cuenta dedicada, host 24/7 y cobertura observada** (en este orden):
+  1. Cuenta dedicada de WinForce en el proxy (nadie la usa a mano) y medir 1-2 semanas con
+     `logs/sesion_eventos.jsonl`. Si aun así muere: autologin desatendido con Playwright
+     (`login_asistido.py`) + usuario/contraseña en el keyring del host (nunca en `config.yaml` ni en
+     el `.exe`); viable porque el login es solo el SSO de Microsoft.
+  2. Mini PC como host 24/7 (`install_service.bat`, encendido tras corte de luz, sin suspensión;
+     túnel tipo Tailscale para lo "online").
+  3. Cobertura observada (TDD): registro SQLite de cada `validar_cobertura` real con discrepancia
+     frente a la capa local, capa "cobertura observada" en `/api/capas` y el mapa, sondeos acotados
+     opcionales, exportación a KML. **No** se hace escaneo masivo de Lima (decisión 2026-10-21).
 - **Reactivar los agentes con la huella estable** (Release `v2026.10.07`, 2026-10-07):
   25 hoy (18 + 7), 41 a futuro. Funcionan en "transición" mientras tanto.
   `huellas_legacy()` **NO se borra salvo petición expresa del usuario** (regla en

@@ -17,6 +17,17 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-10-21 — Sesión (hasta el 2026-10-23) — mapa sin fondo arreglado (v2026.10.23), SSO en vez de 2FA, log de sesiones y My Maps propio
+- **Snapshot completo**: [`resumenes/2026-10-21.md`](resumenes/2026-10-21.md).
+- **Mapa sin fondo**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView`; `gui/tiles.py` usa el del proyecto. **Release `v2026.10.23`** publicado y probado (`.exe` abierto, SHA-256 verificados).
+- **Login**: no es 2FA sino el SSO de Microsoft (Entra ID), solo correo y contraseña. Corregido en docs y textos; el autologin pasa a ser viable.
+- **Log de sesiones**: 49 muertes, todas en horario de oficina; sesiones de hasta ~69 h el fin de semana. No hay tope de 9.5 h: mueren por logins ajenos → cuenta dedicada aprobada.
+- **My Maps de la empresa** con Preferente 2 y Códigos bloqueados (138 polígonos, idénticos al origen); falta su URL en `capas_kml_url` del proxy.
+- **Decisiones**: sin escaneo masivo de Lima; "cobertura observada" a partir de consultas reales; proxy a una mini PC 24/7; autologin solo si la cuenta dedicada no basta.
+- **Docs**: 373 referencias enlazadas (GitHub + Obsidian), `.obsidian/` ignorado, `tests/test_enlaces_docs.py`.
+- **Tests**: 494 → 500, `ruff` limpio. Commits `f5437fb`, `bc032e8`, `c1ae3f1`, `9a4cec9`.
+
 ### 2026-10-13 — Sesión — dirección Geofinder + respaldo OSM, ficha copiable, mapa solo Perú, Zona F retirada y Release v2026.10.13
 - **Snapshot completo**: [`resumenes/2026-10-13.md`](resumenes/2026-10-13.md).
 - **Por qué**: el asesor necesita la dirección de las coordenadas y los datos del documento para
