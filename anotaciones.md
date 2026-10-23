@@ -738,3 +738,12 @@ keyring.delete_password("servicio", "usuario")
   NACIONALIDAD Y FECHA DE NACIMIENTO, SCORE, DIRECCIÓN DETALLADA, DEPARTAMENTO, PROVINCIA, DISTRITO.
 - **Proxy anterior**: responde 404 en `/api/direccion`; el cliente lo traduce a "proxy
   desactualizado" (`ProxyEndpointNoExisteError`).
+
+## Tiles de OpenStreetMap y User-Agent (2026-10-23)
+- OSM bloquea a las apps que no cumplen su política de tiles: responde 200 con la cabecera
+  `x-blocked` y una imagen "Access blocked" (por eso el mapa "no carga" sin dar error).
+- `tkintermapview` usa el User-Agent fijo `TkinterMapView`, que está bloqueado. `gui/tiles.py` hace
+  que salgan con `core/direccion.py::USER_AGENT` (el mismo que la búsqueda de direcciones en OSM).
+- La política pide un User-Agent que identifique a la app y uso ligero; 25–41 agentes internos lo
+  son. No falsificar un User-Agent de navegador (también se bloquea).
+

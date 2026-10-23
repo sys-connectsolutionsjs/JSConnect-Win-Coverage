@@ -93,7 +93,7 @@ JS-Win-Coverage/              (raíz del proyecto)
     ├── version.py            # SHA + tag embebidos (autogenerado en build)
     ├── core/                 # api.py (login, score, cobertura) + session.py · geo.py (reglas de venta por zona: KML/KMZ, distancias, decidir_venta) · capas_local.py (carga de capas con garantia) · direccion.py (direccion de unas coordenadas: parsers Geofinder/OSM y respaldo con aviso)
     ├── data/                 # capas.json.gz embebido en el .exe (GITIGNORED: datos de terceros)
-    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone) · map_page.py (pagina Mapa) · limites_mapa.py (encierra el mapa en Peru: zoom minimo 5 + bbox) · ficha.py (ficha del cliente copiable: dato por dato o todo junto) · zonas.py (textos/plan del score)
+    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone) · map_page.py (pagina Mapa) · limites_mapa.py (encierra el mapa en Peru: zoom minimo 5 + bbox) · tiles.py (tiles de OSM con el User-Agent del proyecto: OSM bloquea "TkinterMapView") · ficha.py (ficha del cliente copiable: dato por dato o todo junto) · zonas.py (textos/plan del score)
     ├── activation/           # fingerprint.py, signer.py, state.py
     ├── updater/              # check.py, download.py (agente por commit; owner por SHA-256)
     └── proxy/                # proxy local para los agentes de la LAN (25 hoy, 41 previstos)

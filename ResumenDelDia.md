@@ -16,6 +16,22 @@ por eso no tiene snapshot propio.
   markdown relativos (se ven en GitHub y en el grafo); el mapa de conocimiento de `AGENTS.md`
   enlaza todos los documentos y es el nodo central; convención de enlaces escrita en `AGENTS.md`.
   Los snapshots de `resumenes/` no se tocaron. Test nuevo `tests/test_enlaces_docs.py` (3).
+- **Log de sesiones** (`logs/sesion_eventos.jsonl`, 2026-09-29 → 2026-10-21): 49 muertes, todas de
+  lunes a viernes entre las 9 y las 17 h (1 sola a las 13 h); sesiones que sobreviven la noche y dos
+  que sobrevivieron el fin de semana (~66-69 h). No hay tope de 9.5 h: la sesión muere por otro login
+  con la misma cuenta. La jefatura aprobó una **cuenta dedicada**.
+- **Corrección**: el login de WinForce no es 2FA, es solo el SSO de Microsoft (Entra ID). Falta
+  corregirlo en la documentación.
+- **My Maps propio** de Preferente 2 / Códigos bloqueados: el mapa de origen ("PARAMETROS VENTAS",
+  138 polígonos) se separó en dos KML (`datos_capas/`, gitignored) y el usuario los importó en el mapa
+  de la empresa. Verificado: su KML público trae las mismas 2 capas y polígonos idénticos, y
+  `proxy/capas.py` lo interpreta. Falta poner su URL en `capas_kml_url` del `config.yaml` del proxy.
+- **Escaneo masivo de Lima** para capas: no se implementa (riesgo de perder la cuenta dedicada; el
+  permiso es de WinForce). En su lugar: cobertura observada a partir de las consultas reales.
+- **(2026-10-23) El mapa no cargaba**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView`
+  de `tkintermapview` (responde la imagen "Access blocked"). Arreglo: `gui/tiles.py` hace que las
+  tiles salgan con el User-Agent del proyecto; test `tests/test_tiles_mapa.py` (3), 500 tests en
+  verde. **Necesita un Release nuevo** para llegar a los agentes.
 
 ## Pendiente al iniciar
 

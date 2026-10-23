@@ -8,7 +8,7 @@ from tkinter import messagebox
 import ttkbootstrap as ttk
 
 from validator_app.core import api, direccion, geo
-from validator_app.gui import ficha, fields, limites_mapa, zonas
+from validator_app.gui import ficha, fields, limites_mapa, tiles, zonas
 
 CENTRO_LIMA = (-12.0464, -77.0428)
 RADIO_DIBUJO_M = 2000
@@ -138,6 +138,8 @@ class MapaPage(ttk.Frame):
                 self._contenedor_mapa, text="Mapa no disponible (falta tkintermapview)."
             ).pack()
             return
+        tiles.usar_user_agent_propio()
+
         class _MapaPeru(TkinterMapView):
             """Mapa que no deja alejar ni arrastrar fuera de Peru."""
 

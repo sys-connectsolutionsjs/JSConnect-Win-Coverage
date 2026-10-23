@@ -11,7 +11,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (497 en total, a 2026-10-21; el desglose de abajo es de 2026-10-02)
+## Inventario de tests (500 en total, a 2026-10-23; el desglose de abajo es de 2026-10-02)
 
 > 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
 > +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
@@ -41,12 +41,23 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 | tests/test_diagramas.py | 5 | guardas estáticas de `docs/diagramas/*.puml` (NUEVO 2026-09-27): `@startuml`/`@enduml` presentes, `!include _comun.puml`, `footer` de verificación, y que las clases citadas (`ValidatorAPI`, `ProxyValidatorAPI`, `ProxyClient`, `OwnerApp`) sigan existiendo en el código |
 | tests/test_enlaces_docs.py | 3 | guardas de los enlaces entre `.md` (NUEVO 2026-10-21): hay documentos, ningún enlace markdown relativo a un `.md` está roto (salvo en `resumenes/`, inmutable) y `HistorialResumenes.md` enlaza cada snapshot de `resumenes/` |
+| tests/test_tiles_mapa.py | 3 | tiles del mapa (NUEVO 2026-10-23): las peticiones de `tkintermapview` salen con `direccion.USER_AGENT` y no con `TkinterMapView` (bloqueado por OSM); envolver dos veces no anida |
 
 Nota: `tools/probar_concurrencia.py` y `tools/probar_con_cookie.py` NO tienen
 tests automáticos a propósito (piden credenciales y hacen peticiones reales); se
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-23 — el mapa no cargaba: OSM bloquea "TkinterMapView" (497 → 500 tests)
+- **Síntoma**: la página Mapa sin mapa de fondo (las capas sí).
+- **Causa**: `tkintermapview` 1.30 pide las tiles con el User-Agent fijo `TkinterMapView`; OSM
+  responde 200 con `x-blocked: Access denied` y una imagen "403 Access blocked". Con un
+  User-Agent de navegador falso también bloquea; con `direccion.USER_AGENT` no.
+- **Rojo**: `tests/test_tiles_mapa.py` (no existía `gui/tiles.py`).
+- **Verde**: `gui/tiles.py::usar_user_agent_propio()` envuelve el `requests` del módulo
+  `tkintermapview.map_widget` (idempotente) y `map_page.al_mostrar()` lo aplica antes de crear el
+  mapa. Comprobado en vivo: la tile llega sin `x-blocked`.
 
 ### Sesión 2026-10-21 — enlaces entre documentos (grafo de Obsidian) (494 → 497 tests)
 - **Rojo**: `tests/test_enlaces_docs.py` falló en dos tests: `HistorialResumenes.md` no enlazaba
