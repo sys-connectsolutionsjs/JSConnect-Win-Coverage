@@ -31,7 +31,9 @@ por eso no tiene snapshot propio.
 - **(2026-10-23) El mapa no cargaba**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView`
   de `tkintermapview` (responde la imagen "Access blocked"). Arreglo: `gui/tiles.py` hace que las
   tiles salgan con el User-Agent del proyecto; test `tests/test_tiles_mapa.py` (3), 500 tests en
-  verde. **Necesita un Release nuevo** para llegar a los agentes.
+  verde. **Release `v2026.10.23` PUBLICADO** (tag en `bc032e8`): el `.exe` nuevo se probó abierto
+  (Lima con calles y capas); SHA-256 de los assets descargados = notas; un agente en `v2026.10.13`
+  detecta la actualización. La consola owner es el mismo archivo de `v2026.10.13` (no se le ofrece).
 
 ## Pendiente al iniciar
 

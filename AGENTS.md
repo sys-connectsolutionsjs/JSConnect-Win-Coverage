@@ -394,6 +394,7 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
 7b. **Mapa de cobertura**: probarlo con los asesores y llevar la URL de `capas_kml_url` al
    `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas embebidas; `/api/capas`
    responde 503 sin ella, lo esperado). Release publicado en `v2026.10.13`. La "Zona F" ya se retiró.
+    **`v2026.10.23`** arregla el mapa sin fondo (OSM bloqueaba el User-Agent `TkinterMapView`).
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —
