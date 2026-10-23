@@ -65,7 +65,7 @@ Vistas detalladas (clases, componentes, estados, secuencias) en
   - `GET /admin/config` — Configuración protegida por `X-Admin-Key`; incluye token
   - `POST /admin/login` — Owner inyecta la cookie `PHPSESSID` obtenida de un login manual en navegador (via RDP)
   - `POST /admin/rotar` — Owner rota la cookie `PHPSESSID` (via RDP; `/admin/*` solo responde desde la propia PC del proxy); idéntico a `/admin/login`
-  - **Nota**: el login programático (usuario/password) es inviable — WinForce redirige a Microsoft 2FA. La cookie `PHPSESSID` se obtiene siempre de un login manual en navegador y se inyecta por estos endpoints o con `tools/probar_con_cookie.py` / `validator_app/proxy/rotate_creds.py`.
+  - **Nota**: no hay login programático por HTTP — WinForce redirige al SSO de Microsoft (Entra ID, solo correo y contraseña). Hoy la cookie `PHPSESSID` se obtiene de un login en navegador y se inyecta por estos endpoints o con `tools/probar_con_cookie.py` / `validator_app/proxy/rotate_creds.py`.
   - `GET /admin/status` — Estado sesión proxy + bloque `keepalive` (`enabled`, `last_ping_at`, `last_ping_ok`, `consecutive_failures`, `session_dead_since`)
 - **Keepalive ("latido perezoso")**: un loop `asyncio` en el `lifespan` pinga
   `validar_cobertura` (coordenada pública rotada) cada `keepalive_interval_seconds`
@@ -77,7 +77,7 @@ Vistas detalladas (clases, componentes, estados, secuencias) en
   `session_dead_since` en `/admin/status`, **sin reintentar en silencio**. El
   keepalive vence al idle-timeout (~20 min) pero **no** a un posible tope absoluto de
   sesión ≈ 9.5 h desde el login (medido una vez, no concluyente; ahí el owner renueva
-  la cookie ~1 vez por jornada; re-login programático inviable por 2FA). Config: `keepalive_enabled`,
+  la cookie ~1 vez por jornada; aún sin re-login automático). Config: `keepalive_enabled`,
   `keepalive_interval_seconds`.
 - **Autenticación**:
   - `/api/*`: `X-Proxy-Token` + IP en rangos LAN permitidos (loopback siempre)
@@ -88,7 +88,7 @@ Vistas detalladas (clases, componentes, estados, secuencias) en
 
 ### WinForce (Sistema externo ISP)
 - **Base URL**: `https://appwinforce.win.pe`
-- **Login**: `POST /controllers/acceso.php` → cookie `PHPSESSID` + **redirige a Microsoft 2FA**
+- **Login**: `POST /controllers/acceso.php` → cookie `PHPSESSID` + **redirige al SSO de Microsoft (Entra ID)**
 - **Cobertura**: `GET /controllers/coordenada.php?accion=validar_cobertura`
 - **Score**: `POST /controllers/cliente.php` con `accion=score_cliente` → reporte SOAP Equifax doble-encodificado
 - **Límites**: 2-3 sesiones concurrentes por cuenta; timeout 3 min inactividad; rotación credenciales cada 1-2 meses
@@ -178,7 +178,7 @@ Decide la zona **antes** de gastar una consulta de score (cada una consume una p
 | 6 | **Endpoints `/admin/*` preparados** para v2 remota | Hoy solo via RDP; futuro VPN + HTTPS | Requiere cert TLS + VPN para exponer seguro |
 | 7 | **Auto-recuperación de sesión** en proxy (120s idle) | Agentes no ven errores de sesión expirada mientras la cookie del keyring siga viva | Lógica en `ProxyValidatorAPI.auto_relogin_if_needed()` / `_relogin_silent()` (`server.py`); revalida la última `PHPSESSID` del keyring y **deja rastro en el log** de cada fallo (cookie expirada vs. fallo de red) |
 | 8 | **Geodata vacíos en score_cliente** | Servidor WinForce los rellena o no son obligatorios | Si WinForce cambia y exige geodata → replicar Equifax OAuth |
-| 9 | **Keepalive "latido perezoso"** (ping solo tras N min sin tráfico real) | Mantiene la sesión viva en huecos sin martillear la cuenta de Win con consultas fantasma | `_keepalive_loop` / `ProxyValidatorAPI._keepalive_tick` (`server.py`). No vence un posible tope absoluto ≈ 9.5h (medido una vez) → aviso al owner, sin re-login programático (2FA) |
+| 9 | **Keepalive "latido perezoso"** (ping solo tras N min sin tráfico real) | Mantiene la sesión viva en huecos sin martillear la cuenta de Win con consultas fantasma | `_keepalive_loop` / `ProxyValidatorAPI._keepalive_tick` (`server.py`). Las sesiones mueren cuando otra persona inicia sesión con la misma cuenta (log 2026-10-21; no hay tope de 9.5 h) → aviso al owner, aún sin re-login automático (SSO de Microsoft) |
 
 ---
 

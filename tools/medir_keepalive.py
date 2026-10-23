@@ -36,7 +36,7 @@ piensa usar en produccion para que la prueba VALIDE el diseño de la Fase 2 en
 vez de medir un patron que nunca vamos a usar.
 
 No pide usuario/contrasena: se asume que ya iniciaste sesion manualmente en el
-navegador (incluyendo el 2FA de Microsoft) y copiaste el valor de la cookie
+navegador (SSO de Microsoft) y copiaste el valor de la cookie
 PHPSESSID (F12 -> Application -> Cookies -> https://appwinforce.win.pe).
 
 PROTOCOLO (importante, el metodo vale tanto como el codigo):

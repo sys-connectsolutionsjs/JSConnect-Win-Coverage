@@ -20,8 +20,11 @@ por eso no tiene snapshot propio.
   lunes a viernes entre las 9 y las 17 h (1 sola a las 13 h); sesiones que sobreviven la noche y dos
   que sobrevivieron el fin de semana (~66-69 h). No hay tope de 9.5 h: la sesión muere por otro login
   con la misma cuenta. La jefatura aprobó una **cuenta dedicada**.
-- **Corrección**: el login de WinForce no es 2FA, es solo el SSO de Microsoft (Entra ID). Falta
-  corregirlo en la documentación.
+- **Corrección**: el login de WinForce no es 2FA, es solo el SSO de Microsoft (Entra ID): correo y
+  contraseña, confirmado por el usuario el 2026-10-23. **Corregido el 2026-10-23** en docs vivas,
+  README (es/en) y textos del código; `docs/historial-agents.md` y `HistorialResumenes.md` llevan una
+  nota de corrección arriba; `resumenes/` no se tocó; el código de error `ERR_LOGIN_2FA` conserva su
+  nombre (lo usan clientes instalados), solo cambió su descripción.
 - **My Maps propio** de Preferente 2 / Códigos bloqueados: el mapa de origen ("PARAMETROS VENTAS",
   138 polígonos) se separó en dos KML (`datos_capas/`, gitignored) y el usuario los importó en el mapa
   de la empresa. Verificado: su KML público trae las mismas 2 capas y polígonos idénticos, y

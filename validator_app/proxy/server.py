@@ -10,8 +10,8 @@ Endpoints:
 - POST /admin/rotar    {php_sessid} -> rota la cookie de sesion WinForce
 - GET  /admin/status   -> {logged_in, session_age, creds_updated, session_alive}
 
-Nota: el login programatico (usuario/password) es inviable por el 2FA de
-Microsoft (ver AGENTS.md/anotaciones.md). La cookie PHPSESSID se obtiene
+Nota: no hay login programatico por HTTP: WinForce usa el SSO de Microsoft
+(ver anotaciones.md). La cookie PHPSESSID se obtiene
 siempre de un login manual en navegador y se inyecta via /admin/login o
 /admin/rotar (ambas hacen lo mismo: validar + guardar en keyring).
 
@@ -297,8 +297,8 @@ class ProxyValidatorAPI:
     def _relogin_silent(self) -> None:
         """Recupera la sesion recargando y revalidando la cookie mas reciente
         guardada en keyring (por si el owner la roto con rotate_creds.py
-        mientras el proxy seguia corriendo). El login programatico es
-        inviable por el 2FA de Microsoft; esta es la unica recuperacion
+        mientras el proxy seguia corriendo). Aun no hay re-login
+        automatico con el SSO de Microsoft; esta es la unica recuperacion
         automatica posible.
 
         Nunca propaga: los callers siguen adelante y dejan que la peticion
@@ -615,8 +615,8 @@ class ProxyValidatorAPI:
             return
         self._session_dead_since = time.time()
         log.error(
-            "sesion WinForce MUERTA (%s)%s. El re-login programatico es inviable "
-            "por el 2FA de Microsoft. AVISO AL OWNER: renueva la cookie -> badge "
+            "sesion WinForce MUERTA (%s)%s. El proxy aun no se re-loguea solo "
+            "(SSO de Microsoft). AVISO AL OWNER: renueva la cookie -> badge "
             "rojo de la extension de Chrome (1 clic), o icono 'Renovar sesion "
             "WinForce' del Escritorio, o POST /admin/rotar.",
             motivo,

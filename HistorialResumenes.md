@@ -1,5 +1,7 @@
 # HistorialResumenes.md — Archivo histórico de resúmenes
 
+> **Corrección 2026-10-23**: donde este archivo dice "2FA", el login de WinForce es en realidad el SSO de Microsoft Entra ID (solo correo y contraseña, sin segundo factor). Se deja el texto histórico tal cual.
+
 Fecha de creación: 2026-08-21 · Proyecto: JSConnect-Win-Coverage
 
 ## Qué es este archivo

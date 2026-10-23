@@ -5,8 +5,8 @@ Uso:
     python -m validator_app.proxy.rotate_creds --manual   # pegar la cookie a mano
     python -m validator_app.proxy.rotate_creds --fresh     # asistido, perfil limpio
 
-Por el 2FA de Microsoft el login programatico es inviable: la cookie PHPSESSID
-sale siempre de un login manual en navegador.
+No hay login directo por HTTP (SSO de Microsoft): la cookie PHPSESSID sale de
+un login en navegador.
 
 - **Asistido** (por defecto, lo que lanza el icono "Renovar sesion WinForce" del
   Escritorio): abre Chromium, el owner inicia sesion normalmente y el script
@@ -40,7 +40,7 @@ def extract_php_sessid_from_input() -> str:
     print("""
 PASO 1: Abre Chrome/Edge en ESTA PC (la del proxy)
 PASO 2: Ve a https://appwinforce.win.pe/login
-PASO 3: Inicia sesion con las credenciales (incluye 2FA Microsoft)
+PASO 3: Inicia sesion con las credenciales (SSO de Microsoft)
 PASO 4: Cuando estes en el dashboard, abre DevTools (F12)
 PASO 5: Ve a Application -> Cookies -> https://appwinforce.win.pe
 PASO 6: Busca 'PHPSESSID', copia su Value (string largo alfanumerico)
@@ -168,7 +168,7 @@ def _main_manual() -> int:
     if not ok:
         print(f"[ERROR] {msg}")
         print("\nPosibles causas: cookie mal copiada / sesion ya expirada / "
-              "2FA de Microsoft sin completar.")
+              "login de Microsoft sin completar.")
         return 1
     print(f"[OK] {msg}")
 

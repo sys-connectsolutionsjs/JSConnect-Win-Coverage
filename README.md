@@ -24,9 +24,9 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
                               FastAPI + uvicorn
                               Puerto 8080
 ```
-- **Proxy Local (Opción B)**: Decidida tras detectar que WinForce redirige a Microsoft 2FA, haciendo inviable la concurrencia multi-máquina.
+- **Proxy Local (Opción B)**: Decidida tras detectar que WinForce inicia sesión con el SSO de Microsoft (Entra ID) en el navegador, lo que hace inviable un login por máquina.
 - ~25 agentes LAN (41 previstos) → 1 proxy → 1-2 sesiones WinForce desde una sola IP → sin riesgo de bloqueo.
-- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring). Renovarla (≈1 vez por jornada, por el tope de sesión) = **doble clic en el icono "Renovar sesion WinForce" del Escritorio** → el encargado inicia sesión en la ventana que se abre y el script captura la cookie solo (sin F12, sin copiar/pegar). El login programático usuario/contraseña es inviable por el 2FA de Microsoft.
+- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring). Renovarla (≈1 vez por jornada, por el tope de sesión) = **doble clic en el icono "Renovar sesion WinForce" del Escritorio** → el encargado inicia sesión en la ventana que se abre y el script captura la cookie solo (sin F12, sin copiar/pegar). No hay login directo por HTTP (el SSO de Microsoft se completa en el navegador).
 - Escalable a agentes remotos vía **Tailscale VPN** (mismo token, misma arquitectura, cero cambios de código).
 
 ### Características
@@ -63,8 +63,8 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 En cualquier momento, **⚙️ Configuración → Activación / Huella de la PC** muestra el estado de activación y la huella de la PC (para pedir un código al encargado). Si aparece "IP no permitida", la IP del agente no está en la lista del proxy: ver [`docs/arquitectura.md`](docs/arquitectura.md) ("Control de acceso al proxy").
 
 ### Modo standalone (desarrollo / pruebas / owner — sin proxy)
-Si no configuras proxy, la app va directa a WinForce. Como el login
-usuario/contraseña es inviable por el 2FA de Microsoft: Menú **⚙️ Configuración →
+Si no configuras proxy, la app va directa a WinForce. Como no hay login
+directo por HTTP (SSO de Microsoft): Menú **⚙️ Configuración →
 Configurar Sesión (standalone)** → pega la cookie `PHPSESSID` de un login manual
 en el navegador (F12 → Application → Cookies) → **Probar y guardar**. Se valida
 contra WinForce y se guarda cifrada en el keyring. Cuando expire, vuelve a pegarla.
@@ -197,9 +197,9 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
                               FastAPI + uvicorn
                               Port 8080
 ```
-- **Local Proxy (Option B)**: Decided after discovering WinForce redirects to Microsoft 2FA, making multi-machine concurrency unfeasible.
+- **Local Proxy (Option B)**: Decided after discovering WinForce signs in through Microsoft SSO (Entra ID) in the browser, making a login per machine unfeasible.
 - 20 LAN agents → 1 proxy → 1-2 WinForce sessions from single IP → no blocking risk.
-- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring). Renewing it (≈once per workday, due to the session cap) = **double-click the "Renovar sesion WinForce" desktop icon** → the manager logs in on the window that opens and the script captures the cookie by itself (no F12, no copy/paste). Programmatic username/password login is unfeasible due to Microsoft 2FA.
+- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring). Renewing it (≈once per workday, due to the session cap) = **double-click the "Renovar sesion WinForce" desktop icon** → the manager logs in on the window that opens and the script captures the cookie by itself (no F12, no copy/paste). There is no direct HTTP login (Microsoft SSO completes in the browser).
 - Scalable to remote agents via **Tailscale VPN** (same token, same architecture, zero code changes).
 
 ### Features
@@ -237,7 +237,7 @@ At any time, **⚙️ Configuración → Activación / Huella de la PC** shows t
 
 ### Standalone mode (dev / testing / owner — no proxy)
 Without a proxy configured, the app talks to WinForce directly. Since
-username/password login is unfeasible (Microsoft 2FA): menu **⚙️ Configuración →
+there is no direct HTTP login (Microsoft SSO): menu **⚙️ Configuración →
 Configurar Sesión (standalone)** → paste the `PHPSESSID` cookie from a manual
 browser login (F12 → Application → Cookies) → **Probar y guardar**. It is
 validated against WinForce and stored encrypted in the keyring; re-paste it when

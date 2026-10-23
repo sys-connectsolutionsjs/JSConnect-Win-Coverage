@@ -4,7 +4,7 @@ Uso (desde la raiz del repo):
     python tools/probar_con_cookie.py
 
 No pide usuario/contrasena: se asume que ya iniciaste sesion manualmente en el
-navegador (incluyendo el 2FA de Microsoft) y copiaste el valor de la cookie
+navegador (SSO de Microsoft) y copiaste el valor de la cookie
 PHPSESSID (F12 -> Application -> Cookies -> https://appwinforce.win.pe).
 
 Si la primera prueba falla, permite reintentar con el User-Agent real del

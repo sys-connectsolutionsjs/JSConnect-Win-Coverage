@@ -1,8 +1,8 @@
 """Sesión de WinForce para el modo standalone (sin proxy).
 
 El modo standalone es para desarrollo / pruebas / el owner — NO para los 20
-agentes (esos van por el proxy). Como el login programático es inviable por el
-2FA de Microsoft, el usuario pega una vez su cookie `PHPSESSID` (obtenida de un
+agentes (esos van por el proxy). Como no hay login directo por HTTP (SSO de
+Microsoft), el usuario pega una vez su cookie `PHPSESSID` (obtenida de un
 login manual en el navegador) en el diálogo "⚙ Configurar Sesión"; se valida
 contra WinForce y se guarda en el keyring local.
 

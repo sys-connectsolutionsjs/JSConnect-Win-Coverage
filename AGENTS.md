@@ -382,9 +382,9 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
    (regla en "Versionado y actualizaciones").
 2. **Probar un agente W10 real contra el owner W11** y revisar en el owner
    `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
-3. **Observar las muertes de la sesión de WinForce** (~10 min tras renovar el 2026-10-02): hipótesis
-   del dueño = login ajeno con la misma cuenta; pasos en [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) →
-   "Cómo investigar una muerte de sesión". El tope de 9.5 h es una medición no concluyente.
+3. **Muertes de la sesión de WinForce**: el log del 2026-09-29 al 2026-10-21 confirma la hipótesis del
+   dueño (login ajeno con la misma cuenta; ninguna muerte fuera de horario de oficina, sesiones de
+   hasta ~69 h el fin de semana). No hay tope de 9.5 h. Sigue en la tarea 7c (cuenta dedicada).
 4. **Probar el pendrive en una PC owner limpia** ([`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Instalación con pendrive").
 5. **Firma de código** de los `.exe` (Smart App Control en Windows 11).
 6. **Pasar `W11-JSConnect-Win-Coverage` (archivado) a privado**, solo cuando sus `.exe` ya se
@@ -395,6 +395,11 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
    `config.yaml` del proxy (opcional: sin ella los agentes usan las reglas embebidas; `/api/capas`
    responde 503 sin ella, lo esperado). Release publicado en `v2026.10.13`. La "Zona F" ya se retiró.
     **`v2026.10.23`** arregla el mapa sin fondo (OSM bloqueaba el User-Agent `TkinterMapView`).
+7c. **Cuenta dedicada de WinForce para el proxy** (aprobada): renovar la sesión con ella, que nadie
+    la use a mano, y medir 1-2 semanas con `logs/sesion_eventos.jsonl` (hoy las muertes son por logins
+    ajenos en horario de oficina). Si aun así muere: **autologin desatendido** con Playwright
+    (`login_asistido.py`) + usuario/contraseña en el keyring del host — viable, el login es solo el SSO
+    de Microsoft (sin 2FA).
 8. Decidir si la app llama a `actualizar_score_cliente` (registra score) o basta con leerlo —
    **PENDIENTE** (diferido por el usuario).
 9. Evaluar si la app debe crear el lead final (`POST controllers/newsearch.php`, multipart) —

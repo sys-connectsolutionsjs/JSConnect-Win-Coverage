@@ -1,19 +1,19 @@
 """Login asistido: recolecta la cookie PHPSESSID de WinForce con un navegador real.
 
-El owner hace login normal (incluye el 2FA de Microsoft el primer login de cada
-jornada) en una ventana de Chromium que abre este modulo; el script lee la
+El owner hace login normal (SSO de Microsoft: correo y contraseña, el primer login
+de cada jornada) en una ventana de Chromium que abre este modulo; el script lee la
 `PHPSESSID` del contexto del navegador (`context.cookies()` ve las cookies
 HttpOnly, a diferencia de `document.cookie`), la valida contra WinForce y la
 devuelve. Sin F12, sin copiar/pegar.
 
 Abre el **Google Chrome instalado** (`channel="chrome"`) para que el gestor de
 contraseñas de Chrome funcione — el owner inicia sesión en Chrome con su cuenta
-de Google una vez en esa ventana y desde entonces la contraseña se autocompleta
-(solo queda aprobar el 2FA). Si Chrome no está, cae al Chromium empaquetado.
+de Google una vez en esa ventana y desde entonces la contraseña se autocompleta.
+Si Chrome no está, cae al Chromium empaquetado.
 
 El perfil del navegador es PERSISTENTE y **dedicado** (`.browser_profile/`,
 gitignored, separado del Chrome normal del owner): dentro de la misma jornada el
-SSO de Microsoft se salta el 2FA en renovaciones sucesivas. `fresh=True` lo borra
+SSO de Microsoft no vuelve a pedir la contraseña en renovaciones sucesivas. `fresh=True` lo borra
 si algo se atasca.
 
 Lo usa `rotate_creds.py` (sin argumentos). Playwright se importa de forma
@@ -136,7 +136,7 @@ def capturar_php_sessid_asistido(timeout_min: int = 10, fresh: bool = False) -> 
                     php = candidato
                     break
                 except core_api.LoginError:
-                    pass  # cookie aun no autenticada (falta el 2FA)
+                    pass  # cookie aun no autenticada (login sin terminar)
                 except Exception:
                     pass  # red/WinForce: reintentar
 

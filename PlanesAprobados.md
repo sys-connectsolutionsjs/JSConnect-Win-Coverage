@@ -41,8 +41,8 @@ Pendiente: Fases 3–5.
   handlers. 31 tests en ese archivo.
 - **Prueba real del core**: COMPLETADA 2026-08-27 (ver sección abajo).
 - **Próxima fase (en ejecución, 2026-08-28)**: plan "Sesión WinForce robusta" — keepalive
-  del proxy + limpieza del login muerto (el proxy asumía login programático, imposible con
-  2FA) + diálogo de cookie en la GUI para arreglar el modo standalone. Ver sección abajo.
+  del proxy + limpieza del login muerto (el proxy asumía login programático por HTTP, imposible
+  con el SSO de Microsoft) + diálogo de cookie en la GUI para arreglar el modo standalone. Ver sección abajo.
 
 ## Descubrimientos técnicos (Fase 0)
 - Login: POST /controllers/acceso.php (accion=iniciar_sesion) -> cookie PHPSESSID.
@@ -90,8 +90,9 @@ C) Cuentas propias por agente: DESCARTADA (no tienen cuentas).
 D) Sesión en caché por máquina: DESCARTADA (expiraciones + misma cuenta).
 
 ### Hallazgo crítico 2026-08-25
-**Login WinForce redirige a `login.microsoftonline.com` para 2FA Microsoft** con la misma cuenta.
-Esto hace **inviable la prueba de concurrencia** planificada (4-5 máquinas simultáneas requerirían 2FA manual cada una).
+**Login WinForce redirige a `login.microsoftonline.com` (SSO de Microsoft Entra ID)** con la misma cuenta
+(se llamó "2FA" hasta el 2026-10-23; solo pide correo y contraseña). Esto hizo **inviable la prueba de
+concurrencia** planificada (4-5 máquinas simultáneas requerían un login en navegador cada una).
 
 ### Decisión aprobada (2026-08-25)
 **Opción B (Proxy Local) APROBADA** definitivamente. No se realiza prueba de concurrencia.
@@ -105,7 +106,7 @@ Proxy — Implementación), no se duplica aquí. Único cabo suelto: **no se cre
 no parte de este plan ya cerrado.
 
 ## Prueba real del core — COMPLETADA (2026-08-27)
-Login manual (2FA) + cookie inyectada vía `tools/probar_con_cookie.py` (nuevo, conservar
+Login manual (SSO de Microsoft) + cookie inyectada vía `tools/probar_con_cookie.py` (nuevo, conservar
 como herramienta de diagnóstico) → cobertura (SI, HORIZONTAL, celda 8764) → score (423,
 MUY ALTO). Dos bugs reales encontrados y corregidos: BOM UTF-8 en `_json()` (cobertura) y
 doble-encodificado no implementado en `_parsear_score` (score, ya documentado desde Fase 0
@@ -174,8 +175,8 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
   de los agentes** (`_last_activity`). Ping fallido → se confirma con
   `validar_cookie_sesion()`: endpoint caído = transitorio; **sesión muerta =
   `log.error` con aviso al owner + `session_dead_since` en `/admin/status`, sin
-  reintentar en silencio** (posible tope de ≈ 9.5 h, no concluyente; re-login programado inviable
-  por 2FA → el owner renueva la cookie ~1 vez por jornada). Fix de prerrequisito:
+  reintentar en silencio** (posible tope de ≈ 9.5 h, no concluyente; sin re-login
+  automático → el owner renueva la cookie ~1 vez por jornada). Fix de prerrequisito:
   `_get_client()` neutraliza el guard idle de 120 s del cliente-core (el proxy ya
   gestiona la frescura). **12 tests nuevos en `tests/test_proxy.py`** (abre el
   archivo de la Fase 4); 61 pasando, ruff limpio. Validado end-to-end contra
@@ -287,7 +288,7 @@ trabajo original quedó archivado localmente; el estado vigente es este. Resumen
 
 Ya hecho, se deja como referencia de qué se tocó:
 - `server.py:_relogin_silent()`: ya no intenta `client.login()` con
-  `usuario`/`password` (imposible con 2FA); recarga y revalida la cookie del
+  `usuario`/`password` (imposible por HTTP con el SSO de Microsoft); recarga y revalida la cookie del
   keyring. En `5506ed4` se le añadió logging de cada fallo.
 - `server.py`: `login_winforce()` → `set_session_cookie()`; `AdminLoginRequest`
   → `AdminCookieRequest` (`{php_sessid}`); `/admin/login` y `/admin/rotar`

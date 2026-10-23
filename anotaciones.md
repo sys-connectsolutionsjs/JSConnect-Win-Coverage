@@ -291,9 +291,8 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
   **HttpOnly** → invisible para JS de página; la API del contexto de Playwright sí
   la ve.
 - **Perfil persistente** (`.browser_profile/`, gitignored): mantiene la sesión de
-  Microsoft en disco → dentro de la misma jornada el SSO se salta el 2FA en
-  renovaciones sucesivas. A la jornada siguiente vuelve a pedir 2FA (política de
-  Microsoft). `--fresh` borra el perfil.
+  Microsoft en disco → dentro de la misma jornada el SSO no vuelve a pedir la
+  contraseña en renovaciones sucesivas. `--fresh` borra el perfil.
 - **Fallback**: `rotate_creds --manual` (pegar la cookie a mano) para cuando
   Playwright/Chromium no está disponible. No arrastra Playwright.
 - **Resultado** al owner: barra verde en la ventana + `tkinter.messagebox`
@@ -303,18 +302,28 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
 
 ## M
 
-### Microsoft 2FA (Login WinForce)
-**Crítico**: Login en `appwinforce.win.pe` redirige a `login.microsoftonline.com` para segunda autenticación (2FA) con la misma cuenta.
-- **Imposible automatizar** sin replicar todo el flujo OAuth2/SAML de Microsoft
-- **Consecuencia**: Prueba de concurrencia 4-5 máquinas **inviable** (requiere 2FA manual cada una)
+### SSO de Microsoft Entra ID (Login WinForce)
+**Crítico**: Login en `appwinforce.win.pe` redirige a `login.microsoftonline.com`: el inicio de sesión
+único (SSO) de **Microsoft Entra ID**, que pide **solo correo y contraseña** (sin segundo factor).
+- **Corrección 2026-10-23**: la documentación de agosto-octubre lo llamaba "2FA"; el usuario
+  confirmó que no hay segundo factor. Los archivos históricos (`resumenes/`, `HistorialResumenes.md`,
+  `docs/historial-agents.md`) conservan el término viejo.
+- **No hay login directo por HTTP** (habría que replicar el flujo OAuth2/SAML de Microsoft), pero
+  **sí se puede automatizar con navegador**: Playwright (`login_asistido.py`) llenando usuario y
+  contraseña guardados en el keyring del host. Pendiente, solo si la cuenta dedicada no basta.
+- **Consecuencia**: la prueba de concurrencia 4-5 máquinas no se hizo (cada máquina necesitaba su
+  propio login en navegador).
+- **Muertes de sesión** (log `logs/sesion_eventos.jsonl`, 2026-09-29 → 2026-10-21): las 49 fueron de
+  lunes a viernes entre las 9 y las 17 h; sesiones que sobreviven la noche y el fin de semana
+  (~66-69 h). No hay tope de 9.5 h: la sesión muere cuando otra persona inicia sesión con la misma
+  cuenta. Por eso se pidió una cuenta dedicada para el proxy.
 - **Solución**: Proxy local (1 sesión) + rotación manual via RDP (owner hace login en navegador + copia cookie)
 
 ### Reuse de PHPSESSID en login + SSO silencioso (observado 2026-09-04)
 - **SSO silencioso de Azure AD**: si el navegador ya tiene sesión activa en
   `login.microsoftonline.com` (login previo con "mantener sesión iniciada"),
-  el redirect de 2FA se completa solo, sin pedir credenciales ni segundo
-  factor de nuevo. No es que WinForce "salte" el 2FA — es Microsoft
-  reconociendo al usuario.
+  el redirect al SSO se completa solo, sin volver a pedir la contraseña. No es
+  que WinForce "salte" el login — es Microsoft reconociendo al usuario.
 - **`acceso.php` no regenera el PHPSESSID al loguear**: al recargar sin sesión
   válida, el servidor emite una PHPSESSID anónima nueva y redirige al login;
   tras completar el login (incluso vía SSO), la cookie autenticada resultante
@@ -348,7 +357,7 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
 > tope real de esa interrupción, ni confirmarlo ni descartarlo. Tampoco se resuelve con
 > el patrón de ~10 min tras renovar visto el 2026-10-02 (593 y 603 s, mismo `cookie_id`;
 > ver [`actualizacion-windows-11/pendientes.md`](actualizacion-windows-11/pendientes.md) §1). **Consecuencia práctica: ninguna** —
-> el owner igual tiene que renovar la cookie (2FA: no hay re-login programático) y el
+> el owner igual tiene que renovar la cookie (aún no hay re-login automático) y el
 > keepalive sigue siendo necesario. Solo cambia que no hay que dar por hecho un límite
 > de 9.5 h. Cómo averiguarlo: [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) → "Cómo investigar una
 > muerte de sesión". Lo de abajo se conserva como estaba, leído con esta corrección.
@@ -391,7 +400,7 @@ la muerte por inactividad — confirmado con 9 h de pings sin fallo. El **tope
 absoluto ≈ 9.5 h desde el login ya es un hecho medido**, no una hipótesis: la
 Fase 2 debe asumirlo. El keepalive no lo evita, así que la Fase 2 tiene que
 **avisar al owner** cuando la sesión muera pese al keepalive (no solo reintentar
-en silencio); el re-login programado es inviable por el 2FA, de modo que el owner
+en silencio); el re-login automático no existía (se creía bloqueado por un 2FA), de modo que el owner
 reinyecta la cookie **al inicio del turno** (hay ~1.5 h de margen sobre la
 jornada de 8 h).
 
@@ -551,7 +560,7 @@ Cuando el proxy ya sabe que su sesión con WinForce murió (`_session_dead_since
 Si la app **no tiene config de proxy** en keyring → usa
 `validator_app.core.api.ValidatorAPI` directo contra WinForce.
 - **Solo para desarrollo/pruebas/owner** — NO producción (riesgo bloqueo 20 sesiones)
-- El login programático es inviable por el 2FA → se configura pegando la cookie
+- No hay login directo por HTTP (SSO de Microsoft) → se configura pegando la cookie
   `PHPSESSID` en el diálogo **⚙ Configuración → Configurar Sesión (standalone)**.
   Se valida contra WinForce (`validar_cookie_sesion`) y se guarda en el keyring
   `JSWinCoverage`/`session_cookie`. `validator_app/gui/session_config.py`
@@ -612,7 +621,7 @@ Clase principal en `validator_app/core/api.py`:
 
 ### WinForce (Sistema del ISP)
 Sistema de validación del proveedor de internet (`appwinforce.win.pe`).
-- Login: formulario → redirect Microsoft 2FA → cookie `PHPSESSID`
+- Login: formulario → redirect al SSO de Microsoft (Entra ID) → cookie `PHPSESSID`
 - Cobertura: coordenadas → SI/NO + tipo + id_celda
 - Score: documento + coordenadas → reporte Equifax SOAP (puntaje, riesgo, deuda)
 - Límites: 2-3 sesiones concurrentes por cuenta, timeout 3 min, rotación credenciales 1-2 meses

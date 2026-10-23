@@ -91,7 +91,7 @@ ERROR_CODES: dict[str, dict[str, str]] = {
     },
     "ERR_LOGIN_2FA": {
         "category": "Autenticacion",
-        "description": "Login requiere 2FA Microsoft (no automatizable)",
+        "description": "Login requiere el SSO de Microsoft (sin login directo por HTTP)",
     },
     "ERR_SESSION": {
         "category": "Sesion",

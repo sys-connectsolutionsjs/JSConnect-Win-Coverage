@@ -29,7 +29,7 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | Fecha | Hito | Commit(s) |
 |---|---|---|
 | 2026-08-19 | **Fase 0-1** — descubrimiento de la API interna, núcleo `core/` y tests | `e837681` |
-| 2026-08-21 | **Arquitectura B** — proxy local para 20 agentes; SSO Microsoft 2FA | `a3bebf4` |
+| 2026-08-21 | **Arquitectura B** — proxy local para 20 agentes; SSO de Microsoft (Entra ID) | `a3bebf4` |
 | 2026-08-25 | **Fase 1** — proxy FastAPI y códigos de error | `7cf7ea1` `f63660b` `801ce05` |
 | 2026-08-27 | **Core real** — cobertura y score; fixes de BOM y doble codificación | `c72188c` `7bc6550` |
 | 2026-09-04/05 | Login programático retirado, keepalive medido y fallos visibles | `1dcecc6` `5506ed4` `3925dbf` |

@@ -1,5 +1,7 @@
 # Historial de AGENTS.md
 
+> **Corrección 2026-10-23**: donde este archivo dice "2FA", el login de WinForce es en realidad el SSO de Microsoft Entra ID (solo correo y contraseña, sin segundo factor). Se deja el texto histórico tal cual.
+
 > Archivo histórico. Aquí vive todo lo que antes estaba en [`AGENTS.md`](../AGENTS.md) bajo
 > **Tareas pendientes** (las ya completadas, numeradas 1-43) e **Historial** (bitácora por
 > fases y *Cierre de la sesión* de 2026-08-18 a 2026-10-02). Se movió **tal cual**, sin

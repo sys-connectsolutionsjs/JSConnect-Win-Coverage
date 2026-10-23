@@ -17,9 +17,9 @@
 
 ## Procedimiento — Extensión de Chrome (vía principal)
 
-> Renovación diaria de la sesión (WinForce usa 2FA, así que el proxy no puede volver a
-> iniciar sesión solo; además hay un posible tope de ≈ 9.5 h, medido una vez y **no
-> concluyente**). El owner no necesita saber nada técnico y **no sale de su navegador
+> Renovación de la sesión (WinForce inicia sesión con el SSO de Microsoft y el proxy todavía
+> no lo hace solo). El "tope de ≈ 9.5 h" quedó descartado el 2026-10-21: las sesiones mueren
+> cuando otra persona inicia sesión con la misma cuenta). El owner no necesita saber nada técnico y **no sale de su navegador
 > de siempre**.
 
 `install_service.bat` fuerza-instala en el Chrome de la PC del proxy la extensión
@@ -48,7 +48,7 @@ una vez para que aparezca.
 
 Si al pulsar sale "No hay sesión de WinForce en este navegador", es que la sesión
 de WinForce del owner también caducó → que abra `appwinforce.win.pe`, inicie
-sesión (incluye el 2FA de Microsoft), y vuelva a pulsar el icono.
+sesión (SSO de Microsoft: correo y contraseña), y vuelva a pulsar el icono.
 
 ### Fallbacks (para el técnico / si el proxy está caído)
 
@@ -63,8 +63,8 @@ sesión (incluye el 2FA de Microsoft), y vuelva a pulsar el icono.
 ### Configuración de una vez — autocompletar la contraseña
 
 La ventana abre el **Google Chrome instalado** con un perfil propio (separado del
-Chrome normal). Para que la contraseña se autocomplete y solo quede aprobar el
-2FA en el teléfono, la **primera vez** haz una de estas dos:
+Chrome normal). Para que la contraseña se autocomplete, la **primera vez** haz una
+de estas dos:
 
 - **Iniciar sesión en Chrome** en esa ventana (menú ⋮ arriba a la derecha →
   "Activar la sincronización" con la cuenta de Google del owner). Quedan
@@ -72,7 +72,7 @@ Chrome normal). Para que la contraseña se autocomplete y solo quede aprobar el
 - O simplemente **pulsar "Guardar"** cuando Chrome ofrezca guardar la contraseña
   de Microsoft tras el primer login.
 
-Desde entonces: doble clic → contraseña autocompletada → aprobar 2FA → listo.
+Desde entonces: doble clic → contraseña autocompletada → listo.
 
 > Si esa PC no tiene Google Chrome, la ventana usa el navegador empaquetado
 > (Chromium), que tiene su propio "Guardar contraseña" local pero sin sync.
@@ -269,18 +269,19 @@ dura ~24 min y se renueva solo) con la credencial `Authorization: Basic …` de 
 
 ---
 
-## ⚠️ NOTA: Login WinForce + Microsoft 2FA
+## ⚠️ NOTA: Login WinForce + SSO de Microsoft (Entra ID)
 
-El login de WinForce redirige a `login.microsoftonline.com` para 2FA, así que el
-login programático (usuario/contraseña por HTTP) es **inviable**. La `PHPSESSID`
-sale siempre de un login manual en navegador. El **login asistido**
+El login de WinForce redirige a `login.microsoftonline.com` (SSO de Microsoft Entra ID,
+solo correo y contraseña; **no hay segundo factor**, corregido el 2026-10-23). No hay login
+directo por HTTP; hoy la `PHPSESSID` sale de un login en navegador. El **login asistido**
 (`login_asistido.py`, Playwright) automatiza la parte de *extraer* la cookie —
 el owner solo inicia sesión. `context.cookies()` de Playwright ve la `PHPSESSID`
 aunque sea HttpOnly (`document.cookie` no la vería). El perfil persistente hace
-que el SSO de Microsoft se salte el 2FA dentro de la misma jornada.
+que el SSO de Microsoft no vuelva a pedir la contraseña dentro de la misma jornada.
 
-Documentado aquí para que futuros devs no pierdan tiempo intentando automatizar
-el login OAuth2/SAML completo — no hace falta.
+No hace falta replicar el flujo OAuth2/SAML por HTTP: si algún día el proxy debe
+re-loguearse solo, se hace con Playwright llenando usuario y contraseña (guardados en el
+keyring del host).
 
 ---
 
@@ -288,11 +289,11 @@ el login OAuth2/SAML completo — no hace falta.
 
 Renovación diaria (extensión):
 - [ ] Vi el badge rojo `!` en el icono de la extensión de Chrome
-- [ ] (Si hacía falta) abrí `appwinforce.win.pe` e inicié sesión (2FA Microsoft)
+- [ ] (Si hacía falta) abrí `appwinforce.win.pe` e inicié sesión (SSO de Microsoft)
 - [ ] Un clic en el icono de la extensión
 - [ ] Salió la notificación "Sesión del proxy renovada"
 
 Cambio de credenciales (cada 1-2 meses, cuando WinForce las rota):
 - [ ] Recibí el nuevo usuario/contraseña de WinForce
-- [ ] Inicié sesión en `appwinforce.win.pe` con las **nuevas** (2FA Microsoft)
+- [ ] Inicié sesión en `appwinforce.win.pe` con las **nuevas** (SSO de Microsoft)
 - [ ] Un clic en el icono de la extensión → "Sesión del proxy renovada"

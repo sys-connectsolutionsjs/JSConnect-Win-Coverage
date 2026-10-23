@@ -391,7 +391,7 @@ Set-NetFirewallProfile -Name Public -AllowInboundRules True
 Ver [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) — proceso detallado.
 
 Resumen rápido:
-1. El owner inicia sesión normalmente en WinForce, con 2FA si corresponde.
+1. El owner inicia sesión normalmente en WinForce (SSO de Microsoft: correo y contraseña).
 2. Pulsa la extensión **Renovar sesión WinForce** en su Chrome cotidiano.
 3. Como fallback, usa el botón de la consola owner o el acceso directo del
    Escritorio; ambos abren el login asistido.

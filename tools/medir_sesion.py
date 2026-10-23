@@ -1,7 +1,7 @@
 """Mide la vida real de la sesion (PHPSESSID) sin actividad, para calibrar el
 intervalo del keepalive del proxy (Fase 2 del plan "Sesion WinForce robusta").
 
-Metodo: parte de una cookie PHPSESSID valida (login manual + 2FA en el
+Metodo: parte de una cookie PHPSESSID valida (login manual en el
 navegador, igual que tools/probar_con_cookie.py) y hace pings a operador.php
 con esperas de inactividad crecientes entre cada uno. En cuanto un ping falla,
 la sesion murio en algun punto entre el ultimo ping exitoso y el fallido: ese
@@ -20,7 +20,7 @@ Uso (desde la raiz del repo):
     --log             archivo TSV de salida (por defecto medir_sesion.log)
 
 No pide usuario/contrasena: se asume que ya iniciaste sesion manualmente en el
-navegador (incluyendo el 2FA de Microsoft) y copiaste el valor de la cookie
+navegador (SSO de Microsoft) y copiaste el valor de la cookie
 PHPSESSID (F12 -> Application -> Cookies -> https://appwinforce.win.pe).
 """
 

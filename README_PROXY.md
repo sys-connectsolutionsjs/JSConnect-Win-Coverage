@@ -161,7 +161,7 @@ curl.exe -H "X-Admin-Key: <admin_key>" http://localhost:8080/admin/status
    ```
 
 5. **Clic real**: en ese Chrome, login completo en `https://appwinforce.win.pe`
-   (2FA) → clic en el icono → notificación "Sesión del proxy renovada" →
+   (SSO de Microsoft) → clic en el icono → notificación "Sesión del proxy renovada" →
    `curl -H "X-Admin-Key: $env:PROXY_ADMIN_KEY" http://localhost:8080/admin/status`
    muestra `session_alive: true`.
 
