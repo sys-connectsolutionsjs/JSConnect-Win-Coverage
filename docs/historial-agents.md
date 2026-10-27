@@ -1037,3 +1037,32 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
     `.exe` del owner si sigue en `v2026.10.07`, probar un agente W10 contra el owner W11, el archivo
     del pendrive con URL+token, firma de código, observar las muertes de sesión y probar el pendrive
     en una PC limpia.
+
+### Cierre de la sesión 2026-10-21 → 2026-10-23 [CONTEXTO PARA LA SIGUIENTE — mapa sin fondo arreglado (v2026.10.23), SSO en vez de 2FA, log de sesiones, My Maps propio, docs enlazadas]
+
+- **Hecho** (commits `f5437fb`, `bc032e8`, `c1ae3f1`, `9a4cec9`, en `main`):
+  - **Mapa sin fondo**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView` de
+    `tkintermapview` (responde 200 + `x-blocked` + imagen "Access blocked"). `gui/tiles.py` envuelve
+    el `requests` de `tkintermapview.map_widget` para usar `core/direccion.py::USER_AGENT`;
+    `map_page.al_mostrar()` lo aplica. **Release `v2026.10.23` publicado** (tag en `bc032e8`): el
+    `.exe` se probó abierto (Lima con calles y capas), SHA-256 verificados, un agente en
+    `v2026.10.13` lo detecta; el owner es el mismo archivo de `v2026.10.13`.
+  - **2FA → SSO de Microsoft (Entra ID)**: el usuario confirmó que el login solo pide correo y
+    contraseña. Corregido en docs vivas, README (es/en) y textos del código; los históricos llevan
+    nota de corrección; `ERR_LOGIN_2FA` conserva el nombre. El autologin pasa a ser viable.
+  - **Log de sesiones** (`logs/sesion_eventos.jsonl`, 2026-09-29 → 2026-10-21): 49 muertes, todas
+    de lunes a viernes entre 9 y 17 h; sesiones de ~15 h por la noche y ~66-69 h el fin de semana.
+    **No hay tope de 9.5 h**: mueren por otro login con la misma cuenta. La jefatura aprobó una
+    **cuenta dedicada**.
+  - **My Maps propio** (Preferente 2 + Códigos bloqueados): el KML de origen (138 polígonos) se
+    separó por capa en `datos_capas/` y el usuario lo importó; su KML público es idéntico y
+    `proxy/capas.py` lo interpreta. La URL va solo al `config.yaml` del proxy.
+  - **Docs enlazadas**: 373 referencias pasaron a enlaces relativos (GitHub + grafo de Obsidian);
+    mapa de conocimiento completo; `.obsidian/` ignorado; `tests/test_enlaces_docs.py`.
+- **Decisiones**: no se implementa el escaneo masivo de Lima (permiso de WinForce; riesgo de perder
+  la cuenta dedicada); solo la capa de cobertura se puede contrastar con WinForce → "cobertura
+  observada"; autologin solo si la cuenta dedicada no basta; proxy a una mini PC 24/7.
+- **Estado**: tests 494 → **500**, `ruff` limpio.
+- **Siguiente paso**: `capas_kml_url` + recopiar `proxy-update\` en el proxy; cuenta dedicada y
+  medir (7c); que los asesores actualicen a `v2026.10.23`; luego mini PC (7d) y cobertura
+  observada (7e).

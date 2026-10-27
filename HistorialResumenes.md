@@ -18,6 +18,28 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-10-27 — Sesión — plan Proxy 24/7 aprobado (autologin desatendido + Tailscale) y migración a la PC owner
+Detalle completo: [`resumenes/2026-10-27.md`](resumenes/2026-10-27.md).
+- **Migración a la PC owner**: un clon no trae capas, URL de My Maps ni llaves (gitignored, el repo es público). Se llevan a mano:
+  - `capas.json.gz` (sin él, `build.ps1` arma el `.exe` sin mapa);
+  - `datos_capas\` (opcional);
+  - `private_key.pem`;
+  - `config.yaml`, copiado como admin.
+  
+  `extension.pem` no hace falta. La variable de My Maps es `capas_kml_url`.
+- **`proxy-update/`**: paquete temporal de `tools/empaquetar_actualizacion_proxy.ps1`, para una PC sin git. Con un clon basta `git pull` + reiniciar el servicio.
+- **Hallazgo**: con la cuenta dedicada la sesión sigue muriendo a horas aleatorias (reporte del usuario).
+- **Plan aprobado "Proxy 24/7"**:
+  - `proxy/autologin.py` (Playwright headless, primero el SSO silencioso);
+  - credencial en el keyring del servicio vía `POST /local/credenciales`;
+  - relogin desde `_marcar_sesion_muerta()`;
+  - `FrenoAutologin` anti-bucle;
+  - `PLAYWRIGHT_BROWSERS_PATH` para SYSTEM;
+  - Tailscale sin exponer el proxy a Internet.
+- **Decisiones**: nunca la credencial en `config.yaml`; no extraer `win-azure-oauth2-cookie`; desarrollar en la PC de desarrollo haciendo de owner y luego migrar (el keyring se vuelve a cargar en el host).
+- **Estado**: sin código, 500 tests, `ruff` limpio.
+
 ### 2026-10-21 — Sesión (hasta el 2026-10-23) — mapa sin fondo arreglado (v2026.10.23), SSO en vez de 2FA, log de sesiones y My Maps propio
 - **Snapshot completo**: [`resumenes/2026-10-21.md`](resumenes/2026-10-21.md).
 - **Mapa sin fondo**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView`; `gui/tiles.py` usa el del proyecto. **Release `v2026.10.23`** publicado y probado (`.exe` abierto, SHA-256 verificados).

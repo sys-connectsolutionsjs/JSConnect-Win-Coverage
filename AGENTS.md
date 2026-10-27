@@ -384,7 +384,7 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
    `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
 3. **Muertes de la sesión de WinForce**: el log del 2026-09-29 al 2026-10-21 confirma la hipótesis del
    dueño (login ajeno con la misma cuenta; ninguna muerte fuera de horario de oficina, sesiones de
-   hasta ~69 h el fin de semana). No hay tope de 9.5 h. Sigue en la tarea 7c (cuenta dedicada).
+   hasta ~69 h el fin de semana). No hay tope de 9.5 h. **2026-10-27**: con la cuenta dedicada sigue muriendo → autologin (7c).
 4. **Probar el pendrive en una PC owner limpia** ([`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Instalación con pendrive").
 5. **Firma de código** de los `.exe` (Smart App Control en Windows 11).
 6. **Pasar `W11-JSConnect-Win-Coverage` (archivado) a privado**, solo cuando sus `.exe` ya se
@@ -399,10 +399,11 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     la use a mano, y medir 1-2 semanas con `logs/sesion_eventos.jsonl` (hoy las muertes son por logins
     ajenos en horario de oficina). Si aun así muere: **autologin desatendido** con Playwright
     (`login_asistido.py`) + usuario/contraseña en el keyring del host — viable, el login es solo el SSO
-    de Microsoft (sin 2FA).
+    de Microsoft (sin 2FA). **2026-10-27: con cuenta dedicada sigue muriendo → plan "Proxy 24/7:
+    autologin desatendido + Tailscale" aprobado en [`PlanesAprobados.md`](PlanesAprobados.md).**
 7d. **Mini PC como host 24/7 del proxy**: instalar con `install_service.bat`, encendido tras corte de
     luz (BIOS), sin suspensión, idealmente UPS; para lo "online", túnel (Tailscale) en vez de abrir
-    puertos. Se diseña cuando 7c esté confirmada.
+    puertos. **Diseñado 2026-10-27** en el mismo plan (Tailscale `--unattended`, sin abrir el 8080).
 7e. **Cobertura observada** (TDD): el proxy registra cada `validar_cobertura` real (SQLite,
     gitignored), marca discrepancias con la capa local y las sirve como capa en `/api/capas`;
     sondeos extra acotados, apagados por defecto; exportar a KML desde la consola owner. Fraude /
@@ -420,31 +421,36 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-10-21 → 2026-10-23 [CONTEXTO PARA LA SIGUIENTE — mapa sin fondo arreglado (v2026.10.23), SSO en vez de 2FA, log de sesiones, My Maps propio, docs enlazadas]
+### Cierre de la sesión 2026-10-27 [CONTEXTO PARA LA SIGUIENTE — plan Proxy 24/7 aprobado (autologin desatendido + Tailscale), migración a la PC owner]
 
-- **Hecho** (commits `f5437fb`, `bc032e8`, `c1ae3f1`, `9a4cec9`, en `main`):
-  - **Mapa sin fondo**: OpenStreetMap bloquea el User-Agent fijo `TkinterMapView` de
-    `tkintermapview` (responde 200 + `x-blocked` + imagen "Access blocked"). `gui/tiles.py` envuelve
-    el `requests` de `tkintermapview.map_widget` para usar `core/direccion.py::USER_AGENT`;
-    `map_page.al_mostrar()` lo aplica. **Release `v2026.10.23` publicado** (tag en `bc032e8`): el
-    `.exe` se probó abierto (Lima con calles y capas), SHA-256 verificados, un agente en
-    `v2026.10.13` lo detecta; el owner es el mismo archivo de `v2026.10.13`.
-  - **2FA → SSO de Microsoft (Entra ID)**: el usuario confirmó que el login solo pide correo y
-    contraseña. Corregido en docs vivas, README (es/en) y textos del código; los históricos llevan
-    nota de corrección; `ERR_LOGIN_2FA` conserva el nombre. El autologin pasa a ser viable.
-  - **Log de sesiones** (`logs/sesion_eventos.jsonl`, 2026-09-29 → 2026-10-21): 49 muertes, todas
-    de lunes a viernes entre 9 y 17 h; sesiones de ~15 h por la noche y ~66-69 h el fin de semana.
-    **No hay tope de 9.5 h**: mueren por otro login con la misma cuenta. La jefatura aprobó una
-    **cuenta dedicada**.
-  - **My Maps propio** (Preferente 2 + Códigos bloqueados): el KML de origen (138 polígonos) se
-    separó por capa en `datos_capas/` y el usuario lo importó; su KML público es idéntico y
-    `proxy/capas.py` lo interpreta. La URL va solo al `config.yaml` del proxy.
-  - **Docs enlazadas**: 373 referencias pasaron a enlaces relativos (GitHub + grafo de Obsidian);
-    mapa de conocimiento completo; `.obsidian/` ignorado; `tests/test_enlaces_docs.py`.
-- **Decisiones**: no se implementa el escaneo masivo de Lima (permiso de WinForce; riesgo de perder
-  la cuenta dedicada); solo la capa de cobertura se puede contrastar con WinForce → "cobertura
-  observada"; autologin solo si la cuenta dedicada no basta; proxy a una mini PC 24/7.
-- **Estado**: tests 494 → **500**, `ruff` limpio.
-- **Siguiente paso**: `capas_kml_url` + recopiar `proxy-update\` en el proxy; cuenta dedicada y
-  medir (7c); que los asesores actualicen a `v2026.10.23`; luego mini PC (7d) y cobertura
-  observada (7e).
+- **Hecho** (sin código; solo docs, sin commit al cerrar):
+  - **Migración a la PC owner**: un clon no trae capas, URL de My Maps ni llaves, porque son
+    gitignored y el repo es público. Archivos a llevar a mano:
+    - `validator_app\data\capas.json.gz`, para que `build.ps1` las meta en el `.exe`;
+    - `datos_capas\` (opcional);
+    - `generator\private_key.pem`;
+    - `validator_app\proxy\config.yaml`, copiado como admin por su ACL.
+    
+    `extension.pem` no hace falta. Variable de My Maps: `capas_kml_url`. El usuario reportó que ya
+    copió todo.
+  - **`proxy-update/`**: es el paquete temporal de `tools/empaquetar_actualizacion_proxy.ps1`
+    (solo código, para una PC sin git). Con un clon basta `git pull` + `Restart-Service JSWinProxy`.
+  - **Con la cuenta dedicada la sesión sigue muriendo** a horas aleatorias (reporte del usuario):
+    se cumple la condición de 7c para hacer el autologin.
+  - **Plan aprobado "Proxy 24/7: autologin desatendido + Tailscale"**, completo en
+    [`PlanesAprobados.md`](PlanesAprobados.md). Piezas:
+    - `proxy/autologin.py`: Playwright headless con perfil propio `.browser_profile_servicio/`;
+    - `POST /local/credenciales` + `rotate_creds --guardar-login` (keyring del servicio);
+    - relogin desde `_marcar_sesion_muerta()` en un hilo único;
+    - `FrenoAutologin` (espera entre intentos, tope por hora, pausa por muerte rápida);
+    - `PLAYWRIGHT_BROWSERS_PATH` para SYSTEM;
+    - runbook de Tailscale.
+- **Decisiones**:
+  - credencial en el keyring del servicio, nunca en `config.yaml`;
+  - no extraer `win-azure-oauth2-cookie`, porque el perfil persistente ya intenta el SSO silencioso;
+  - no exponer el proxy a Internet: Tailscale, `allowed_networks` ya permite `100.64.0.0/10`;
+  - se desarrolla en la PC de desarrollo haciendo de owner; después se desinstala el servicio y se
+    copia el proyecto al host definitivo, y ahí el keyring se vuelve a cargar.
+- **Estado**: **500** tests pasando, `ruff` limpio (sin cambios de código).
+- **Siguiente paso**: implementar el plan Proxy 24/7 en TDD, empezando por `FrenoAutologin` y
+  `autologin.py` (pasos 1-4), luego Playwright bajo SYSTEM (5), la verificación en vivo y Tailscale (6).
