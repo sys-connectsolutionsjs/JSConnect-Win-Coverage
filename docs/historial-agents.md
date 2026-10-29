@@ -1066,3 +1066,37 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Siguiente paso**: `capas_kml_url` + recopiar `proxy-update\` en el proxy; cuenta dedicada y
   medir (7c); que los asesores actualicen a `v2026.10.23`; luego mini PC (7d) y cobertura
   observada (7e).
+
+### Cierre de la sesión 2026-10-27 [CONTEXTO PARA LA SIGUIENTE — plan Proxy 24/7 aprobado (autologin desatendido + Tailscale), migración a la PC owner]
+
+- **Hecho** (sin código; solo docs, sin commit al cerrar):
+  - **Migración a la PC owner**: un clon no trae capas, URL de My Maps ni llaves, porque son
+    gitignored y el repo es público. Archivos a llevar a mano:
+    - `validator_app\data\capas.json.gz`, para que `build.ps1` las meta en el `.exe`;
+    - `datos_capas\` (opcional);
+    - `generator\private_key.pem`;
+    - `validator_app\proxy\config.yaml`, copiado como admin por su ACL.
+    
+    `extension.pem` no hace falta. Variable de My Maps: `capas_kml_url`. El usuario reportó que ya
+    copió todo.
+  - **`proxy-update/`**: es el paquete temporal de `tools/empaquetar_actualizacion_proxy.ps1`
+    (solo código, para una PC sin git). Con un clon basta `git pull` + `Restart-Service JSWinProxy`.
+  - **Con la cuenta dedicada la sesión sigue muriendo** a horas aleatorias (reporte del usuario):
+    se cumple la condición de 7c para hacer el autologin.
+  - **Plan aprobado "Proxy 24/7: autologin desatendido + Tailscale"**, completo en
+    [`PlanesAprobados.md`](../PlanesAprobados.md). Piezas:
+    - `proxy/autologin.py`: Playwright headless con perfil propio `.browser_profile_servicio/`;
+    - `POST /local/credenciales` + `rotate_creds --guardar-login` (keyring del servicio);
+    - relogin desde `_marcar_sesion_muerta()` en un hilo único;
+    - `FrenoAutologin` (espera entre intentos, tope por hora, pausa por muerte rápida);
+    - `PLAYWRIGHT_BROWSERS_PATH` para SYSTEM;
+    - runbook de Tailscale.
+- **Decisiones**:
+  - credencial en el keyring del servicio, nunca en `config.yaml`;
+  - no extraer `win-azure-oauth2-cookie`, porque el perfil persistente ya intenta el SSO silencioso;
+  - no exponer el proxy a Internet: Tailscale, `allowed_networks` ya permite `100.64.0.0/10`;
+  - se desarrolla en la PC de desarrollo haciendo de owner; después se desinstala el servicio y se
+    copia el proyecto al host definitivo, y ahí el keyring se vuelve a cargar.
+- **Estado**: **500** tests pasando, `ruff` limpio (sin cambios de código).
+- **Siguiente paso**: implementar el plan Proxy 24/7 en TDD, empezando por `FrenoAutologin` y
+  `autologin.py` (pasos 1-4), luego Playwright bajo SYSTEM (5), la verificación en vivo y Tailscale (6).

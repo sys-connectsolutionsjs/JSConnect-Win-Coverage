@@ -19,6 +19,21 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-10-28 — Sesión — autologin desatendido del proxy, credencial y frenado desde la consola owner
+Detalle completo: [`resumenes/2026-10-28.md`](resumenes/2026-10-28.md).
+- **Autologin** (`proxy/autologin.py`): si la sesión de WinForce muere, el proxy vuelve a entrar solo (Chromium sin ventana, SSO silencioso primero, credencial inválida sin reintento). La credencial de la cuenta dedicada va al keyring del servicio, nunca a `config.yaml`.
+- **`server.py`**:
+  - relogin en un hilo único desde la muerte de sesión y el keepalive;
+  - `POST /local/credenciales` y `/local/freno` (admin key + loopback);
+  - aviso al owner solo si el autologin falla o se pausa;
+  - estado en `/health`.
+- **Frenado configurable** desde la consola owner: Recomendado 0-1-2-3 min y luego cada 5, otros 5 perfiles y Personalizado (reglas del owner). La pausa por "otra persona usa la cuenta" es el intervalo fijo. Decisión: sin opción de 30 s.
+- **Consola owner**: Configurar... (credencial, UAC solo para leer la admin key) y Frenado...; el botón "Instalar extensión" muestra la ruta solo si existe o ofrece "Preparar carpeta". `.exe` regenerado, sin Release.
+- **Instalador**: Chromium compartido con SYSTEM (`.ms-playwright`), `.extension_build` siempre, pregunta `[AUTOLOGIN]`. Bug arreglado: sin Chrome no se creaba la carpeta y el paso figuraba como hecho.
+- **Incidentes sin daño**: un `git stash` restaurado al momento, una corrida de la suite colgada y una carpeta real creada por un test (borrada).
+- **Tests**: 500 → 637, `ruff` limpio. Commit `0231cc2` (sin push). **Sin verificar en vivo** contra Microsoft.
+
 ### 2026-10-27 — Sesión — plan Proxy 24/7 aprobado (autologin desatendido + Tailscale) y migración a la PC owner
 Detalle completo: [`resumenes/2026-10-27.md`](resumenes/2026-10-27.md).
 - **Migración a la PC owner**: un clon no trae capas, URL de My Maps ni llaves (gitignored, el repo es público). Se llevan a mano:

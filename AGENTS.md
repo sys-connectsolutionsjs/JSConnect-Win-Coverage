@@ -403,9 +403,20 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     (`login_asistido.py`) + usuario/contraseña en el keyring del host — viable, el login es solo el SSO
     de Microsoft (sin 2FA). **2026-10-27: con cuenta dedicada sigue muriendo → plan "Proxy 24/7:
     autologin desatendido + Tailscale" aprobado en [`PlanesAprobados.md`](PlanesAprobados.md).**
+    **2026-10-28: CÓDIGO IMPLEMENTADO** (`0231cc2`: `proxy/autologin.py`, credencial y frenado desde la
+    consola owner); **falta la verificación en vivo** (tarea 7f).
 7d. **Mini PC como host 24/7 del proxy**: instalar con `install_service.bat`, encendido tras corte de
     luz (BIOS), sin suspensión, idealmente UPS; para lo "online", túnel (Tailscale) en vez de abrir
-    puertos. **Diseñado 2026-10-27** en el mismo plan (Tailscale `--unattended`, sin abrir el 8080).
+    puertos. **Diseñado 2026-10-27** en el mismo plan (Tailscale `--unattended`, sin abrir el 8080);
+    runbook escrito el 2026-10-28 en [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md). Falta la
+    migración al host ([`PlanesAprobados.md`](PlanesAprobados.md) → "Migración al host definitivo").
+7f. **Verificación en vivo del autologin** (NUEVA 2026-10-28), en la PC de desarrollo haciendo de owner:
+    `python -m validator_app.proxy.autologin --probar` (confirma los selectores de Microsoft; bota la
+    sesión del proxy), instalar el servicio (`install_service.bat`), guardar la credencial (pregunta
+    `[AUTOLOGIN]` o consola owner → Configurar...), comprobar en la consola el botón "Instalar extensión"
+    y "Frenado...", y tumbar la sesión para ver `renovada` con `origen: autologin` en la bitácora.
+7g. **Alto de la consola owner** (NUEVA 2026-10-28): 650 × 836 px; revisar en una pantalla de 768 px
+    y, si no cabe, compactar o hacer desplazable.
 7e. **Cobertura observada** (TDD): el proxy registra cada `validar_cobertura` real (SQLite,
     gitignored), marca discrepancias con la capa local y las sirve como capa en `/api/capas`;
     sondeos extra acotados, apagados por defecto; exportar a KML desde la consola owner. Fraude /
@@ -423,36 +434,51 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-10-27 [CONTEXTO PARA LA SIGUIENTE — plan Proxy 24/7 aprobado (autologin desatendido + Tailscale), migración a la PC owner]
+### Cierre de la sesión 2026-10-28 [CONTEXTO PARA LA SIGUIENTE — autologin desatendido implementado (sin verificar en vivo), credencial y frenado desde la consola owner, botón de la extensión arreglado]
 
-- **Hecho** (sin código; solo docs, sin commit al cerrar):
-  - **Migración a la PC owner**: un clon no trae capas, URL de My Maps ni llaves, porque son
-    gitignored y el repo es público. Archivos a llevar a mano:
-    - `validator_app\data\capas.json.gz`, para que `build.ps1` las meta en el `.exe`;
-    - `datos_capas\` (opcional);
-    - `generator\private_key.pem`;
-    - `validator_app\proxy\config.yaml`, copiado como admin por su ACL.
-    
-    `extension.pem` no hace falta. Variable de My Maps: `capas_kml_url`. El usuario reportó que ya
-    copió todo.
-  - **`proxy-update/`**: es el paquete temporal de `tools/empaquetar_actualizacion_proxy.ps1`
-    (solo código, para una PC sin git). Con un clon basta `git pull` + `Restart-Service JSWinProxy`.
-  - **Con la cuenta dedicada la sesión sigue muriendo** a horas aleatorias (reporte del usuario):
-    se cumple la condición de 7c para hacer el autologin.
-  - **Plan aprobado "Proxy 24/7: autologin desatendido + Tailscale"**, completo en
-    [`PlanesAprobados.md`](PlanesAprobados.md). Piezas:
-    - `proxy/autologin.py`: Playwright headless con perfil propio `.browser_profile_servicio/`;
-    - `POST /local/credenciales` + `rotate_creds --guardar-login` (keyring del servicio);
-    - relogin desde `_marcar_sesion_muerta()` en un hilo único;
-    - `FrenoAutologin` (espera entre intentos, tope por hora, pausa por muerte rápida);
-    - `PLAYWRIGHT_BROWSERS_PATH` para SYSTEM;
-    - runbook de Tailscale.
+- **Hecho** (commit `0231cc2` en `main`, sin push; TDD 500 → 637 tests):
+  - **Autologin desatendido** (`validator_app/proxy/autologin.py`, nuevo):
+    - `login_automatico()`: Chromium headless con perfil `.browser_profile_servicio/`; primero el SSO
+      silencioso; cada dato una sola vez; acepta KMSI; `CredencialInvalidaError` sin reintento; captura
+      `logs/autologin_fallo.png` si se agota el tiempo;
+    - CLI `--probar` (ventana visible, perfil temporal, no guarda nada);
+    - `FrenoAutologin` con perfiles (Recomendado 0-1-2-3 min y luego cada 5, Rápido, Demasiado rápido,
+      Lento óptimo, Lento, Demasiado lento, Personalizado) y las reglas del owner: 2.º de 1 a 5; 3.º
+      desde el 2.º hasta 10; 4.º desde el 3.º hasta 15; fijo de 1 a 20 min;
+    - la pausa por "otra persona usa la cuenta" es el intervalo fijo; el tope por hora sale del frenado.
+  - **`server.py`**:
+    - credencial en el keyring del servicio (`credentials_login`), `POST /local/credenciales` y
+      `POST /local/freno` (admin key + loopback);
+    - relogin en un hilo único desde `_marcar_sesion_muerta()` y desde el keepalive (también sin sesión);
+    - aviso al owner solo si falla, se pausa o la credencial es inválida;
+    - frenado persistido en `autologin_freno.json` (gitignored);
+    - bloque `autologin` en `/health` y `/admin/status`.
+  - **Consola owner**: sección "Autologin de WinForce" (estado, **Configurar...** y **Frenado...**; UAC solo
+    para leer la admin key, la contraseña sale del proceso sin elevar). El botón "Instalar extensión"
+    muestra la ruta solo si existe y si no ofrece "Preparar carpeta" (subcomando elevado
+    `--preparar-extension`). `.exe` regenerado (`dist\`, SHA-256 `6212739…96C81`, sin Release).
+  - **Instalador**:
+    - Chromium compartido en `validator_app\proxy\.ms-playwright` (variable en `winsw.xml` y fijada
+      por el código para el owner);
+    - `.extension_build` se crea siempre;
+    - pregunta `[AUTOLOGIN]` al final.
+  - `rotate_creds --guardar-login` para técnicos. Docs: `docs/rotacion-credenciales.md` (autologin,
+    frenado), `docs/escalabilidad-remota.md` (Tailscale), `docs/proxy-deploy.md`, README, README_PROXY.
+- **Bug encontrado y corregido**: `_instalar_extension.main()` solo creaba `.extension_build` con Chrome
+  y devolvía 0 aunque fallara → el instalador marcaba "política registrada" y la consola mostraba una
+  carpeta inexistente.
 - **Decisiones**:
   - credencial en el keyring del servicio, nunca en `config.yaml`;
-  - no extraer `win-azure-oauth2-cookie`, porque el perfil persistente ya intenta el SSO silencioso;
-  - no exponer el proxy a Internet: Tailscale, `allowed_networks` ya permite `100.64.0.0/10`;
-  - se desarrolla en la PC de desarrollo haciendo de owner; después se desinstala el servicio y se
-    copia el proyecto al host definitivo, y ahí el keyring se vuelve a cargar.
-- **Estado**: **500** tests pasando, `ruff` limpio (sin cambios de código).
-- **Siguiente paso**: implementar el plan Proxy 24/7 en TDD, empezando por `FrenoAutologin` y
-  `autologin.py` (pasos 1-4), luego Playwright bajo SYSTEM (5), la verificación en vivo y Tailscale (6).
+  - no se configura desde la extensión, porque no puede presentar la admin key;
+  - no hay opción de 30 s: el frenado actúa solo cuando el relogin *falla*; la pelea con otra persona
+    la limita la pausa, y reloguear cada pocos segundos arriesga la cuenta;
+  - no se extrae `win-azure-oauth2-cookie`;
+  - el proxy no se expone a Internet: se usa Tailscale.
+- **Incidentes** (sin daño, ver [`TestingLog.md`](TestingLog.md)):
+  - un `git stash` para comparar el alto de la ventana, restaurado al momento;
+  - una corrida de la suite colgada por un test que abría la ventana real;
+  - una `.extension_build` real creada por un test con el código viejo, borrada.
+- **Estado**: **637** tests pasando, `ruff` limpio. **Sin verificar en vivo** contra Microsoft ni con
+  Playwright corriendo como LocalSystem.
+- **Siguiente paso**: tarea 7f (verificación en vivo en esta PC), luego la migración al host (7d) y
+  Tailscale. Revisar el alto de la consola (7g).
