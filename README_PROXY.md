@@ -108,7 +108,24 @@ Ver `actualizacion-windows-11/`.
 
 Ver [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) para detalles completos.
 
-### Extensión de Chrome (vía principal — el owner no sale de su navegador)
+### Autologin desatendido (vía principal desde 2026-10-28)
+Con la credencial de la **cuenta dedicada** guardada, el proxy vuelve a entrar solo
+cuando la sesión muere: Chromium sin ventana, sin intervención del owner. Se configura
+**una vez** (y de nuevo solo si WinForce cambia la contraseña): **consola owner → "Autologin de
+WinForce" → Configurar...** (pide UAC), o respondiendo **S** a la pregunta del final de
+`install_service.bat`. Para técnicos, en una consola de **Administrador**:
+```powershell
+python -m validator_app.proxy.rotate_creds --guardar-login   # usuario + contraseña -> keyring del servicio
+python -m validator_app.proxy.autologin --probar             # opcional: login de prueba con ventana (no guarda nada)
+curl http://localhost:8080/health                            # "login_configurado": true + bloque "autologin"
+```
+Solo se avisa al owner (popup, extensión, webhook) si el autologin falla, si Microsoft
+rechaza la contraseña o si la sesión muere dos veces seguidas a minutos de entrar (otra
+persona usa la cuenta → pausa). El **frenado** entre intentos fallidos (recomendado: al
+instante, +1, +2, +3 min y luego cada 5) se cambia en la consola owner → **Frenado...**. La extensión y los fallbacks de abajo siguen
+sirviendo para renovar a mano.
+
+### Extensión de Chrome (renovación manual — el owner no sale de su navegador)
 `install_service.bat` fuerza-instala la extensión **"Renovar sesion WinForce"** en
 el Chrome de la PC. **Reabrir Chrome** una vez tras instalar.
 1. El owner trabaja normal en Chrome (sesión de WinForce abierta como siempre).
@@ -192,6 +209,9 @@ Get-ChildItem .\logs\
 python -m validator_app.proxy.rotate_creds           # asistido (navegador)
 python -m validator_app.proxy.rotate_creds --manual  # pegar PHPSESSID a mano
 
+# Credencial del autologin (consola de Administrador; al cambiar la contraseña)
+python -m validator_app.proxy.rotate_creds --guardar-login
+
 # Ver config actual
 type .\validator_app\proxy\config.yaml
 ```
@@ -210,11 +230,14 @@ validator_app/proxy/
 ├── winsw.xml                # Generado auto
 ├── install_service.bat      # Instalador (en repo)
 ├── uninstall_service.bat    # Desinstalador (en repo)
-├── rotate_creds.py          # CLI renovar sesión (fallback): asistido / --manual
+├── rotate_creds.py          # CLI renovar sesión (fallback): asistido / --manual / --guardar-login
 ├── login_asistido.py        # Captura la PHPSESSID con navegador (Playwright)
+├── autologin.py             # Autologin desatendido (Chromium sin ventana) + freno anti-bucle
 ├── _instalar_extension.py   # Empaqueta + fuerza-instala la extensión de Chrome
 ├── extension/               # Extensión MV3 "Renovar sesion WinForce" (plantilla)
 ├── .browser_profile/        # GITIGNORED - perfil del login asistido
+├── .browser_profile_servicio/ # GITIGNORED - perfil del autologin (SYSTEM)
+├── .ms-playwright/          # GITIGNORED - Chromium compartido (servicio + owner)
 ├── .extension_build/ · extension.pem · extension.crx · updates.xml  # GITIGNORED
 ├── server.py                # FastAPI app + keepalive + endpoints /local/*
 ├── client.py                # Cliente agentes (en repo, va en .exe)
@@ -232,7 +255,11 @@ validator_app/proxy/
 | `curl /health` → Connection refused | `sc start JSWinProxy` + firewall rule |
 | Agentes: "401 Unauthorized" | Token distinto en agente vs `config.yaml` |
 | Agentes: "403 Forbidden" | IP no en `allowed_networks` (verifica LAN/VPN) |
-| WinForce: sesión muerta / `session_dead_since` en `/admin/status` | Badge rojo en la extensión → 1 clic. Fallback: icono del Escritorio o `rotate_creds --manual` |
+| WinForce: sesión muerta / `session_dead_since` en `/admin/status` | Con credencial guardada el autologin la renueva solo (ver `autologin` en `/health`). Si no: badge rojo en la extensión → 1 clic. Fallback: icono del Escritorio o `rotate_creds --manual` |
+| `/health` → `autologin.motivo: "credencial_invalida"` | Microsoft rechazó la contraseña: `rotate_creds --guardar-login` (Administrador) con la nueva |
+| `/health` → `autologin.motivo: "pausado"` | La sesión murió 2 veces a minutos de entrar: alguien más usa la cuenta. Se reanuda solo tras el intervalo fijo del frenado (5 min en el recomendado); ver `logs/sesion_eventos.jsonl` |
+| "Instalar extensión en Chrome" dice "la carpeta aún no está preparada" | Pulsa **Preparar carpeta** (UAC): arma `validator_app\proxy\.extension_build` con el puerto real. El instalador ahora la crea siempre, aunque no encuentre Chrome |
+| Autologin falla siempre | Ver `logs/autologin_fallo.png` (pantalla donde se quedó) y probar `python -m validator_app.proxy.autologin --probar` |
 | La extensión no aparece en Chrome | Reabrir Chrome. Si sigue: re-correr `python -m validator_app.proxy._instalar_extension` como Admin y ver que Chrome esté instalado |
 | Extensión: "No se pudo contactar al proxy" | El servicio `JSWinProxy` está parado → `winsw.exe start` |
 | "Playwright no está instalado" al usar el fallback | `python -m playwright install chromium` (o re-correr `install_service.bat`) |

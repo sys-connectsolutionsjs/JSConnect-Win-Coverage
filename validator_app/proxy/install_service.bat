@@ -101,16 +101,21 @@ if !errorLevel! equ 0 (
 REM Descargar el navegador para el login asistido (rotate_creds sin --manual)
 echo.
 echo [3/13] Descargando el navegador para "Renovar sesion" (Chromium, ~150 MB)...
+REM Carpeta compartida (no %LOCALAPPDATA% del admin): el autologin corre como
+REM LocalSystem y el login asistido como el owner; los dos la leen.
+set "PLAYWRIGHT_BROWSERS_PATH=%BASE_DIR%\.ms-playwright"
 set "PW_OK="
-for /d %%d in ("%LOCALAPPDATA%\ms-playwright\chromium-*") do set "PW_OK=1"
+for /d %%d in ("%BASE_DIR%\.ms-playwright\chromium-*") do set "PW_OK=1"
 if defined PW_OK (
     echo [OK] Chromium ya estaba descargado - nada que hacer.
     set "R3=ya estaba"
 ) else (
     python -m playwright install chromium
     if errorlevel 1 (
-        echo [WARN] No se pudo descargar Chromium. El icono "Renovar sesion WinForce"
-        echo        no funcionara hasta que corras: python -m playwright install chromium
+        echo [WARN] No se pudo descargar Chromium. El icono "Renovar sesion WinForce" y el
+        echo        autologin no funcionaran hasta que vuelvas a correr este instalador, o:
+        echo        set PLAYWRIGHT_BROWSERS_PATH=%BASE_DIR%\.ms-playwright
+        echo        python -m playwright install chromium
         echo        ^(mientras tanto: python -m validator_app.proxy.rotate_creds --manual^)
         set "R3=FALLO - ver aviso"
     ) else (
@@ -358,6 +363,7 @@ echo [INFO] Usando Python: %PYTHON_EXE%
     echo   ^<onfailure action="restart" delay="60 sec" /^>
     echo   ^<env name="PYTHONUTF8" value="1" /^>
     echo   ^<env name="PYTHONIOENCODING" value="utf-8" /^>
+    echo   ^<env name="PLAYWRIGHT_BROWSERS_PATH" value="%BASE_DIR%\.ms-playwright" /^>
     echo ^</service^>
 ) > "%BASE_DIR%\winsw.xml"
 echo [OK] winsw.xml generado.
@@ -577,6 +583,35 @@ if %errorLevel% equ 0 (
 
 :icono_listo
 
+REM Autologin (plan Proxy 24/7): credencial de la cuenta dedicada de WinForce para que
+REM el proxy vuelva a entrar solo cuando la sesion muere. Sin numerar a proposito (no
+REM cambia los [N/13]). Este .bat ya corre elevado, asi que rotate_creds lee la admin
+REM key de config.yaml y la credencial va al keyring del servicio por /local/credenciales.
+echo.
+echo [AUTOLOGIN] Credencial de WinForce para que el proxy vuelva a entrar solo...
+set "R_AUTOLOGIN=sin configurar - hacerlo desde la consola owner"
+curl -s -f -m 5 "http://localhost:%PROXY_PORT%/health" > autologin_check.tmp 2>&1
+findstr /C:"\"login_configurado\":true" autologin_check.tmp >nul
+if !errorLevel! equ 0 (
+    echo [OK] El autologin ya estaba configurado. Para cambiar la contrasena: consola owner.
+    set "R_AUTOLOGIN=ya estaba"
+) else (
+    choice /C SN /D N /T 60 /M "Configurar ahora el usuario y la contrasena de WinForce para el autologin"
+    if !errorLevel! equ 1 (
+        pushd "%REPO_ROOT%"
+        "%PYTHON_EXE%" -m validator_app.proxy.rotate_creds --guardar-login
+        if !errorLevel! equ 0 (
+            set "R_AUTOLOGIN=hecho ahora"
+        ) else (
+            set "R_AUTOLOGIN=FALLO - hacerlo desde la consola owner"
+        )
+        popd
+    ) else (
+        echo [INFO] Se puede configurar despues: consola owner, seccion "Autologin de WinForce".
+    )
+)
+del autologin_check.tmp 2>nul
+
 REM Resumen final
 echo.
 echo =====================================================================
@@ -596,6 +631,7 @@ echo   [10/13] Servicio en ejecucion ...... !R10!
 echo   [11/13] Firewall (puerto abierto) .. !R11!
 echo   [12/13] Tarea de aviso ............. !R12!
 echo   [13/13] Icono del Escritorio ....... !R13!
+echo   Autologin de WinForce .............. !R_AUTOLOGIN!
 echo.
 echo Servicio:     JSWinProxy (JSConnect Win Proxy)
 echo Puerto:       %PROXY_PORT%

@@ -25,4 +25,5 @@
   <onfailure action="restart" delay="60 sec" />
   <env name="PYTHONUTF8" value="1" />
   <env name="PYTHONIOENCODING" value="utf-8" />
+  <env name="PLAYWRIGHT_BROWSERS_PATH" value="%BASE%\validator_app\proxy\.ms-playwright" />
 </service>

@@ -554,7 +554,7 @@ Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/[`resume
   de avenidas de doble vía (vías OSM `highway=trunk/primary`), dibujar los huecos de los polígonos.
   (El Release salió como `v2026.10.13`, 2026-10-13.)
 
-## Plan aprobado — Proxy 24/7: autologin desatendido + Tailscale (2026-10-27) — PENDIENTE
+## Plan aprobado — Proxy 24/7: autologin desatendido + Tailscale (2026-10-27) — CÓDIGO IMPLEMENTADO 2026-10-28; pendiente verificación en vivo y migración
 Aprobado por el usuario el 2026-10-27. **Se retoma el 2026-10-28.** Es el paso siguiente de los puntos 1 y 2
 de "Aprobado 2026-10-21 — Cuenta dedicada, host 24/7 y cobertura observada" (cola activa, arriba). La
 condición del punto 1 ya se cumplió: con cuenta dedicada la sesión **sigue muriendo** a horas aleatorias.
@@ -578,87 +578,44 @@ El punto 3 (cobertura observada) no entra en este plan.
   servicio instalado. Cuando todo funcione, se desinstala el servicio y se copia el proyecto al host
   definitivo (ver "Migración al host definitivo").
 
-### 1. Login sin ventana — `validator_app/proxy/autologin.py` (nuevo)
-- `login_automatico(usuario, password, timeout_s=90) -> str` devuelve una PHPSESSID ya validada.
-- Usa Chromium empaquetado **headless** (el servicio es SYSTEM, en la sesión 0, sin pantalla) con un perfil
-  persistente propio: `validator_app/proxy/.browser_profile_servicio/` (se agrega al `.gitignore`).
-- Flujo:
-  1. `goto(LOGIN_URL)`.
-  2. Si el SSO silencioso ya deja una cookie válida, termina ahí.
-  3. Si no, llena el formulario de Microsoft: `input[name=loginfmt]`, botón `#idSIButton9`,
-     `input[name=passwd]`, entrar, y en "¿Mantener la sesión iniciada?" pulsa Sí.
-  4. Espera la redirección a `appwinforce.win.pe`.
-- Reutiliza `_php_sessid_de_cookies()` de `login_asistido.py` y `core_api.validar_cookie_sesion()`
-  (este es el "ping" que comprueba que la sesión quedó abierta).
-- Errores con tipo propio:
-  - `CredencialInvalidaError`: Microsoft muestra `#passwordError` o `#usernameError`. **No se reintenta**,
-    para no bloquear la cuenta.
-  - `AutologinError`: timeout, red o pantalla desconocida. Guarda una captura en `logs/autologin_fallo.png`.
+### Implementado (2026-10-28, TDD, 500 → 568 tests) — sacado de la cola
+Pasos 1-6 y tests hechos; detalle en [`TestingLog.md`](TestingLog.md) (sesión 2026-10-28) y en
+[`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) → "Autologin desatendido".
+- `validator_app/proxy/autologin.py`: `login_automatico()` (Chromium headless, perfil
+  `.browser_profile_servicio/`, SSO silencioso primero, cada dato una sola vez, KMSI,
+  `CredencialInvalidaError` sin reintento, captura `logs/autologin_fallo.png`), `FrenoAutologin` y CLI
+  `--probar` (ventana visible, perfil temporal, no guarda nada).
+- `server.py`: credencial en keyring `credentials_login`, `POST /local/credenciales` (admin key +
+  loopback, sin eco), relogin en un hilo único desde `_marcar_sesion_muerta()` y desde el keepalive
+  (también sin sesión), aviso al owner solo si falla/pausa/credencial inválida, eventos
+  `autologin_fallido`/`autologin_pausado`/`credencial_guardada` (éxito = `renovada` con
+  `origen: autologin`), `login_configurado` + bloque `autologin` en `/health` y `/admin/status`.
+- `config.py`: `autologin_enabled`, `autologin_max_por_hora`, `autologin_muerte_rapida_s`.
+- Guardar la credencial sin terminal (pedido del usuario, 2026-10-28): consola owner → sección
+  "Autologin de WinForce" (estado + Configurar..., UAC solo para leer la admin key; la contraseña sale
+  del proceso sin elevar) y pregunta `[AUTOLOGIN]` al final de `install_service.bat` (por defecto No).
+  `rotate_creds.py --guardar-login` queda para técnicos. Desde la extensión **no** (no puede presentar
+  la admin key; ver [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md)).
+- Frenado configurable (pedido del usuario, 2026-10-28): perfiles + personalizado desde la consola owner
+  ("Frenado...", `POST /local/freno`, `autologin_freno.json`); recomendado 0-1-2-3 min y luego cada 5.
+  Sin opción de 30 s (decisión: no gana la pelea por la cuenta y arriesga la cuenta).
+- Botón "Instalar extensión en Chrome": el instalador crea `.extension_build` siempre y la consola solo
+  muestra la ruta si existe (si no, "Preparar carpeta" con UAC).
+- `.ms-playwright/` compartido (instalador, `winsw.xml`, plantilla y
+  `login_asistido.usar_navegadores_compartidos()`); runbook de Tailscale en
+  [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md).
+- **Desvío del plan**: `PLAYWRIGHT_BROWSERS_PATH` además lo fija el código cuando existe la carpeta,
+  para que el login asistido del owner (sin la variable del servicio) también encuentre el navegador.
 
-### 2. Guardar la credencial (una sola vez)
-- `POST /local/credenciales` en `server.py`: solo desde loopback (`_es_local`) **y** con `X-Admin-Key`.
-  Guarda `{usuario, password}` en el keyring del proceso del servicio (`JSWinProxy` / `credentials_login`),
-  con el mismo patrón que `set_session_cookie()`.
-- Nunca devuelve la contraseña. `/admin/status` solo informa `login_configurado: true/false`.
-- CLI: `python -m validator_app.proxy.rotate_creds --guardar-login` pide los datos con `getpass` y los envía
-  (en `rotate_creds.py`, junto a `push_session_cookie()`).
-
-### 3. Relogin al detectar la muerte — `server.py`
-- `_marcar_sesion_muerta()` lanza un hilo **único** (con lock, una sola ejecución a la vez) que hace:
-  1. `autologin.login_automatico()`.
-  2. Aplica la cookie por la misma ruta que `POST /admin/rotar` / `set_session_cookie()`.
-  3. Hace una consulta real de ping (la de `_keepalive_tick`).
-  4. Llama a `_marcar_sesion_viva()`.
-- Cubre los dos caminos de detección que ya existen: el fallo de una petición de un agente (después de
-  `_confirmar_muerte`) y el keepalive cada 15 min (noches y fines de semana).
-- El aviso al owner sale solo si el autologin **falla** o queda pausado. El mensaje de `_enviar_avisos`
-  cambia según el caso.
-- Eventos nuevos en `_registrar_evento_sesion`: `autologin_ok`, `autologin_fallido`, `autologin_pausado`,
-  con duración y causa. `logs/sesion_eventos.jsonl` sirve de evidencia de si alguien más usa la cuenta.
-
-### 4. Freno anti-bucle — clase pura `FrenoAutologin` (en `autologin.py`)
-- Espera entre intentos fallidos: 0 s, 2 min, 10 min, 30 min.
-- Máximo `autologin_max_por_hora` relogins (por defecto 6).
-- Si la sesión muere antes de `autologin_muerte_rapida_s` (por defecto 600 s) después de un autologin,
-  **2 veces seguidas**: pausa de 30 min y aviso: "alguien más está iniciando sesión con la cuenta del proxy".
-- Credencial inválida: el autologin se desactiva hasta que se guarde una nueva, y se avisa.
-- Config nueva sin secretos en `validator_app/proxy/config.py`, documentada también en
-  `config.yaml.example`: `autologin_enabled: true`, `autologin_max_por_hora: 6`,
-  `autologin_muerte_rapida_s: 600`.
-- `/health` y `/admin/status` muestran el bloque
-  `autologin: {habilitado, ultimo_intento, ultimo_resultado, pausado_hasta}`.
-
-### 5. Playwright bajo SYSTEM
-- SYSTEM no ve los navegadores instalados en el `%LOCALAPPDATA%` del usuario. Hay que fijar
-  `PLAYWRIGHT_BROWSERS_PATH=<repo>\validator_app\proxy\.ms-playwright` en dos lugares:
-  - `winsw.xml.example`, como `<env>`.
-  - `install_service.bat`, en el paso `playwright install chromium` (línea ~101).
-- Agregar `.ms-playwright/` al `.gitignore`.
-
-### 6. Tailscale (sin código; runbook en [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md))
-- El proxy ya acepta `100.64.0.0/10` (`allowed_networks`) y la regla de firewall usa `-Profile Any`.
-- En el host:
-  1. Instalar Tailscale.
-  2. `tailscale up --unattended` (funciona sin que nadie haya iniciado sesión en Windows).
-  3. En la consola de Tailscale, desactivar el vencimiento de la llave (*key expiry*) de esa máquina.
-- En cada agente: instalar Tailscale y poner como URL `http://<IP 100.x o nombre MagicDNS>:8080`.
-- **No abrir el 8080 en el router.** `/admin/*` sigue siendo solo loopback.
-- Para aguantar 24/7: plan de energía sin suspensión, encendido tras corte de luz (BIOS) y horas activas
-  de Windows Update.
-
-### Tests (`tests/`, pytest)
-- `FrenoAutologin` con reloj falso: espera entre intentos, tope por hora, pausa por muerte rápida,
-  desactivación por credencial inválida.
-- `server.py` con un `login_automatico` falso: muerte → un solo hilo → cookie aplicada →
-  `_marcar_sesion_viva` → eventos correctos. Si falla, el aviso al owner se mantiene.
-- `POST /local/credenciales`: 403 fuera de loopback o sin admin key, y nunca devuelve la contraseña.
-- `autologin.py` con un `page` falso: SSO silencioso, credencial inválida y timeout.
-- Correr `pytest` y `ruff check`.
-
-### Verificación en vivo
-1. `rotate_creds --guardar-login`. Luego `/admin/status` debe mostrar `login_configurado: true`.
+### Verificación en vivo (PENDIENTE — en la PC de desarrollo haciendo de owner)
+0. `python -m validator_app.proxy.autologin --probar`: la ventana completa sola el login de Microsoft
+   (confirma los selectores reales; si falla, ver `logs/autologin_fallo.png`). Bota la sesión del proxy.
+1. Reinstalar el servicio (`install_service.bat`, opción C: baja Chromium a `.ms-playwright` y regenera
+   `winsw.xml`) y guardar la credencial: responder **S** a la pregunta `[AUTOLOGIN]` del final, o
+   `python -m generator.owner_app` → "Autologin de WinForce" → Configurar... (UAC). Luego `/health`
+   debe mostrar `login_configurado: true` y la consola "Autologin: activo".
 2. Matar la sesión (login con la misma cuenta en otro navegador). La bitácora debe mostrar `muerta` y luego
-   `autologin_ok` en menos de ~2 min, y `/health` debe volver a `logged_in: true`.
+   `renovada` con `origen: autologin` en menos de ~2 min, y `/health` debe volver a `session_alive: true`.
 3. Contraseña incorrecta: debe quedar `autologin_fallido`, el autologin desactivado y el aviso, sin reintentos.
 4. Reiniciar la PC sin iniciar sesión en Windows: el servicio y Tailscale tienen que estar arriba.
 5. Desde un agente fuera de la LAN, por Tailscale: hacer una consulta de cobertura.

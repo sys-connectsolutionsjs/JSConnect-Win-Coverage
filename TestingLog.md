@@ -11,7 +11,11 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (500 en total, a 2026-10-23; el desglose de abajo es de 2026-10-02)
+## Inventario de tests (637 en total, a 2026-10-28; el desglose de abajo es de 2026-10-02 salvo las filas marcadas 2026-10-28)
+
+> 2026-10-28 (autologin + frenado configurable + carpeta de la extensión, +137): `test_autologin.py`
+> nuevo (47); recontados en esa fecha `test_proxy.py` 101, `test_login_asistido.py` 35,
+> `test_install_bat.py` 15, `test_owner_app.py` 69 y `test_instalar_extension.py` 9.
 
 > 2026-10-02 (Windows 11, +23): `test_fingerprint.py` nuevo (5), `test_install_bat.py`
 > +5, `test_proxy.py` +3, `test_login_asistido.py` +3, `test_config.py` +3,
@@ -20,23 +24,24 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 > cifras por archivo de la tabla son las del 2026-09-30 más esos incrementos.
 | Archivo | Casos | Qué cubre |
 |---|---|---|
-| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) + **`bitacora_sesion_aislada` (aísla `logs/sesion_eventos.jsonl` en `tmp_path`) + `sin_espera_de_confirmacion` (pone `SESSION_CONFIRM_DELAY_SECONDS` en 0, 2026-09-29)** |
+| tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) + **`bitacora_sesion_aislada` (aísla `logs/sesion_eventos.jsonl` en `tmp_path`) + `sin_espera_de_confirmacion` (pone `SESSION_CONFIRM_DELAY_SECONDS` en 0, 2026-09-29)** + `autologin_capturado` (sustituye `_lanzar_hilo`: ningún test abre Chromium ni hilos, 2026-10-28) |
+| tests/test_autologin.py | 47 | **frenado configurable: `validar_freno` (2.º 1-5, 3.º desde el 2.º hasta 10, 4.º desde el 3.º hasta 15, fijo 1-20, sin fracciones), los 6 perfiles cumplen las reglas, `resolver_freno`, `esperas_de`, `tope_por_hora` (no corta un perfil válido: 14 intentos en la 1.ª hora con el recomendado), `configurar()` en vivo**; autologin desatendido (NUEVO 2026-10-28): `FrenoAutologin` con reloj falso (espera 0→2→10→30 min, tope por hora, pausa tras 2 muertes rápidas, credencial inválida hasta `reactivar()`, `estado()`), `login_automatico` con un navegador falso que simula las pantallas de Microsoft (SSO silencioso, usuario → contraseña → KMSI, contraseña/usuario rechazados sin reintento, contraseña enviada una sola vez, timeout con captura, cookie aún no autenticada, sin Playwright) y el CLI `--probar` (ventana visible, perfil temporal, no imprime la cookie ni la contraseña) |
 | tests/test_fields.py | 7 | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
 | tests/test_api.py | 23 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding, **`validar_score` con `lat`/`lon` en `None` (payload en blanco, sin coordenadas)** |
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
-| tests/test_proxy.py | 58 | proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`), `/api/score` con `lat`/`lon` en `null` (2026-09-25) y **la reconfirmación `_confirmar_muerte()` antes de marcar sesión muerta + la bitácora `logs/sesion_eventos.jsonl` (2026-09-29)** |
+| tests/test_proxy.py | 101 (2026-10-28) | **frenado: recomendado sin archivo, `configurar_freno` en vivo + persistencia en `autologin_freno.json` (reinicio), perfil con nombre ignora minutos, inválido no cambia nada, JSON corrupto → recomendado, `POST /local/freno` (admin key + loopback, 422 con el motivo), pausa en el aviso con los minutos del frenado**; **autologin en el proxy (2026-10-28): credencial en el keyring (`credentials_login`), muerte → autologin sin aviso / aviso si no hay credencial o está apagado, single-flight, reintento con espera, tope por hora, credencial inválida, pausa por muertes rápidas, keepalive que lo relanza, mensajes de aviso, `POST /local/credenciales` (admin key + loopback, sin eco) y `login_configurado`/`autologin` en `/health` y `/admin/status`**; proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`), `/api/score` con `lat`/`lon` en `null` (2026-09-25) y **la reconfirmación `_confirmar_muerte()` antes de marcar sesión muerta + la bitácora `logs/sesion_eventos.jsonl` (2026-09-29)** |
 | tests/test_client.py | 4 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`); **`validar_score` sin coordenadas manda `null` en el body** |
 | tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
-| tests/test_login_asistido.py | 19 | captura asistida y envío HTTP al proceso LocalSystem |
-| tests/test_instalar_extension.py | 3 | empaquetado del `.crx`, id estable |
+| tests/test_login_asistido.py | 35 (2026-10-28) | **`push_freno_autologin` (+ el 422 devuelve el motivo)**; | captura asistida y envío HTTP al proceso LocalSystem; **`rotate_creds --guardar-login` (`push_credencial_login`: admin key, sin permiso → "consola de Administrador", proxy apagado, HTTP error) y `usar_navegadores_compartidos()` (`.ms-playwright` para servicio y owner)** |
+| tests/test_instalar_extension.py | 9 (2026-10-28) | **`preparar_build` (puerto de `config.yaml`, 8080 por defecto, reemplaza la carpeta vieja, error claro sin plantilla) y `main()` sin Chrome o con el `.crx` fallido deja la carpeta y devuelve 1**; empaquetado del `.crx`, id estable |
 | tests/test_medir_keepalive.py | 9 | clasificación muerte/transitorio/indeterminado del medidor |
 | tests/test_activation.py | 4 | llave pública real, firma por huella y diagnóstico de código incompleto |
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
-| tests/test_owner_app.py | 30 | formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell), el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) y **detección de IP de LAN para la "URL para los agentes"** (`detectar_ip_lan`: socket UDP, respaldo con `getaddrinfo`, descarte de loopback/APIPA, sin candidatas; `url_para_agentes`; `puerto_proxy_local`) |
+| tests/test_owner_app.py | 69 (2026-10-28) | **frenado desde la consola (`rangos_freno`, `ajustar_minutos`, `linea_de_tiempo_freno`, `perfiles_para_combo`, `describir_freno`, `guardar_freno_autologin` valida antes de UAC) y botón de la extensión (`ruta_extension_build` solo con la carpeta existente; sin ella → "Preparar carpeta"; subcomando elevado `--preparar-extension`)**; **autologin desde la consola (2026-10-28): `describir_autologin()` para cada estado de `/health` (sin configurar, sin bloque, sin proxy, activo, en curso, pausado con hora, contraseña rechazada, apagado, tope/espera), `guardar_credencial_autologin()` (UAC solo para la admin key, la contraseña no va al proceso elevado, vacíos sin UAC, UAC cancelado, error del proxy) y `_leer_health()`/`describir_proxy()`**; formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell), el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) y **detección de IP de LAN para la "URL para los agentes"** (`detectar_ip_lan`: socket UDP, respaldo con `getaddrinfo`, descarte de loopback/APIPA, sin candidatas; `url_para_agentes`; `puerto_proxy_local`) |
 | tests/test_gui_activacion.py | 37 | `activacion_vigente()` del agente + `clasificar_score()` (bordes de cada tramo, vendible, colores, valores inválidos) + `_ruta_recurso()` (repo/PyInstaller, logo y borrador existen) + `_recortar_margen()` |
-| tests/test_install_bat.py | 6 | guardas estáticas de `install_service.bat`/`uninstall_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, carga manual de la extensión sin `exit`/`pause` en el paso 7, **numeración de pasos `[N/TOTAL]` consecutiva y con un solo TOTAL (guarda genérica), regla de firewall creada de forma idempotente con el puerto real y fallback si el firewall es de dominio, y `uninstall_service.bat` quita esa regla** |
+| tests/test_install_bat.py | 15 (2026-10-28) | **pregunta `[AUTOLOGIN]` al final (por defecto No, sin numerar, corre `rotate_creds --guardar-login` desde `%REPO_ROOT%`, "ya estaba" si `/health` trae `login_configurado`)**; **Chromium en `validator_app\proxy\.ms-playwright` (variable antes de `playwright install`, `winsw.xml` generado y plantilla con `PLAYWRIGHT_BROWSERS_PATH`, 2026-10-28)**; guardas estáticas de `install_service.bat`/`uninstall_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, carga manual de la extensión sin `exit`/`pause` en el paso 7, **numeración de pasos `[N/TOTAL]` consecutiva y con un solo TOTAL (guarda genérica), regla de firewall creada de forma idempotente con el puerto real y fallback si el firewall es de dominio, y `uninstall_service.bat` quita esa regla** |
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
 | tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 | tests/test_diagramas.py | 5 | guardas estáticas de `docs/diagramas/*.puml` (NUEVO 2026-09-27): `@startuml`/`@enduml` presentes, `!include _comun.puml`, `footer` de verificación, y que las clases citadas (`ValidatorAPI`, `ProxyValidatorAPI`, `ProxyClient`, `OwnerApp`) sigan existiendo en el código |
@@ -48,6 +53,40 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-28 — autologin desatendido del proxy (500 → 568 → 585 → 637 tests)
+- **Tercera parte (585 → 637)**: frenado configurable (perfiles + personalizado, `POST /local/freno`,
+  diálogo "Frenado..." en la consola) y la carpeta de la extensión.
+  - **Bug encontrado**: `_instalar_extension.main()` solo creaba `.extension_build` si encontraba Chrome
+    y devolvía 0 aunque no lo encontrara o fallara el `.crx` → el instalador marcaba "política
+    registrada" y `ruta_extension_build()` devolvía una carpeta inexistente (no comprobaba que
+    existiera). Ahora la carpeta se arma siempre, los fallos devuelven 1 y la consola ofrece
+    "Preparar carpeta".
+  - **Problema al escribir los tests → causa → solución**: (1) la suite se colgó: el test del subcomando
+    llamaba a `owner_app.main()` antes de que existiera `--preparar-extension`, y `main()` abría la
+    ventana real; se detuvo la corrida. (2) Con el código viejo, el test del `.crx` fallido escribió una
+    `.extension_build` REAL en `validator_app/proxy` (las rutas eran constantes del módulo); se comprobó
+    que era la copia exacta de la plantilla y se borró. Desde ahora `_construir_build()` calcula las
+    rutas en cada llamada y los tests usan `tmp_path`.
+- **Segunda parte (568 → 585)**: guardar la credencial sin terminal. Rojo: `describir_autologin`,
+  `guardar_credencial_autologin`, `_leer_health`/`describir_proxy` (no existían), `push_credencial_login`
+  con admin key explícita (leía siempre `config.yaml`) y el bloque `[AUTOLOGIN]` del instalador. Verde:
+  sección "Autologin de WinForce" en la consola owner + pregunta del instalador. Comprobado además que la
+  ventana de la consola y el diálogo se construyen (prueba de humo fuera de la suite, 650 × 801 px).
+- **Para qué**: con la cuenta dedicada la sesión de WinForce seguía muriendo; el proxy debe volver a
+  entrar solo (plan "Proxy 24/7").
+- **Rojo → verde, por pasos**: `FrenoAutologin` (13) → `login_automatico` + CLI `--probar` (13) →
+  credencial en keyring, `/local/credenciales`, relogin en `server.py` y `--guardar-login` (36) →
+  `.ms-playwright` en instalador, plantilla y `usar_navegadores_compartidos()` (6).
+- **Problema en los tests → causa → solución**: el helper `_pa_con_credencial` usaba
+  `guardar_credencial_login()`, que además lanza el autologin; como el fixture `autologin_capturado` no
+  ejecuta el hilo, `_autologin_corriendo` quedaba en `True` y los tests siguientes veían "ya corre".
+  Solución: el helper escribe la credencial directo en el keyring en memoria. Y un test esperaba
+  `en_curso: False` tras guardar la credencial sin sesión: lo correcto es `True` (guardar la lanza).
+- **Sin verificar en vivo todavía**: el login real contra `login.microsoftonline.com` (selectores
+  `loginfmt`/`passwd`/`idSIButton9`/`KmsiCheckboxField`/`passwordError`) y Playwright corriendo como
+  LocalSystem. Se verifica con `python -m validator_app.proxy.autologin --probar` y reinstalando el
+  servicio.
 
 ### Sesión 2026-10-23 — el mapa no cargaba: OSM bloquea "TkinterMapView" (497 → 500 tests)
 - **Síntoma**: la página Mapa sin mapa de fondo (las capas sí).

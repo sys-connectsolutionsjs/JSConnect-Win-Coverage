@@ -151,14 +151,17 @@ def test_puerto_proxy_local_por_defecto(monkeypatch):
     assert owner_app.puerto_proxy_local() == 8080
 
 
-def test_ruta_extension_build_con_servicio_instalado():
+def test_ruta_extension_build_no_devuelve_una_carpeta_que_no_existe():
+    """Bug 2026-10-28: se devolvia `<instalacion>\\.extension_build` aunque el
+    instalador no la hubiera creado (sin Chrome no la creaba)."""
     from pathlib import Path
 
-    ruta, aviso = owner_app.ruta_extension_build(
-        ruta_instalacion=lambda: Path(r"C:\proxy\validator_app\proxy")
+    ruta, aviso, preparable = owner_app.ruta_extension_build(
+        ruta_instalacion=lambda: Path(r"C:\no-existe\validator_app\proxy")
     )
-    assert ruta == Path(r"C:\proxy\validator_app\proxy\.extension_build")
-    assert aviso == ""
+    assert ruta is None
+    assert preparable is True
+    assert r"C:\no-existe\validator_app\proxy\.extension_build" in aviso
 
 
 def test_ruta_extension_build_sin_servicio_instalado():
@@ -167,8 +170,9 @@ def test_ruta_extension_build_sin_servicio_instalado():
     def falla():
         raise secretos.SecretosError("servicio JSWinProxy no instalado")
 
-    ruta, aviso = owner_app.ruta_extension_build(ruta_instalacion=falla)
+    ruta, aviso, preparable = owner_app.ruta_extension_build(ruta_instalacion=falla)
     assert ruta is None
+    assert preparable is False
     assert "install_service.bat" in aviso
     assert "no instalado" in aviso
 
@@ -533,3 +537,294 @@ def test_owner_error_al_aplicar_muestra_el_motivo(monkeypatch):
 
     assert cerrados == [True]
     assert errores and "Checksum no coincide" in errores[0][1]
+
+
+# --------------------------------------------------------------------------
+# Autologin de WinForce desde la consola (plan Proxy 24/7, 2026-10-28)
+# --------------------------------------------------------------------------
+
+def _health(**autologin):
+    base = {
+        "habilitado": True, "en_curso": False, "ultimo_intento": None,
+        "ultimo_resultado": None, "pausado_hasta": None, "motivo": "",
+    }
+    base.update(autologin)
+    return {"status": "ok", "login_configurado": True, "autologin": base}
+
+
+def test_describir_autologin_sin_configurar():
+    assert owner_app.describir_autologin(
+        {"status": "ok", "login_configurado": False, "autologin": {"habilitado": False}}
+    ) == "Autologin: sin configurar (pulsa Configurar)"
+
+
+def test_describir_autologin_health_viejo_sin_bloque():
+    assert owner_app.describir_autologin({"status": "ok"}) == (
+        "Autologin: sin configurar (pulsa Configurar)"
+    )
+
+
+def test_describir_autologin_sin_proxy():
+    assert owner_app.describir_autologin(None) == "Autologin: proxy no responde"
+
+
+def test_describir_autologin_activo_y_ultimo_resultado():
+    assert owner_app.describir_autologin(_health(ultimo_resultado="ok")) == (
+        "Autologin: activo; ultimo intento: ok"
+    )
+    assert owner_app.describir_autologin(_health()) == "Autologin: activo"
+
+
+def test_describir_autologin_en_curso():
+    assert owner_app.describir_autologin(_health(en_curso=True)) == (
+        "Autologin: entrando a WinForce ahora..."
+    )
+
+
+def test_describir_autologin_pausado_muestra_la_hora():
+    texto = owner_app.describir_autologin(
+        _health(motivo="pausado", pausado_hasta="2026-10-28T15:42:10")
+    )
+    assert texto == "Autologin: en pausa hasta las 15:42 (otra persona usa la cuenta)"
+
+
+def test_describir_autologin_credencial_rechazada():
+    texto = owner_app.describir_autologin(
+        _health(habilitado=False, motivo="credencial_invalida",
+                ultimo_resultado="credencial_invalida")
+    )
+    assert texto == "Autologin: contrasena rechazada por Microsoft; vuelve a guardarla"
+
+
+def test_describir_autologin_apagado_en_config():
+    texto = owner_app.describir_autologin(_health(habilitado=False))
+    assert texto == "Autologin: apagado (autologin_enabled en config.yaml)"
+
+
+def test_describir_autologin_tope_y_espera():
+    assert owner_app.describir_autologin(_health(motivo="tope_por_hora")) == (
+        "Autologin: tope de intentos por hora; reintenta solo mas tarde"
+    )
+    assert owner_app.describir_autologin(_health(motivo="esperando")) == (
+        "Autologin: reintentando tras un fallo"
+    )
+
+
+def test_guardar_credencial_autologin_pide_uac_y_envia_sin_elevar():
+    llamadas = {}
+
+    def leer():
+        llamadas["leer"] = True
+        return {"proxy_token": "t" * 64, "admin_key": "k" * 64}
+
+    def enviar(usuario, password, admin_key, url):
+        llamadas["enviar"] = (usuario, password, admin_key, url)
+        return True, "Credencial guardada en el keyring del proxy."
+
+    msg = owner_app.guardar_credencial_autologin(
+        " proxy@empresa.pe ", "secreta", leer=leer, enviar=enviar,
+        url="http://127.0.0.1:8080",
+    )
+    assert llamadas["leer"] is True
+    assert llamadas["enviar"] == ("proxy@empresa.pe", "secreta", "k" * 64,
+                                  "http://127.0.0.1:8080")
+    assert "secreta" not in msg
+
+
+def test_guardar_credencial_autologin_la_password_no_va_al_proceso_elevado(monkeypatch):
+    """La lectura elevada recibe solo su flag: ni usuario ni contrasena viajan por
+    la linea de comandos del proceso con UAC."""
+    vistos = []
+    monkeypatch.setattr(
+        owner_app, "_ejecutar_elevado",
+        lambda args, runner=None: vistos.append(list(args)) or {"admin_key": "k" * 64},
+    )
+    owner_app.guardar_credencial_autologin(
+        "u@x.pe", "secreta", enviar=lambda *a: (True, "ok"), url="http://127.0.0.1:8080"
+    )
+    assert vistos == [["--leer-secretos"]]
+
+
+def test_guardar_credencial_autologin_vacios_no_piden_uac():
+    def leer():
+        raise AssertionError("no debia pedir UAC")
+
+    with pytest.raises(ValueError):
+        owner_app.guardar_credencial_autologin("", "x", leer=leer, enviar=None, url="u")
+    with pytest.raises(ValueError):
+        owner_app.guardar_credencial_autologin("u", "", leer=leer, enviar=None, url="u")
+
+
+def test_guardar_credencial_autologin_uac_cancelado_propaga():
+    def leer():
+        raise RuntimeError("No se concedio el permiso de administrador (aviso UAC cancelado).")
+
+    with pytest.raises(RuntimeError, match="UAC"):
+        owner_app.guardar_credencial_autologin(
+            "u@x.pe", "p", leer=leer, enviar=lambda *a: (True, ""), url="u"
+        )
+
+
+def test_guardar_credencial_autologin_error_del_proxy_es_runtime_error():
+    with pytest.raises(RuntimeError, match="JSWinProxy"):
+        owner_app.guardar_credencial_autologin(
+            "u@x.pe", "p",
+            leer=lambda: {"admin_key": "k" * 64},
+            enviar=lambda *a: (False, "Comprueba que el servicio JSWinProxy este encendido"),
+            url="u",
+        )
+
+
+def test_consultar_proxy_devuelve_texto_y_datos_de_health(monkeypatch):
+    class Respuesta:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"session_alive": True, "login_configurado": True}
+
+    monkeypatch.setattr(owner_app, "_url_proxy_local", lambda: "http://127.0.0.1:8080")
+    monkeypatch.setattr(owner_app.httpx, "get", lambda url, timeout: Respuesta())
+    datos = owner_app._leer_health()
+    assert datos == {"session_alive": True, "login_configurado": True}
+    assert owner_app.describir_proxy(datos) == "Proxy: operativo; sesion WinForce viva"
+    assert owner_app.describir_proxy(None) == "Proxy: no responde localmente"
+
+
+# --------------------------------------------------------------------------
+# Frenado del autologin desde la consola (perfiles + personalizado)
+# --------------------------------------------------------------------------
+
+def test_rangos_freno_se_encadenan():
+    assert owner_app.rangos_freno(1, 1) == ((1, 5), (1, 10), (1, 15), (1, 20))
+    assert owner_app.rangos_freno(4, 7) == ((1, 5), (4, 10), (7, 15), (1, 20))
+
+
+def test_ajustar_minutos_sube_los_pasos_que_quedan_por_debajo():
+    assert owner_app.ajustar_minutos([4, 2, 3, 5]) == [4, 4, 4, 5]
+    assert owner_app.ajustar_minutos([2, 8, 3, 5]) == [2, 8, 8, 5]
+    assert owner_app.ajustar_minutos([1, 2, 3, 5]) == [1, 2, 3, 5]
+
+
+def test_linea_de_tiempo_del_freno():
+    assert owner_app.linea_de_tiempo_freno([1, 2, 3, 5]) == (
+        "Intentos: inmediato, +1, +2, +3 min, luego cada 5 min · pausa por otra persona: 5 min"
+    )
+
+
+def test_perfiles_para_combo_en_orden_y_con_personalizado_al_final():
+    claves = [clave for clave, _nombre in owner_app.perfiles_para_combo()]
+    assert claves[0] == "recomendado"
+    assert claves[-1] == "personalizado"
+    assert set(claves) == {
+        "recomendado", "rapido", "demasiado_rapido", "lento_optimo", "lento",
+        "demasiado_lento", "personalizado",
+    }
+
+
+def test_describir_freno_desde_health():
+    datos = _health(freno={
+        "perfil": "recomendado", "nombre": "Rango de relogin recomendado",
+        "minutos": [0, 1, 2, 3, 5], "pausa_min": 5,
+    })
+    assert owner_app.describir_freno(datos) == (
+        "Frenado: Rango de relogin recomendado (0-1-2-3, luego cada 5 min)"
+    )
+    assert owner_app.describir_freno(None) == "Frenado: proxy no responde"
+    assert owner_app.describir_freno({"status": "ok"}) == "Frenado: (el proxy no lo informa)"
+
+
+def test_guardar_freno_valida_antes_de_pedir_uac():
+    def leer():
+        raise AssertionError("no debia pedir UAC")
+
+    with pytest.raises(ValueError, match="1 a 5"):
+        owner_app.guardar_freno_autologin(
+            "personalizado", [9, 9, 9, 9], leer=leer, enviar=None, url="u"
+        )
+
+
+def test_guardar_freno_envia_el_perfil_resuelto():
+    enviados = []
+    msg = owner_app.guardar_freno_autologin(
+        "lento", [1, 1, 1, 1],
+        leer=lambda: {"admin_key": "k" * 64},
+        enviar=lambda *a: enviados.append(a) or (True, "Frenado del autologin actualizado"),
+        url="http://127.0.0.1:8080",
+    )
+    assert enviados == [("lento", [3, 6, 10, 15], "k" * 64, "http://127.0.0.1:8080")]
+    assert "Frenado" in msg
+
+
+def test_guardar_freno_uac_cancelado_y_error_del_proxy():
+    def cancelado():
+        raise RuntimeError("aviso UAC cancelado")
+
+    with pytest.raises(RuntimeError, match="UAC"):
+        owner_app.guardar_freno_autologin(
+            "recomendado", None, leer=cancelado, enviar=lambda *a: (True, ""), url="u"
+        )
+    with pytest.raises(RuntimeError, match="422"):
+        owner_app.guardar_freno_autologin(
+            "recomendado", None, leer=lambda: {"admin_key": "k" * 64},
+            enviar=lambda *a: (False, "HTTP 422"), url="u",
+        )
+
+
+# --------------------------------------------------------------------------
+# Boton "Instalar extension en Chrome": ruta real o "Preparar carpeta"
+# --------------------------------------------------------------------------
+
+def test_ruta_extension_build_solo_si_la_carpeta_existe(tmp_path):
+    build = tmp_path / ".extension_build"
+    build.mkdir()
+    (build / "manifest.json").write_text("{}", encoding="utf-8")
+    ruta, aviso, preparable = owner_app.ruta_extension_build(ruta_instalacion=lambda: tmp_path)
+    assert ruta == build
+    assert aviso == ""
+    assert preparable is False
+
+
+def test_ruta_extension_build_servicio_instalado_sin_carpeta_es_preparable(tmp_path):
+    ruta, aviso, preparable = owner_app.ruta_extension_build(ruta_instalacion=lambda: tmp_path)
+    assert ruta is None
+    assert preparable is True
+    assert "Preparar carpeta" in aviso
+
+
+def test_preparar_extension_elevado_usa_su_flag(monkeypatch):
+    vistos = []
+    monkeypatch.setattr(
+        owner_app, "_ejecutar_elevado",
+        lambda args, runner=None: vistos.append(list(args)) or {"ruta": r"C:\p\.extension_build"},
+    )
+    from pathlib import Path
+
+    assert owner_app.preparar_extension_elevado() == Path(r"C:\p\.extension_build")
+    assert vistos == [["--preparar-extension"]]
+
+
+def test_subcomando_preparar_extension_arma_la_carpeta(tmp_path, monkeypatch):
+    from validator_app.proxy import secretos
+
+    plantilla = tmp_path / "extension"
+    plantilla.mkdir()
+    (plantilla / "manifest.json").write_text('{"x": "8080"}', encoding="utf-8")
+    (plantilla / "background.js").write_text('"http://127.0.0.1:8080"', encoding="utf-8")
+    monkeypatch.setattr(secretos, "ruta_instalacion", lambda: tmp_path)
+    salida = tmp_path / "salida.json"
+    monkeypatch.setattr(owner_app.sys, "argv", ["owner", "--preparar-extension", str(salida)])
+
+    assert owner_app.main() == 0
+    datos = json.loads(salida.read_text(encoding="utf-8"))
+    assert datos == {"ruta": str(tmp_path / ".extension_build")}
+    assert (tmp_path / ".extension_build" / "manifest.json").exists()
+
+
+def test_subcomando_preparar_extension_sin_plantilla_devuelve_error(tmp_path, monkeypatch):
+    from validator_app.proxy import secretos
+
+    monkeypatch.setattr(secretos, "ruta_instalacion", lambda: tmp_path)
+    salida = tmp_path / "salida.json"
+    owner_app._correr_subcomando_preparar_extension(str(salida))
+    assert "error" in json.loads(salida.read_text(encoding="utf-8"))

@@ -121,3 +121,42 @@ def test_health_check_dentro_del_bloque_usa_errorlevel_diferido():
 def test_uninstall_quita_la_regla_de_firewall():
     texto = UNINSTALL_BAT.read_text(encoding="utf-8")
     assert "Remove-NetFirewallRule -DisplayName 'JSWinProxy API'" in texto
+
+
+def test_chromium_se_descarga_en_carpeta_compartida_con_system():
+    """Plan Proxy 24/7: el autologin corre como LocalSystem, que no ve el
+    %LOCALAPPDATA%\\ms-playwright del admin que instala. El navegador va a
+    validator_app\\proxy\\.ms-playwright, legible por SYSTEM y por el owner."""
+    texto = BAT.read_text(encoding="utf-8")
+    paso3 = texto.split("[3/13]")[1].split("[4/13]")[0]
+    definicion = r'set "PLAYWRIGHT_BROWSERS_PATH=%BASE_DIR%\.ms-playwright"'
+    assert definicion in paso3
+    assert paso3.index(definicion) < paso3.index("playwright install chromium")
+    assert r"%BASE_DIR%\.ms-playwright\chromium-*" in paso3
+    assert r"%LOCALAPPDATA%\ms-playwright" not in paso3
+
+
+def test_winsw_generado_y_plantilla_pasan_la_ruta_de_navegadores():
+    texto = BAT.read_text(encoding="utf-8")
+    paso8 = texto.split("[8/13]")[1].split("[9/13]")[0]
+    assert (
+        r'^<env name="PLAYWRIGHT_BROWSERS_PATH" value="%BASE_DIR%\.ms-playwright" /^>' in paso8
+    )
+    plantilla = (_PROXY_DIR / "winsw.xml.example").read_text(encoding="utf-8")
+    assert '<env name="PLAYWRIGHT_BROWSERS_PATH"' in plantilla
+
+
+def test_instalador_ofrece_configurar_el_autologin_al_final():
+    """Plan Proxy 24/7: al terminar, el instalador (ya elevado) ofrece guardar la
+    credencial del autologin. Por defecto NO, y sin numerar para no renumerar los
+    [N/13]. Si ya estaba configurado (reinstalacion) solo lo informa."""
+    texto = BAT.read_text(encoding="utf-8")
+    assert "[AUTOLOGIN]" in texto
+    bloque = texto.split("echo [AUTOLOGIN]")[1].split("REM Resumen final")[0]
+    assert texto.index("[13/13]") < texto.index("echo [AUTOLOGIN]")
+    assert '"login_configurado\\":true' in bloque
+    assert re.search(r"choice /C SN /D N /T \d+", bloque)
+    assert 'pushd "%REPO_ROOT%"' in bloque
+    assert '"%PYTHON_EXE%" -m validator_app.proxy.rotate_creds --guardar-login' in bloque
+    assert "popd" in bloque
+    assert "!R_AUTOLOGIN!" in texto.split("REM Resumen final")[1]

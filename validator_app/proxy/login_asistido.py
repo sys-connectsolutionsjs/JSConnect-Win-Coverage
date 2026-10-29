@@ -23,6 +23,7 @@ perezosa: si no esta instalado, `--manual` sigue funcionando.
 from __future__ import annotations
 
 import contextlib
+import os
 import shutil
 import time
 from pathlib import Path
@@ -32,6 +33,9 @@ from validator_app.core import api as core_api
 LOGIN_URL = "https://appwinforce.win.pe/login"
 _PROFILE_DIR = Path(__file__).parent / ".browser_profile"
 _POLL_SECONDS = 3
+# Navegadores de Playwright que descarga install_service.bat, compartidos entre el
+# servicio (LocalSystem, autologin) y el owner (login asistido, sin elevar).
+NAVEGADORES_DIR = Path(__file__).resolve().parent / ".ms-playwright"
 
 _OVERLAY_JS = """
 (args) => {
@@ -54,7 +58,16 @@ class LoginAsistidoError(Exception):
     """La captura por navegador no pudo completarse."""
 
 
+def usar_navegadores_compartidos() -> None:
+    """Apunta Playwright a `.ms-playwright/` si el instalador lo dejo ahi y nadie
+    fijo otra ruta. Sin esto el owner (sin la variable del servicio) buscaria en
+    su %LOCALAPPDATA%, donde ya no se descarga nada."""
+    if NAVEGADORES_DIR.is_dir():
+        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(NAVEGADORES_DIR))
+
+
 def _import_sync_playwright():
+    usar_navegadores_compartidos()
     from playwright.sync_api import sync_playwright
 
     return sync_playwright

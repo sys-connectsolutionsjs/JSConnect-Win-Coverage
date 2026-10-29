@@ -172,7 +172,11 @@ la consola owner (panel "Credenciales del proxy") sin volver a este resumen — 
    - `proxy_token` = `secrets.token_hex(32)` (64 chars hex)
    - `admin_key` = `secrets.token_hex(32)` (64 chars hex)
 6. **Crea `config.yaml`** (gitignored) con tokens + configuración y ACL
-7. **Empaqueta y registra la política de la extensión de Chrome**. Chrome solo la
+7. **Empaqueta y registra la política de la extensión de Chrome**. La carpeta
+   `validator_app\proxy\.extension_build` se crea **siempre** (desde 2026-10-28), aunque no
+   encuentre Chrome o falle el `.crx`; en esos casos el paso queda como "instalar a mano" y la
+   consola owner → "Instalar extensión en Chrome" muestra esa ruta (o "Preparar carpeta" si
+   faltara). Chrome solo la
    aplica en PC gestionadas (dominio o Azure AD, p. ej. Windows 10 Pro unido a
    dominio); en Windows Home/WORKGROUP la ignora. El instalador lo detecta, avisa
    en el paso 7 **sin detenerse** y al final imprime cómo instalarla a mano
@@ -183,7 +187,13 @@ la consola owner (panel "Credenciales del proxy") sin volver a este resumen — 
 9. **Instala e inicia el servicio**
 10. **Prueba el health check**
 11. **Crea la tarea de aviso y la fuente de eventos**
-12. **Crea el acceso directo de renovación y muestra el resumen**:
+12. **Crea el acceso directo de renovación**
+13. **Ofrece configurar el autologin** (sin número en la pantalla, `[AUTOLOGIN]`): pregunta si
+    guardar ahora el usuario y la contraseña de la cuenta dedicada de WinForce (por defecto **No**
+    en 60 s; si ya estaban guardados solo lo informa). Se puede hacer después desde la consola
+    owner → "Autologin de WinForce" → Configurar... Ver
+    [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) → "Autologin desatendido".
+14. **Muestra el resumen**:
     ```
     ========================================
     PROXY INSTALADO CORRECTAMENTE
@@ -391,12 +401,16 @@ Set-NetFirewallProfile -Name Public -AllowInboundRules True
 Ver [`docs/rotacion-credenciales.md`](rotacion-credenciales.md) — proceso detallado.
 
 Resumen rápido:
-1. El owner inicia sesión normalmente en WinForce (SSO de Microsoft: correo y contraseña).
-2. Pulsa la extensión **Renovar sesión WinForce** en su Chrome cotidiano.
-3. Como fallback, usa el botón de la consola owner o el acceso directo del
-   Escritorio; ambos abren el login asistido.
-4. La cookie se valida y se envía por HTTP al proceso LocalSystem, que la guarda
-   en su propio keyring. No se guardan usuario ni contraseña.
+- **Con autologin configurado** (consola owner → "Autologin de WinForce" → Configurar..., o la
+  pregunta del final del instalador): el proxy vuelve a entrar solo cuando la sesión muere. Usuario
+  y contraseña quedan en el keyring de LocalSystem, nunca en `config.yaml`.
+- **A mano** (sin autologin, en pausa o si falla):
+  1. El owner inicia sesión normalmente en WinForce (SSO de Microsoft: correo y contraseña).
+  2. Pulsa la extensión **Renovar sesión WinForce** en su Chrome cotidiano.
+  3. Como fallback, usa el botón de la consola owner o el acceso directo del
+     Escritorio; ambos abren el login asistido.
+  4. La cookie se valida y se envía por HTTP al proceso LocalSystem, que la guarda
+     en su propio keyring.
 
 ---
 

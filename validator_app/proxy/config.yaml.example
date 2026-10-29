@@ -35,6 +35,17 @@ winforce_score_timeout: 90         # Consulta score (más lento, SOAP Equifax)
 keepalive_enabled: true
 keepalive_interval_seconds: 900    # 15 min (validado en la investigación de keepalive)
 
+# Autologin desatendido: si la sesión muere, el proxy vuelve a entrar solo con la cuenta
+# dedicada. La credencial NO va aquí: se guarda una vez en el keyring del servicio con
+#   python -m validator_app.proxy.rotate_creds --guardar-login   (consola de Administrador)
+# El FRENADO entre intentos fallidos (recomendado 0-1-2-3 min y luego cada 5) NO va aquí:
+# se elige en la consola owner -> "Autologin de WinForce" -> Frenado... (se guarda en
+# autologin_freno.json). Si la sesión muere dos veces seguidas a menos de
+# autologin_muerte_rapida_s de un autologin (otra persona entrando con la misma cuenta),
+# el autologin se pausa el intervalo fijo del frenado.
+autologin_enabled: true
+autologin_muerte_rapida_s: 600
+
 # Reglas de venta por zona (Google My Maps "PARAMETROS VENTAS" publicado como KML):
 # carpetas PREFERENTE 2 (score >= 401) y CODIGOS BLOQUEADOS (no vender). Se descarga
 # una vez por TTL y se sirve a los agentes en GET /api/capas.

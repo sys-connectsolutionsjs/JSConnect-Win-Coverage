@@ -8,17 +8,101 @@
 ## Contexto
 
 - WinForce **rota credenciales cada 1-2 meses**: desactiva cuenta anterior + entrega nuevo user/pass al responsable
-- El proxy persiste **solo la cookie `PHPSESSID`** en el keyring de LocalSystem
-  (`JSWinProxy`/`credentials_cookies`); no guarda usuario ni contraseña
+- El proxy persiste la cookie `PHPSESSID` en el keyring de LocalSystem
+  (`JSWinProxy`/`credentials_cookies`) y, **si se configura el autologin**, el usuario y la
+  contraseña de la cuenta dedicada (`JSWinProxy`/`credentials_login`, mismo keyring cifrado).
+  Nunca en `config.yaml`, en el repo ni en el log.
 - Los agentes (25 hoy, 41 previstos) **no tienen credenciales WinForce** — solo token proxy LAN
 - Rotación = actualizar 1 sola PC (la del proxy)
 
 ---
 
-## Procedimiento — Extensión de Chrome (vía principal)
+## Autologin desatendido (vía principal desde 2026-10-28)
 
-> Renovación de la sesión (WinForce inicia sesión con el SSO de Microsoft y el proxy todavía
-> no lo hace solo). El "tope de ≈ 9.5 h" quedó descartado el 2026-10-21: las sesiones mueren
+Plan "Proxy 24/7" ([`PlanesAprobados.md`](../PlanesAprobados.md)). Cuando la sesión muere, el proxy vuelve a
+entrar solo: `validator_app/proxy/autologin.py` abre Chromium **sin ventana** (el servicio corre
+como LocalSystem) con su perfil propio `.browser_profile_servicio/`, deja actuar primero al SSO
+silencioso de Microsoft y, si Microsoft pide los datos, llena correo y contraseña (una vez cada
+uno), acepta "¿Mantener la sesión iniciada?", valida la `PHPSESSID` con
+`core.api.validar_cookie_sesion()` y hace un ping real de cobertura.
+
+### Configurarlo (una vez, y cada vez que WinForce cambie la contraseña)
+Siempre en la PC del proxy (a distancia: escritorio remoto). Tres formas, de la más fácil a la
+más técnica:
+1. **Consola owner** (`JSConnect-Win-Owner.exe`) → sección **"Autologin de WinForce"** →
+   **Configurar...** → usuario y contraseña → Guardar → aceptar el aviso UAC. La etiqueta muestra el
+   estado (sin configurar, activo, en pausa, contraseña rechazada). Lo único que se eleva es la lectura
+   de la admin key; la contraseña sale de la consola sin elevar y nunca pasa por la línea de comandos
+   ni por un archivo temporal.
+2. **Al instalar**: `install_service.bat` pregunta al final "Configurar ahora el usuario y la
+   contraseña de WinForce para el autologin" (por defecto No; en una reinstalación con credencial ya
+   guardada solo lo informa).
+3. **Terminal de Administrador** (técnicos):
+   ```powershell
+   python -m validator_app.proxy.rotate_creds --guardar-login
+   ```
+
+Las tres terminan en `POST 127.0.0.1:<puerto>/local/credenciales` (loopback + `X-Admin-Key`); el
+proceso del proxy guarda la credencial en **su** keyring. Si en ese momento no hay sesión, el
+autologin arranca enseguida.
+
+> **Por qué no desde la extensión de Chrome**: la extensión no puede leer la admin key
+> (`config.yaml` solo lo leen SYSTEM y Administradores). Para aceptarla habría que dejar
+> `/local/credenciales` abierto a cualquier proceso de la PC sin clave, y cualquier programa podría
+> cambiar con qué cuenta entra el proxy; además la contraseña pasaría por el almacenamiento de la
+> extensión. Para probar el flujo con ventana visible,
+sin guardar nada: `python -m validator_app.proxy.autologin --probar` (ojo: es un login real con
+la cuenta y bota la sesión actual del proxy).
+
+### Cómo se ve
+- `/health` y `/admin/status`: `login_configurado` y el bloque
+  `autologin: {habilitado, en_curso, ultimo_intento, ultimo_resultado, pausado_hasta, motivo}`.
+- Bitácora `logs/sesion_eventos.jsonl`: `muerta` → `renovada` con `origen: "autologin"`; si
+  falla, `autologin_fallido`; `credencial_guardada` al configurar; `autologin_pausado` (abajo).
+- El owner **no recibe aviso** mientras el autologin pueda resolverlo; el badge de la extensión
+  puede ponerse rojo unos segundos durante el relogin.
+
+### Frenado y freno anti-bucle (`FrenoAutologin`)
+El **frenado** (espera entre intentos **fallidos**: red, Microsoft caído, pantalla rara) se elige
+en la consola owner → "Autologin de WinForce" → **Frenado...** (UAC). Se aplica en vivo
+(`POST /local/freno`) y se guarda en `validator_app/proxy/autologin_freno.json` (gitignored).
+Reglas: el 1.er intento es inmediato; antes del 2.º, 1-5 min; antes del 3.º, desde el 2.º
+hasta 10; antes del 4.º, desde el 3.º hasta 15; del 5.º en adelante, un intervalo fijo de
+1-20 min. Nada por debajo de 1 minuto.
+
+| Rango | Minutos (2.º-3.º-4.º, luego cada) | Nota |
+|---|---|---|
+| Recomendado (por defecto) | 1-2-3, cada 5 | — |
+| Rápido | 1-1-2, cada 3 | Si otra persona usa la cuenta, se botan más seguido |
+| Demasiado rápido (no recomendado) | 1-1-1, cada 1 | Pelea por la sesión cada minuto; riesgo de que marquen la cuenta |
+| Lento óptimo | 2-4-6, cada 10 | — |
+| Lento | 3-6-10, cada 15 | La sesión puede quedar caída hasta 15 min |
+| Demasiado lento (no recomendado) | 5-10-15, cada 20 | Los agentes pueden quedar sin servicio 20 min |
+| Personalizado | según las reglas | — |
+
+- **Ojo: el frenado no decide la "pelea" por la cuenta.** Cuando otra persona usa la cuenta,
+  el relogin del proxy *funciona* y la bota; la pelea la limita la **pausa**: dos muertes
+  seguidas a menos de `autologin_muerte_rapida_s` (600 s) de un autologin → pausa igual al
+  intervalo fijo del frenado (5 min en el recomendado) + aviso. Reloguear cada pocos segundos
+  no "gana": se botan uno al otro, los agentes fallan igual y tantos logins con la misma cuenta
+  pueden hacer que Microsoft o WinForce la marquen. La solución de fondo es averiguar quién más
+  entra con la cuenta.
+- Tope por hora: lo que el frenado cabe en 60 min + 2 (solo red de seguridad). Si se alcanza →
+  aviso "el proxy no logró volver a entrar".
+- **Contraseña rechazada** por Microsoft → no se reintenta (evita bloquear la cuenta), el
+  autologin queda desactivado hasta guardar la nueva con `--guardar-login`, y se avisa.
+- El keepalive (cada 15 min) relanza el autologin mientras no haya sesión: tras una pausa se
+  reanuda solo, y en un host recién instalado consigue la primera `PHPSESSID` sin intervención.
+- Si falla siempre: ver `logs/autologin_fallo.png` (pantalla donde se quedó) y probar `--probar`.
+  Los selectores de Microsoft (`input[name=loginfmt]`, `input[name=passwd]`, `#idSIButton9`,
+  `#KmsiCheckboxField`, `#usernameError`/`#passwordError`) están en `autologin.py`.
+
+---
+
+## Procedimiento — Extensión de Chrome (renovación manual)
+
+> Renovación de la sesión a mano (si el autologin no está configurado, está pausado o falla).
+> El "tope de ≈ 9.5 h" quedó descartado el 2026-10-21: las sesiones mueren
 > cuando otra persona inicia sesión con la misma cuenta). El owner no necesita saber nada técnico y **no sale de su navegador
 > de siempre**.
 

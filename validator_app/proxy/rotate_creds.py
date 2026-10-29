@@ -4,9 +4,11 @@ Uso:
     python -m validator_app.proxy.rotate_creds            # asistido (navegador)
     python -m validator_app.proxy.rotate_creds --manual   # pegar la cookie a mano
     python -m validator_app.proxy.rotate_creds --fresh     # asistido, perfil limpio
+    python -m validator_app.proxy.rotate_creds --guardar-login  # credencial del autologin
 
 No hay login directo por HTTP (SSO de Microsoft): la cookie PHPSESSID sale de
-un login en navegador.
+un login en navegador. Con `--guardar-login` el proxy hace ese login solo cuando la
+sesion muere (autologin.py); este CLI queda para renovar a mano.
 
 - **Asistido** (por defecto, lo que lanza el icono "Renovar sesion WinForce" del
   Escritorio): abre Chromium, el owner inicia sesion normalmente y el script
@@ -115,6 +117,83 @@ def push_session_cookie(php_sessid: str) -> tuple[bool, str]:
     if resp.status_code == 200:
         return True, "Cookie enviada al proxy (/admin/rotar)."
     return False, f"/admin/rotar devolvio HTTP {resp.status_code}: {resp.text[:200]}"
+
+
+def push_credencial_login(
+    usuario: str, password: str, admin_key: str | None = None, url: str | None = None
+) -> tuple[bool, str]:
+    """Envia la credencial del autologin al proceso del proxy (POST
+    /local/credenciales con X-Admin-Key), que la guarda en SU keyring: el de
+    LocalSystem, no el de quien corre este comando.
+
+    Sin `admin_key`/`url` los lee de config.yaml (hay que estar en una consola de
+    Administrador). La consola owner los pasa ya resueltos (admin key leida con UAC),
+    asi la contrasena sale de un proceso SIN elevar y nunca pasa por el elevado."""
+    if admin_key is None or url is None:
+        try:
+            config = get_config()
+        except PermissionError:
+            return False, (
+                "No se pudo leer config.yaml (solo SYSTEM y Administradores). Ejecuta este "
+                "comando en una consola de Administrador."
+            )
+        except Exception as e:
+            return False, f"No se pudo leer config.yaml: {e}"
+        admin_key = admin_key or config.admin_key
+        url = url or config.proxy_local_url
+    return _post_admin(
+        "/local/credenciales",
+        {"usuario": usuario, "password": password},
+        admin_key,
+        url,
+        "Credencial guardada en el keyring del proxy.",
+    )
+
+
+def push_freno_autologin(
+    perfil: str, minutos, admin_key: str, url: str
+) -> tuple[bool, str]:
+    """Envia el frenado del autologin (perfil o personalizado) a POST /local/freno.
+    El proxy lo valida, lo guarda y lo aplica sin reiniciar."""
+    return _post_admin(
+        "/local/freno",
+        {"perfil": perfil, "minutos": list(minutos) if minutos is not None else None},
+        admin_key,
+        url,
+        "Frenado del autologin actualizado.",
+    )
+
+
+def _post_admin(ruta: str, payload: dict, admin_key: str, url: str, ok_msg: str):
+    import httpx
+
+    try:
+        resp = httpx.post(
+            f"{url}{ruta}", json=payload, headers={"X-Admin-Key": admin_key}, timeout=15
+        )
+    except httpx.RequestError as e:
+        return False, (
+            f"No se pudo contactar al proxy en {url} ({e}). Comprueba "
+            "que el servicio JSWinProxy este encendido (sc query JSWinProxy)."
+        )
+    if resp.status_code == 200:
+        return True, ok_msg
+    return False, f"{ruta} devolvio HTTP {resp.status_code}: {resp.text[:200]}"
+
+
+def _main_guardar_login() -> int:
+    print("\n" + "=" * 60)
+    print("  CREDENCIAL DEL AUTOLOGIN DEL PROXY (cuenta dedicada de WinForce)")
+    print("=" * 60)
+    print("Se guarda cifrada en el keyring del servicio, nunca en config.yaml.\n")
+    usuario = input("Usuario (correo de Microsoft): ").strip()
+    password = getpass.getpass("Contrasena (no se muestra): ")
+    if not usuario or not password:
+        print("[ERROR] Usuario o contrasena vacios. Cancelado.")
+        return 1
+    ok, msg = push_credencial_login(usuario, password)
+    print(f"[{'OK' if ok else 'ERROR'}] {msg}")
+    return 0 if ok else 1
 
 
 def _verificar_proxy(quiet: bool = False) -> None:
@@ -263,8 +342,15 @@ def main(argv: list[str] | None = None) -> int:
         default=10,
         help="Asistido: minutos de espera antes de rendirse (por defecto 10).",
     )
+    parser.add_argument(
+        "--guardar-login",
+        action="store_true",
+        help="Guarda usuario/contrasena para el autologin del proxy (consola de Administrador).",
+    )
     args = parser.parse_args(argv)
 
+    if args.guardar_login:
+        return _main_guardar_login()
     if args.preview:
         return _main_preview(args)
     if args.manual:

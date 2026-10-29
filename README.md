@@ -26,7 +26,7 @@ En lugar de scrapear HTML, replica directamente las llamadas HTTP (JSON) a la AP
 ```
 - **Proxy Local (Opción B)**: Decidida tras detectar que WinForce inicia sesión con el SSO de Microsoft (Entra ID) en el navegador, lo que hace inviable un login por máquina.
 - ~25 agentes LAN (41 previstos) → 1 proxy → 1-2 sesiones WinForce desde una sola IP → sin riesgo de bloqueo.
-- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring). Renovarla (≈1 vez por jornada, por el tope de sesión) = **doble clic en el icono "Renovar sesion WinForce" del Escritorio** → el encargado inicia sesión en la ventana que se abre y el script captura la cookie solo (sin F12, sin copiar/pegar). No hay login directo por HTTP (el SSO de Microsoft se completa en el navegador).
+- Sesión WinForce (cookie `PHPSESSID`) **solo en la PC del proxy** (Windows Keyring). **Autologin desatendido** (desde 2026-10-28): con la credencial de la cuenta dedicada guardada una vez (consola owner → **Autologin de WinForce → Configurar...**, o la pregunta del final de `install_service.bat`; para técnicos `python -m validator_app.proxy.rotate_creds --guardar-login` en consola de Administrador; queda en el keyring del servicio, nunca en `config.yaml`), el proxy vuelve a entrar solo cuando la sesión muere (Chromium sin ventana), con un freno anti-bucle que pausa y avisa si otra persona está usando la cuenta. Renovar a mano sigue disponible: extensión de Chrome (1 clic) o **doble clic en el icono "Renovar sesion WinForce" del Escritorio**. No hay login directo por HTTP (el SSO de Microsoft se completa en un navegador). Detalle: [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md).
 - Escalable a agentes remotos vía **Tailscale VPN** (mismo token, misma arquitectura, cero cambios de código).
 
 ### Características
@@ -199,7 +199,7 @@ Instead of scraping HTML, it directly replicates the HTTP (JSON) calls to the pr
 ```
 - **Local Proxy (Option B)**: Decided after discovering WinForce signs in through Microsoft SSO (Entra ID) in the browser, making a login per machine unfeasible.
 - 20 LAN agents → 1 proxy → 1-2 WinForce sessions from single IP → no blocking risk.
-- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring). Renewing it (≈once per workday, due to the session cap) = **double-click the "Renovar sesion WinForce" desktop icon** → the manager logs in on the window that opens and the script captures the cookie by itself (no F12, no copy/paste). There is no direct HTTP login (Microsoft SSO completes in the browser).
+- WinForce session (`PHPSESSID` cookie) **only on proxy PC** (Windows Keyring). **Unattended autologin** (since 2026-10-28): once the dedicated account's credential is saved (owner console → **Autologin de WinForce → Configurar...**, or the question at the end of `install_service.bat`; for technicians `python -m validator_app.proxy.rotate_creds --guardar-login` in an Administrator console; it lives in the service keyring, never in `config.yaml`), the proxy logs back in by itself when the session dies (headless Chromium), with an anti-loop brake that pauses and alerts if someone else is using the account. Manual renewal is still available: Chrome extension (1 click) or **double-click the "Renovar sesion WinForce" desktop icon**. There is no direct HTTP login (Microsoft SSO completes in a browser). Details: [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md).
 - Scalable to remote agents via **Tailscale VPN** (same token, same architecture, zero code changes).
 
 ### Features

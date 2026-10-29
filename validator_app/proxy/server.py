@@ -9,11 +9,12 @@ Endpoints:
 - POST /admin/login    {php_sessid} -> inyecta y valida cookie de sesion WinForce
 - POST /admin/rotar    {php_sessid} -> rota la cookie de sesion WinForce
 - GET  /admin/status   -> {logged_in, session_age, creds_updated, session_alive}
+- POST /local/credenciales {usuario, password} -> credencial del autologin (keyring)
 
 Nota: no hay login programatico por HTTP: WinForce usa el SSO de Microsoft
-(ver anotaciones.md). La cookie PHPSESSID se obtiene
-siempre de un login manual en navegador y se inyecta via /admin/login o
-/admin/rotar (ambas hacen lo mismo: validar + guardar en keyring).
+(ver anotaciones.md). La cookie PHPSESSID sale de un login en navegador: el del
+owner (extension, /admin/login, /admin/rotar) o el autologin desatendido del
+propio proxy (autologin.py, Chromium sin ventana) cuando la sesion muere.
 
 Auth:
 - /api/*      -> X-Proxy-Token header + IP en allowed_networks
@@ -45,6 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from validator_app.core import api as core_api
 from validator_app.core import direccion, geo
+from validator_app.proxy import autologin
 from validator_app.proxy.capas import CapasCache, CapasNoDisponiblesError
 from validator_app.proxy.config import ProxyConfig, get_config, reset_config
 from validator_app.proxy.geofinder import GeofinderEquifax
@@ -77,6 +79,34 @@ SESSION_CONFIRM_DELAY_SECONDS = 3.0
 # (no al cwd, que el servicio de Windows fija pero un test no) para que quede
 # junto a logs/winsw.*.log.
 EVENTOS_LOG_PATH = Path(__file__).resolve().parents[2] / "logs" / "sesion_eventos.jsonl"
+
+# Frenado del autologin elegido en la consola owner (POST /local/freno). No es un
+# secreto; vive junto al proxy (gitignored) para sobrevivir a los reinicios. Si falta o
+# es invalido se usa el perfil recomendado.
+FRENO_PATH = Path(__file__).resolve().parent / "autologin_freno.json"
+
+
+_RENOVAR_A_MANO = (
+    "Abre Chrome y pulsa el icono 'Renovar sesion' (badge rojo)."
+)
+_MENSAJES_AVISO = {
+    "sesion_caducada": f"La sesion de WinForce del proxy caduco. {_RENOVAR_A_MANO}",
+    "autologin_credencial_invalida": (
+        "El proxy no pudo volver a entrar a WinForce: Microsoft rechazo el usuario o la "
+        "contrasena guardados. Guarda la credencial nueva con "
+        "'python -m validator_app.proxy.rotate_creds --guardar-login' (consola de "
+        f"Administrador). Mientras tanto: {_RENOVAR_A_MANO}"
+    ),
+    "autologin_pausado": (
+        "La sesion de WinForce del proxy se cerro dos veces seguidas a minutos de "
+        "volver a entrar: otra persona esta usando la cuenta del proxy. El autologin se "
+        "pausa {pausa_min} min. " + _RENOVAR_A_MANO
+    ),
+    "autologin_detenido": (
+        "El proxy no logro volver a entrar a WinForce por su cuenta (ver "
+        f"logs/autologin_fallo.png). {_RENOVAR_A_MANO}"
+    ),
+}
 
 
 class SesionCaducadaError(core_api.APIError):
@@ -214,6 +244,16 @@ class ScoreResponse(BaseModel):
     persona: dict[str, str] | None = None
 
 
+class AutologinStatus(BaseModel):
+    habilitado: bool
+    en_curso: bool = False
+    ultimo_intento: str | None = None
+    ultimo_resultado: str | None = None
+    pausado_hasta: str | None = None
+    motivo: str = ""
+    freno: dict | None = None
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
@@ -222,6 +262,8 @@ class HealthResponse(BaseModel):
     session_alive: bool
     # True si el proxy tiene la credencial de Geofinder (direccion de coordenadas).
     geofinder: bool = False
+    login_configurado: bool = False
+    autologin: AutologinStatus | None = None
 
 
 class AdminConfigResponse(BaseModel):
@@ -233,6 +275,16 @@ class AdminConfigResponse(BaseModel):
 
 class AdminCookieRequest(BaseModel):
     php_sessid: str
+
+
+class LoginCredRequest(BaseModel):
+    usuario: str
+    password: str
+
+
+class FrenoRequest(BaseModel):
+    perfil: str
+    minutos: list[int] | None = None
 
 
 class KeepaliveStatus(BaseModel):
@@ -251,6 +303,8 @@ class AdminStatusResponse(BaseModel):
     session_alive: bool
     keepalive: KeepaliveStatus
     sesion_eventos: list[dict] = []
+    login_configurado: bool = False
+    autologin: AutologinStatus | None = None
 
 
 # Wrapper ValidatorAPI para el proxy (singleton con persistencia)
@@ -268,6 +322,15 @@ class ProxyValidatorAPI:
         self._keepalive_last_ping_ok: bool | None = None
         self._keepalive_consecutive_failures: int = 0
         self._session_dead_since: float | None = None
+        # Autologin desatendido (plan Proxy 24/7)
+        self._freno_perfil, self._freno_minutos = self._cargar_freno()
+        self._freno = autologin.FrenoAutologin(
+            muerte_rapida_s=config.autologin_muerte_rapida_s,
+            esperas=autologin.esperas_de(self._freno_minutos),
+        )
+        self._autologin_lock = threading.Lock()
+        self._autologin_corriendo = False
+        self._dormir = time.sleep
 
     def _get_client(self) -> core_api.ValidatorAPI:
         if self._client is None:
@@ -582,6 +645,169 @@ class ProxyValidatorAPI:
         """Fuerza que el proximo get_status() vuelva a preguntarle a WinForce."""
         self._session_alive_checked_at = 0.0
 
+    # ------------------- autologin desatendido (plan Proxy 24/7) ------------------
+
+    def _keyring_login(self) -> tuple[str, str]:
+        return self.config.win_keyring_service, self.config.win_keyring_user + "_login"
+
+    def _leer_credencial_login(self) -> tuple[str, str] | None:
+        import keyring
+
+        try:
+            datos = json.loads(keyring.get_password(*self._keyring_login()) or "")
+            return datos["usuario"], datos["password"]
+        except Exception:
+            return None
+
+    def guardar_credencial_login(self, usuario: str, password: str) -> None:
+        """Guarda usuario/contrasena de WinForce en el keyring DEL SERVICIO (lo
+        llama POST /local/credenciales). Nunca en config.yaml ni en el log."""
+        import keyring
+
+        usuario = (usuario or "").strip()
+        if not usuario or not password:
+            raise ValueError("Usuario y contrasena son obligatorios.")
+        keyring.set_password(
+            *self._keyring_login(), json.dumps({"usuario": usuario, "password": password})
+        )
+        self._freno.reactivar()
+        _registrar_evento_sesion("credencial_guardada", "local_credenciales", None)
+        log.info("autologin: credencial de WinForce guardada en el keyring del servicio.")
+        if self._session_dead_since is not None or not self._php_actual():
+            self._programar_autologin("credencial nueva")
+
+    @staticmethod
+    def _cargar_freno() -> tuple[str, tuple[int, int, int, int]]:
+        try:
+            datos = json.loads(FRENO_PATH.read_text(encoding="utf-8"))
+            return autologin.resolver_freno(datos["perfil"], datos.get("minutos"))
+        except Exception:
+            return autologin.resolver_freno(autologin.PERFIL_RECOMENDADO)
+
+    def configurar_freno(self, perfil: str, minutos=None) -> None:
+        """Cambia el frenado del autologin en vivo (POST /local/freno) y lo guarda.
+        Lanza ValueError si no cumple las reglas; en ese caso no cambia nada."""
+        perfil, minutos = autologin.resolver_freno(perfil, minutos)
+        FRENO_PATH.write_text(
+            json.dumps({"perfil": perfil, "minutos": list(minutos)}), encoding="utf-8"
+        )
+        self._freno_perfil, self._freno_minutos = perfil, minutos
+        self._freno.configurar(autologin.esperas_de(minutos))
+        _registrar_evento_sesion("freno_cambiado", perfil, None, str(list(minutos)))
+        log.info("autologin: frenado cambiado a %s %s.", perfil, list(minutos))
+
+    def _freno_status(self) -> dict:
+        nombre = autologin.PERFILES_FRENO.get(self._freno_perfil, {}).get(
+            "nombre", autologin.NOMBRE_PERSONALIZADO
+        )
+        return {
+            "perfil": self._freno_perfil,
+            "nombre": nombre,
+            "minutos": [0, *self._freno_minutos],
+            "pausa_min": round(self._freno.pausa_s / 60),
+        }
+
+    def _php_actual(self) -> str | None:
+        client = self._get_client()
+        return client._sesion.cookies.get("PHPSESSID") if client._sesion else None
+
+    def _necesita_sesion(self) -> bool:
+        return self._session_dead_since is not None or not self._php_actual()
+
+    def _autologin_disponible(self) -> bool:
+        if not self.config.autologin_enabled or self._leer_credencial_login() is None:
+            return False
+        ok, motivo = self._freno.puede_intentar()
+        return ok or motivo == "esperando"
+
+    def _lanzar_hilo(self, target) -> None:
+        # Hilo propio, no asyncio.to_thread: Playwright sync no corre en un hilo con
+        # loop de asyncio, y un relogin de 90 s no debe ocupar el pool de FastAPI.
+        threading.Thread(target=target, name="autologin", daemon=True).start()
+
+    def _programar_autologin(self, motivo: str) -> bool:
+        """Lanza el autologin si hace falta y se puede. Single-flight: True solo si
+        lo lanzo esta llamada."""
+        with self._autologin_lock:
+            if self._autologin_corriendo or not self._autologin_disponible():
+                return False
+            self._autologin_corriendo = True
+        log.info("autologin: lanzado (%s).", motivo)
+        self._lanzar_hilo(self._ejecutar_autologin)
+        return True
+
+    def _ejecutar_autologin(self) -> None:
+        try:
+            self._bucle_autologin()
+        except Exception:
+            log.exception("autologin: error inesperado (el proxy sigue)")
+        finally:
+            self._autologin_corriendo = False
+
+    def _bucle_autologin(self) -> None:
+        credencial = self._leer_credencial_login()
+        if credencial is None:
+            return
+        usuario, password = credencial
+        while self._necesita_sesion():
+            ok, motivo = self._freno.puede_intentar()
+            if not ok:
+                if motivo == "esperando":
+                    self._dormir(self._freno.espera_restante())
+                    continue
+                log.error("autologin: detenido (%s). Se avisa al owner.", motivo)
+                self._disparar_aviso("autologin_detenido", motivo)
+                return
+            self._freno.registrar_intento()
+            try:
+                php = autologin.login_automatico(usuario, password)
+                self.set_session_cookie(php, origen="autologin")
+                self._ping_tras_autologin()
+            except autologin.CredencialInvalidaError as e:
+                self._freno.registrar_credencial_invalida()
+                log.error("autologin: credencial rechazada por Microsoft; no se reintenta.")
+                _registrar_evento_sesion("autologin_fallido", "credencial_invalida", None, str(e))
+                self._disparar_aviso("autologin_credencial_invalida", str(e))
+                return
+            except Exception as e:
+                self._freno.registrar_fallo()
+                log.warning(
+                    "autologin: intento fallido (%s); reintento en %.0f s.",
+                    e,
+                    self._freno.espera_restante(),
+                )
+                _registrar_evento_sesion("autologin_fallido", "autologin", None, str(e))
+                continue
+            self._freno.registrar_exito()
+            log.info("autologin: sesion de WinForce renovada sin intervencion.")
+            return
+
+    def _ping_tras_autologin(self) -> None:
+        """Consulta real de cobertura para confirmar que la sesion nueva sirve. Un
+        LoginError cuenta como fallo del autologin; un fallo de red solo se anota
+        (la cookie ya la valido set_session_cookie)."""
+        lat, lon = random.choice(_KEEPALIVE_COORDS)
+        try:
+            self._get_client().validar_cobertura(lat, lon)
+        except core_api.LoginError:
+            self._session_dead_since = self._session_dead_since or time.time()
+            raise
+        except Exception as e:
+            log.warning("autologin: el ping de cobertura fallo (%s); la cookie es valida.", e)
+            return
+        self._marcar_actividad()
+
+    def _autologin_status(self) -> dict:
+        estado = self._freno.estado()
+        estado["habilitado"] = bool(
+            self.config.autologin_enabled
+            and estado["habilitado"]
+            and self._leer_credencial_login() is not None
+        )
+        estado["en_curso"] = self._autologin_corriendo
+        estado["freno"] = self._freno_status()
+        return estado
+
     # ------------------- estado de la sesion + aviso al owner ------------------
 
     def _confirmar_muerte(self, php_sessid: str) -> tuple[str, str]:
@@ -614,16 +840,34 @@ class ProxyValidatorAPI:
         if self._session_dead_since is not None:
             return
         self._session_dead_since = time.time()
+        _registrar_evento_sesion("muerta", motivo, php_sessid, detalle)
+        if self._freno.registrar_muerte():
+            log.error(
+                "sesion WinForce MUERTA (%s) por segunda vez seguida a minutos de un "
+                "autologin: otra persona esta entrando con la cuenta del proxy. "
+                "Autologin en pausa; AVISO AL OWNER: renueva la sesion a mano si urge.",
+                motivo,
+            )
+            _registrar_evento_sesion("autologin_pausado", "muertes_rapidas", php_sessid)
+            self._disparar_aviso("autologin_pausado", motivo)
+            return
+        if self._programar_autologin(motivo):
+            log.warning(
+                "sesion WinForce MUERTA (%s)%s. Autologin en marcha; solo se avisara "
+                "al owner si no logra renovarla.",
+                motivo,
+                f" [detalle: {detalle}]" if detalle else "",
+            )
+            return
         log.error(
-            "sesion WinForce MUERTA (%s)%s. El proxy aun no se re-loguea solo "
-            "(SSO de Microsoft). AVISO AL OWNER: renueva la cookie -> badge "
+            "sesion WinForce MUERTA (%s)%s. Autologin no disponible (sin credencial "
+            "guardada, apagado o en pausa). AVISO AL OWNER: renueva la cookie -> badge "
             "rojo de la extension de Chrome (1 clic), o icono 'Renovar sesion "
             "WinForce' del Escritorio, o POST /admin/rotar.",
             motivo,
             f" [detalle: {detalle}]" if detalle else "",
         )
         self._disparar_aviso("sesion_caducada", motivo)
-        _registrar_evento_sesion("muerta", motivo, php_sessid, detalle)
 
     def _marcar_sesion_viva(self) -> None:
         """Único sitio que limpia `_session_dead_since`. Idempotente."""
@@ -642,15 +886,14 @@ class ProxyValidatorAPI:
         ).start()
 
     def _enviar_avisos(self, evento: str, detalle: str) -> None:
-        if evento == "sesion_caducada":
-            mensaje = (
-                "La sesion de WinForce del proxy caduco. Abre Chrome y pulsa el "
-                "icono 'Renovar sesion' (badge rojo)."
-            )
-            event_id, tipo = EVENTO_SESION_CADUCADA, "ERROR"
-        else:
+        if evento == "sesion_renovada":
             mensaje = "La sesion de WinForce del proxy se renovo. Proxy operativo."
             event_id, tipo = EVENTO_SESION_RENOVADA, "INFORMATION"
+        else:
+            mensaje = _MENSAJES_AVISO.get(evento, _MENSAJES_AVISO["sesion_caducada"]).replace(
+                "{pausa_min}", str(round(self._freno.pausa_s / 60))
+            )
+            event_id, tipo = EVENTO_SESION_CADUCADA, "ERROR"
 
         with contextlib.suppress(Exception):
             self._aviso_event_log(event_id, tipo, mensaje)
@@ -783,7 +1026,17 @@ class ProxyValidatorAPI:
 
         "Latido perezoso": si los agentes ya generaron trafico real dentro del
         intervalo, no se pinga (su trabajo normal ya mantiene la sesion viva).
-        El ping solo cubre los huecos (almuerzo, primera hora)."""
+        El ping solo cubre los huecos (almuerzo, primera hora).
+
+        Si tras el tick no hay sesion (nunca la hubo, o sigue muerta), relanza el
+        autologin: asi el proxy se recupera solo tras una pausa del freno y, en un
+        host recien instalado, consigue su primera PHPSESSID sin intervencion."""
+        resultado = self._keepalive_tick_ping()
+        if self._necesita_sesion():
+            self._programar_autologin("keepalive")
+        return resultado
+
+    def _keepalive_tick_ping(self) -> dict:
         now = time.time()
         inactivo = now - self._last_activity
         if self._last_activity and inactivo < self.config.keepalive_interval_seconds:
@@ -888,6 +1141,8 @@ class ProxyValidatorAPI:
             "proxy_version": "dev",
             "session_alive": session_alive,
             "keepalive": self._keepalive_status(),
+            "login_configurado": self._leer_credencial_login() is not None,
+            "autologin": self._autologin_status(),
         }
 
 
@@ -1105,6 +1360,8 @@ async def health():
         logged_in=status["logged_in"],
         session_alive=status["session_alive"],
         geofinder=bool((get_config().geofinder_basic or "").strip()),
+        login_configurado=status.get("login_configurado", False),
+        autologin=status.get("autologin"),
     )
 
 
@@ -1161,6 +1418,8 @@ async def admin_status():
         session_alive=status["session_alive"],
         keepalive=KeepaliveStatus(**status["keepalive"]),
         sesion_eventos=_leer_eventos_sesion(),
+        login_configurado=status.get("login_configurado", False),
+        autologin=status.get("autologin"),
     )
 
 
@@ -1175,6 +1434,29 @@ async def local_renovar(request: AdminCookieRequest):
     proxy_api = get_proxy_api()
     proxy_api.set_session_cookie(request.php_sessid, origen="extension")
     return {"ok": True, "message": "Sesion renovada desde la extension"}
+
+
+@app.post("/local/credenciales", dependencies=[Depends(verify_admin_key)])
+async def local_credenciales(request: LoginCredRequest):
+    """Credencial del autologin. Exige admin key (ademas de loopback): quien la
+    cambia decide con que cuenta entra el proxy. Nunca devuelve lo recibido."""
+    try:
+        await asyncio.to_thread(
+            get_proxy_api().guardar_credencial_login, request.usuario, request.password
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return {"ok": True, "message": "Credencial del autologin guardada en el keyring del proxy"}
+
+
+@app.post("/local/freno", dependencies=[Depends(verify_admin_key)])
+async def local_freno(request: FrenoRequest):
+    """Frenado del autologin (perfil o personalizado). Se aplica sin reiniciar."""
+    try:
+        get_proxy_api().configurar_freno(request.perfil, request.minutos)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return {"ok": True, "message": "Frenado del autologin actualizado"}
 
 
 @app.get("/local/estado", dependencies=[Depends(_es_local)])

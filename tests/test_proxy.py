@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from validator_app.core import api as core_api
-from validator_app.proxy import server
+from validator_app.proxy import autologin, server
 from validator_app.proxy.config import ProxyConfig
 
 
@@ -54,6 +54,9 @@ class FakeCore:
         if self._sesion is None:
             self._sesion = types.SimpleNamespace(cookies={})
         self._sesion.cookies.update(cookies)
+
+    def get_session_cookies(self):
+        return dict(self._sesion.cookies) if self._sesion else {}
 
 
 # --------------------------------------------------------------------------
@@ -892,3 +895,491 @@ def test_ip_in_allowed_networks_ip_publica_del_router_no_se_permite():
     redes = ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "100.64.0.0/10"]
     for publica in ("162.120.185.241", "38.253.147.12", "72.14.201.203"):
         assert server._ip_in_allowed_networks(publica, redes) is False
+
+
+# --------------------------------------------------------------------------
+# Autologin desatendido (plan Proxy 24/7, 2026-10-28)
+# --------------------------------------------------------------------------
+
+
+class _RelojFreno:
+    def __init__(self):
+        self.t = 1_000_000.0
+
+    def __call__(self):
+        return self.t
+
+    def dormir(self, s):
+        self.t += s
+
+
+def _pa_con_credencial(**overrides) -> server.ProxyValidatorAPI:
+    """Credencial escrita directo en el keyring (en memoria): `guardar_credencial_login`
+    ademas lanza el autologin, que aqui no interesa."""
+    pa = _mk_proxy_api(**overrides)
+    keyring.set_password(
+        "JSWinProxy",
+        "credentials_login",
+        json.dumps({"usuario": "proxy@empresa.pe", "password": "secreta"}),
+    )
+    return pa
+
+
+def _pa_reloj_falso(pa: server.ProxyValidatorAPI, **kw) -> _RelojFreno:
+    reloj = _RelojFreno()
+    pa._freno = autologin.FrenoAutologin(reloj=reloj, **kw)
+    pa._dormir = reloj.dormir
+    return reloj
+
+
+def _eventos() -> list[dict]:
+    return server._leer_eventos_sesion(limite=100)
+
+
+def test_config_autologin_por_defecto():
+    cfg = ProxyConfig(proxy_token="a" * 64, admin_key="b" * 64)
+    assert cfg.autologin_enabled is True
+    assert cfg.autologin_muerte_rapida_s == 600
+    # El tope por hora ya no es config: sale del frenado elegido (consola owner).
+    assert not hasattr(cfg, "autologin_max_por_hora")
+
+
+def test_guardar_credencial_login_va_al_keyring_y_se_lee(keyring_en_memoria):
+    pa = _mk_proxy_api()
+    assert pa._leer_credencial_login() is None
+    pa.guardar_credencial_login("proxy@empresa.pe", "secreta")
+    assert pa._leer_credencial_login() == ("proxy@empresa.pe", "secreta")
+    assert ("JSWinProxy", "credentials_login") in keyring_en_memoria
+
+
+def test_guardar_credencial_login_rechaza_vacios():
+    pa = _mk_proxy_api()
+    with pytest.raises(ValueError):
+        pa.guardar_credencial_login("", "x")
+    with pytest.raises(ValueError):
+        pa.guardar_credencial_login("u", "")
+
+
+def test_leer_credencial_login_corrupta_es_none():
+    pa = _mk_proxy_api()
+    keyring.set_password("JSWinProxy", "credentials_login", "no-es-json")
+    assert pa._leer_credencial_login() is None
+
+
+def test_guardar_credencial_reactiva_el_freno_tras_credencial_invalida():
+    pa = _mk_proxy_api()
+    pa._freno.registrar_credencial_invalida()
+    pa.guardar_credencial_login("u@x.pe", "nueva")
+    assert pa._freno.puede_intentar() == (True, "")
+
+
+def test_guardar_credencial_con_sesion_muerta_lanza_autologin(autologin_capturado):
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(php=None)
+    pa.guardar_credencial_login("u@x.pe", "p")
+    assert len(autologin_capturado) == 1
+
+
+def test_guardar_credencial_con_sesion_viva_no_lanza_autologin(autologin_capturado):
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(php="viva")
+    pa.guardar_credencial_login("u@x.pe", "p")
+    assert autologin_capturado == []
+
+
+def test_get_status_informa_login_configurado_y_bloque_autologin():
+    pa = _mk_proxy_api()
+    st = pa.get_status()
+    assert st["login_configurado"] is False
+    assert st["autologin"]["habilitado"] is False
+
+    pa.guardar_credencial_login("u@x.pe", "secreta")
+    st = pa.get_status()
+    assert st["login_configurado"] is True
+    assert st["autologin"]["habilitado"] is True
+    assert st["autologin"]["en_curso"] is True  # sin sesion: guardar la lanza
+    assert "secreta" not in json.dumps(st)
+
+
+def test_get_status_autologin_deshabilitado_por_config():
+    pa = _pa_con_credencial(autologin_enabled=False)
+    assert pa.get_status()["autologin"]["habilitado"] is False
+
+
+def test_muerte_con_credencial_lanza_autologin_y_no_avisa(
+    avisos_capturados, autologin_capturado
+):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="vieja")
+    pa._marcar_sesion_muerta("prueba", php_sessid="vieja")
+    assert len(autologin_capturado) == 1
+    assert avisos_capturados == []
+    assert [e["evento"] for e in _eventos()] == ["muerta"]
+
+
+def test_muerte_sin_credencial_avisa_como_antes(avisos_capturados, autologin_capturado):
+    pa = _mk_proxy_api()
+    pa._marcar_sesion_muerta("prueba")
+    assert autologin_capturado == []
+    assert avisos_capturados == [("sesion_caducada", "prueba")]
+
+
+def test_muerte_con_autologin_apagado_en_config_avisa(avisos_capturados, autologin_capturado):
+    pa = _pa_con_credencial(autologin_enabled=False)
+    pa._marcar_sesion_muerta("prueba")
+    assert autologin_capturado == []
+    assert avisos_capturados == [("sesion_caducada", "prueba")]
+
+
+def test_programar_autologin_es_single_flight(autologin_capturado):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php=None)
+    autologin_capturado.clear()
+    assert pa._programar_autologin("a") is True
+    assert pa._programar_autologin("b") is False
+    assert len(autologin_capturado) == 1
+
+
+def test_ejecutar_autologin_ok_renueva_y_hace_ping(monkeypatch, avisos_capturados):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="vieja")
+    pa._session_dead_since = time.time() - 30
+    llamadas = []
+    monkeypatch.setattr(
+        autologin, "login_automatico", lambda u, p: llamadas.append((u, p)) or "php-nueva"
+    )
+
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._ejecutar_autologin()
+
+    assert llamadas == [("proxy@empresa.pe", "secreta")]
+    assert pa._session_dead_since is None
+    assert pa._client._sesion.cookies["PHPSESSID"] == "php-nueva"
+    assert pa._client.llamadas == 1  # el ping de cobertura
+    ultimo = _eventos()[-1]
+    assert (ultimo["evento"], ultimo["origen"]) == ("renovada", "autologin")
+    assert pa._freno.estado()["ultimo_resultado"] == "ok"
+    assert pa._autologin_corriendo is False
+
+
+def test_ejecutar_autologin_credencial_invalida_no_reintenta_y_avisa(
+    monkeypatch, avisos_capturados
+):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php=None)
+    _pa_reloj_falso(pa)
+    llamadas = []
+
+    def falla(u, p):
+        llamadas.append(1)
+        raise autologin.CredencialInvalidaError("rechazada por Microsoft")
+
+    monkeypatch.setattr(autologin, "login_automatico", falla)
+    pa._ejecutar_autologin()
+
+    assert llamadas == [1]
+    assert pa._freno.puede_intentar() == (False, "credencial_invalida")
+    assert _eventos()[-1]["evento"] == "autologin_fallido"
+    assert [e for e, _ in avisos_capturados] == ["autologin_credencial_invalida"]
+
+
+def test_ejecutar_autologin_reintenta_con_espera_tras_un_fallo(monkeypatch):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php=None)
+    reloj = _pa_reloj_falso(pa)
+    inicio = reloj.t
+    respuestas = [autologin.AutologinError("timeout"), "php-nueva"]
+
+    def login(u, p):
+        r = respuestas.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+
+    monkeypatch.setattr(autologin, "login_automatico", login)
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._ejecutar_autologin()
+
+    assert respuestas == []
+    assert reloj.t - inicio == 60  # frenado recomendado: 2.o intento al minuto
+    assert pa._client._sesion.cookies["PHPSESSID"] == "php-nueva"
+    assert [e["evento"] for e in _eventos()][-2:] == ["autologin_fallido", "renovada"]
+
+
+def test_ejecutar_autologin_se_rinde_al_tope_por_hora_y_avisa(monkeypatch, avisos_capturados):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php=None)
+    _pa_reloj_falso(pa, max_por_hora=3)
+    llamadas = []
+
+    def falla(u, p):
+        llamadas.append(1)
+        raise autologin.AutologinError("timeout")
+
+    monkeypatch.setattr(autologin, "login_automatico", falla)
+    pa._ejecutar_autologin()
+
+    assert len(llamadas) == 3
+    assert avisos_capturados == [("autologin_detenido", "tope_por_hora")]
+    assert pa._autologin_corriendo is False
+
+
+def test_ejecutar_autologin_para_si_la_sesion_ya_volvio(monkeypatch):
+    """El owner renovo a mano mientras el autologin esperaba: no se re-loguea."""
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="renovada-a-mano")
+    pa._session_dead_since = None
+    monkeypatch.setattr(
+        autologin, "login_automatico", lambda u, p: pytest.fail("no debia loguear")
+    )
+    pa._ejecutar_autologin()
+
+
+def test_ping_tras_autologin_con_sesion_rechazada_cuenta_como_fallo(monkeypatch):
+    pa = _pa_con_credencial()
+    reloj = _pa_reloj_falso(pa, max_por_hora=2)
+    pa._client = FakeCore(
+        php=None, excepcion=core_api.LoginError("no activa", "ERR_LOGIN_SESSION")
+    )
+    llamadas = []
+    monkeypatch.setattr(
+        autologin, "login_automatico", lambda u, p: llamadas.append(1) or "php"
+    )
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._ejecutar_autologin()
+    assert len(llamadas) == 2
+    assert reloj.t > 1_000_000.0
+
+
+def test_dos_muertes_rapidas_pausan_el_autologin_y_avisan(
+    avisos_capturados, autologin_capturado
+):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="x")
+    reloj = _pa_reloj_falso(pa, muerte_rapida_s=600)
+
+    pa._freno.registrar_intento()
+    pa._freno.registrar_exito()
+    reloj.t += 100
+    pa._marcar_sesion_muerta("muere 1", php_sessid="x")
+    assert len(autologin_capturado) == 1
+
+    pa._autologin_corriendo = False
+    pa._marcar_sesion_viva()
+    avisos_capturados.clear()
+    pa._freno.registrar_intento()
+    pa._freno.registrar_exito()
+    reloj.t += 100
+    pa._marcar_sesion_muerta("muere 2", php_sessid="x")
+
+    assert len(autologin_capturado) == 1
+    assert [e for e, _ in avisos_capturados] == ["autologin_pausado"]
+    assert _eventos()[-1]["evento"] == "autologin_pausado"
+
+
+def test_keepalive_sin_sesion_lanza_autologin_si_hay_credencial(autologin_capturado):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php=None)
+    autologin_capturado.clear()
+    res = pa._keepalive_tick()
+    assert res["motivo"] == "sin_sesion"
+    assert len(autologin_capturado) == 1
+
+
+def test_keepalive_sin_sesion_y_sin_credencial_no_lanza_nada(autologin_capturado):
+    pa = _mk_proxy_api()
+    pa._client = FakeCore(php=None)
+    pa._keepalive_tick()
+    assert autologin_capturado == []
+
+
+def test_keepalive_con_sesion_ya_muerta_vuelve_a_lanzar_autologin(autologin_capturado):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(excepcion=core_api.APIError("HTTP 200 text/html", "ERR_NETWORK"))
+    pa._session_dead_since = time.time() - 600
+    pa._last_activity = time.time() - 5000
+    err = core_api.LoginError("sesion no activa", "ERR_LOGIN_SESSION")
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=err):
+        res = pa._keepalive_tick()
+    assert res["resultado"] == "SESION_MUERTA"
+    assert len(autologin_capturado) == 1
+
+
+def test_enviar_avisos_tiene_mensaje_para_cada_evento_de_autologin(monkeypatch):
+    pa = _mk_proxy_api()
+    escritos = []
+    monkeypatch.setattr(
+        server.ProxyValidatorAPI,
+        "_aviso_event_log",
+        staticmethod(lambda event_id, tipo, mensaje: escritos.append((event_id, tipo, mensaje))),
+    )
+    for evento in ("autologin_credencial_invalida", "autologin_pausado", "autologin_detenido"):
+        pa._enviar_avisos(evento, "detalle")
+    assert [e[0] for e in escritos] == [server.EVENTO_SESION_CADUCADA] * 3
+    assert all(e[1] == "ERROR" for e in escritos)
+    assert "rotate_creds --guardar-login" in escritos[0][2]
+    assert "otra persona" in escritos[1][2]
+
+
+# --- endpoint /local/credenciales --------------------------------------------
+
+def test_local_credenciales_guarda_sin_eco(admin_client):
+    tc, fake = admin_client
+    r = tc.post(
+        "/local/credenciales",
+        json={"usuario": "proxy@empresa.pe", "password": "secreta"},
+        headers={"X-Admin-Key": _ADMIN},
+    )
+    assert r.status_code == 200
+    assert "secreta" not in r.text
+    fake.guardar_credencial_login.assert_called_once_with("proxy@empresa.pe", "secreta")
+
+
+def test_local_credenciales_exige_admin_key(admin_client):
+    tc, fake = admin_client
+    r = tc.post("/local/credenciales", json={"usuario": "u", "password": "p"})
+    assert r.status_code == 401
+    fake.guardar_credencial_login.assert_not_called()
+
+
+def test_local_credenciales_solo_desde_la_pc_del_proxy(client):
+    tc, fake = client
+    r = tc.post(
+        "/local/credenciales",
+        json={"usuario": "u", "password": "p"},
+        headers={"X-Admin-Key": _ADMIN},
+    )
+    assert r.status_code == 403
+    fake.guardar_credencial_login.assert_not_called()
+
+
+def test_local_credenciales_vacias_da_422(admin_client):
+    tc, fake = admin_client
+    fake.guardar_credencial_login.side_effect = ValueError("vacio")
+    r = tc.post(
+        "/local/credenciales",
+        json={"usuario": "", "password": ""},
+        headers={"X-Admin-Key": _ADMIN},
+    )
+    assert r.status_code == 422
+
+
+def test_health_y_admin_status_incluyen_autologin(admin_client):
+    tc, fake = admin_client
+    fake.get_status.return_value = {
+        **_STATUS,
+        "login_configurado": True,
+        "autologin": {
+            "habilitado": True, "en_curso": False, "ultimo_intento": None,
+            "ultimo_resultado": "ok", "pausado_hasta": None, "motivo": "",
+        },
+    }
+    h = tc.get("/health").json()
+    assert h["login_configurado"] is True
+    assert h["autologin"]["ultimo_resultado"] == "ok"
+    s = tc.get("/admin/status", headers={"X-Admin-Key": _ADMIN}).json()
+    assert s["login_configurado"] is True
+    assert s["autologin"]["habilitado"] is True
+
+
+def test_health_sin_bloque_autologin_sigue_respondiendo(client):
+    tc, fake = client
+    fake.get_status.return_value = _STATUS
+    body = tc.get("/health").json()
+    assert body["login_configurado"] is False
+    assert body["autologin"] is None
+
+
+# --- frenado configurable (perfiles) -----------------------------------------
+
+def test_freno_por_defecto_es_el_recomendado_sin_archivo():
+    pa = _mk_proxy_api()
+    st = pa.get_status()["autologin"]["freno"]
+    assert st == {
+        "perfil": "recomendado",
+        "nombre": "Rango de relogin recomendado",
+        "minutos": [0, 1, 2, 3, 5],
+        "pausa_min": 5,
+    }
+    assert pa._freno.esperas == (0, 60, 120, 180, 300)
+
+
+def test_configurar_freno_aplica_en_vivo_y_persiste(autologin_freno_path):
+    pa = _mk_proxy_api()
+    pa.configurar_freno("personalizado", [2, 3, 4, 7])
+    assert pa._freno.esperas == (0, 120, 180, 240, 420)
+    assert pa._freno.pausa_s == 420
+    guardado = json.loads(autologin_freno_path.read_text(encoding="utf-8"))
+    assert guardado == {"perfil": "personalizado", "minutos": [2, 3, 4, 7]}
+
+    otra = _mk_proxy_api()  # reinicio del servicio
+    assert otra._freno.esperas == (0, 120, 180, 240, 420)
+    assert otra.get_status()["autologin"]["freno"]["perfil"] == "personalizado"
+    assert _eventos()[-1]["evento"] == "freno_cambiado"
+
+
+def test_configurar_freno_perfil_con_nombre_usa_sus_minutos():
+    pa = _mk_proxy_api()
+    pa.configurar_freno("lento", [1, 1, 1, 1])
+    assert pa.get_status()["autologin"]["freno"]["minutos"] == [0, 3, 6, 10, 15]
+
+
+def test_configurar_freno_invalido_no_cambia_nada(autologin_freno_path):
+    pa = _mk_proxy_api()
+    with pytest.raises(ValueError):
+        pa.configurar_freno("personalizado", [9, 9, 9, 9])
+    assert pa._freno.esperas == (0, 60, 120, 180, 300)
+    assert not autologin_freno_path.exists()
+
+
+@pytest.mark.parametrize("contenido", ["no-es-json", '{"perfil": "personalizado", "minutos": [9]}'])
+def test_freno_guardado_corrupto_vuelve_al_recomendado(autologin_freno_path, contenido):
+    autologin_freno_path.write_text(contenido, encoding="utf-8")
+    pa = _mk_proxy_api()
+    assert pa._freno.esperas == (0, 60, 120, 180, 300)
+
+
+def test_local_freno_aplica_sin_eco_de_secretos(admin_client):
+    tc, fake = admin_client
+    r = tc.post(
+        "/local/freno",
+        json={"perfil": "personalizado", "minutos": [2, 3, 4, 7]},
+        headers={"X-Admin-Key": _ADMIN},
+    )
+    assert r.status_code == 200
+    fake.configurar_freno.assert_called_once_with("personalizado", [2, 3, 4, 7])
+
+
+def test_local_freno_exige_admin_key_y_loopback(admin_client, client):
+    tc, fake = admin_client
+    assert tc.post("/local/freno", json={"perfil": "lento"}).status_code == 401
+    tc_lan, fake_lan = client
+    r = tc_lan.post("/local/freno", json={"perfil": "lento"}, headers={"X-Admin-Key": _ADMIN})
+    assert r.status_code == 403
+    fake.configurar_freno.assert_not_called()
+    fake_lan.configurar_freno.assert_not_called()
+
+
+def test_local_freno_invalido_da_422(admin_client):
+    tc, fake = admin_client
+    fake.configurar_freno.side_effect = ValueError("El 2.o va de 1 a 5")
+    r = tc.post(
+        "/local/freno",
+        json={"perfil": "personalizado", "minutos": [9, 9, 9, 9]},
+        headers={"X-Admin-Key": _ADMIN},
+    )
+    assert r.status_code == 422
+    assert "1 a 5" in r.text
+
+
+def test_mensaje_de_pausa_dice_los_minutos_del_frenado(monkeypatch):
+    pa = _mk_proxy_api()
+    pa.configurar_freno("lento_optimo")
+    escritos = []
+    monkeypatch.setattr(
+        server.ProxyValidatorAPI,
+        "_aviso_event_log",
+        staticmethod(lambda event_id, tipo, mensaje: escritos.append(mensaje)),
+    )
+    pa._enviar_avisos("autologin_pausado", "")
+    assert "10 min" in escritos[0]

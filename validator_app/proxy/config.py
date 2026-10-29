@@ -58,6 +58,15 @@ class ProxyConfig(BaseSettings):
     # varias oficinas; el Evento de Windows + la extension cubren el caso local.
     alert_webhook_url: str = ""
 
+    # Autologin desatendido (plan Proxy 24/7): al morir la sesion, el proxy vuelve a
+    # entrar solo con la credencial guardada en su keyring (consola owner o
+    # rotate_creds --guardar-login). El frenado entre intentos fallidos se elige en la
+    # consola owner (autologin_freno.json, no aqui); la pausa salta si la sesion muere dos
+    # veces seguidas a menos de `autologin_muerte_rapida_s` de un autologin (otra persona
+    # entrando con la misma cuenta).
+    autologin_enabled: bool = True
+    autologin_muerte_rapida_s: int = 600
+
     # Reglas de venta por zona (mapa de Google My Maps exportado como KML). La URL es
     # informacion del negocio: va SOLO en config.yaml (gitignored), nunca en el repo publico.
     # Vacia = no se descarga y los agentes usan las reglas embebidas en su .exe.

@@ -57,6 +57,11 @@ Contexto_Proyecto_JSConnect.docx
 
 # Perfil del navegador del login asistido (sesion Microsoft/WinForce en disco, PC proxy)
 validator_app/proxy/.browser_profile/
+# Perfil del autologin del servicio y navegadores de Playwright compartidos con SYSTEM
+validator_app/proxy/.browser_profile_servicio/
+validator_app/proxy/.ms-playwright/
+# Frenado del autologin elegido en la consola owner (lo escribe el servicio)
+validator_app/proxy/autologin_freno.json
 
 # Build local de la extension de Chrome (se genera en install_service.bat)
 validator_app/proxy/.extension_build/

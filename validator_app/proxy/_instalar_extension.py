@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -84,13 +85,40 @@ def _version_extension() -> str:
         return "1.0.0"
 
 
-def _construir_build(puerto: int) -> None:
-    if _BUILD.exists():
-        shutil.rmtree(_BUILD)
-    shutil.copytree(_TEMPLATE, _BUILD)
+def _construir_build(puerto: int, base: Path | None = None) -> Path:
+    """Copia la plantilla `extension/` a `.extension_build/` con el puerto real.
+    `base` es la carpeta validator_app/proxy de la instalacion (por defecto, la de
+    este modulo; la consola owner .exe pasa la real, ver preparar_build)."""
+    base = Path(base) if base is not None else _PROXY_DIR
+    plantilla, build = base / "extension", base / ".extension_build"
+    if not (plantilla / "manifest.json").exists():
+        raise FileNotFoundError(f"No esta la plantilla de la extension en {plantilla}")
+    if build.exists():
+        shutil.rmtree(build)
+    shutil.copytree(plantilla, build)
     for nombre in ("manifest.json", "background.js"):
-        f = _BUILD / nombre
+        f = build / nombre
         f.write_text(f.read_text(encoding="utf-8").replace("8080", str(puerto)), encoding="utf-8")
+    return build
+
+
+def _puerto_de_config(config_yaml: Path) -> int:
+    """`proxy_port` de un config.yaml sin depender de pydantic/yaml (lo usa el
+    subcomando elevado de la consola owner .exe). 8080 si no se puede leer."""
+    try:
+        m = re.search(
+            r"^\s*proxy_port:\s*(\d+)", config_yaml.read_text(encoding="utf-8"), re.MULTILINE
+        )
+    except OSError:
+        return 8080
+    return int(m.group(1)) if m else 8080
+
+
+def preparar_build(base_dir: Path) -> Path:
+    """Arma `<base_dir>/.extension_build` (lo que se elige en "Cargar
+    descomprimida") con el puerto de `<base_dir>/config.yaml`."""
+    base_dir = Path(base_dir)
+    return _construir_build(_puerto_de_config(base_dir / "config.yaml"), base_dir)
 
 
 def _empaquetar_crx(chrome: str) -> None:
@@ -163,25 +191,37 @@ def main(argv: list[str] | None = None) -> int:
     if "--uninstall" in argv:
         return _desinstalar()
 
-    chrome = _localizar_chrome()
-    if not chrome:
-        print(
-            "[WARN] Google Chrome no encontrado. La extension 'Renovar sesion WinForce'\n"
-            "       no se instalo. Instala Chrome y vuelve a correr:\n"
-            "       python -m validator_app.proxy._instalar_extension"
-        )
-        return 0  # no abortar la instalacion del servicio
-
+    # La carpeta va SIEMPRE, antes de buscar Chrome: es la que se carga a mano
+    # ("Cargar descomprimida") y la que muestra el boton de la consola owner. Antes
+    # (bug 2026-10-28) sin Chrome no se creaba y main() devolvia 0 igual.
+    # Los codigos 1 no abortan install_service.bat: solo marcan el paso 7 como
+    # "instalar a mano" en vez de "politica registrada".
     puerto = _puerto_proxy()
     version = _version_extension()
     print(f"[INFO] Construyendo la extension (puerto {puerto}, v{version})...")
-    _construir_build(puerto)
+    try:
+        build = _construir_build(puerto)
+    except OSError as e:
+        print(f"[WARN] No se pudo preparar la carpeta de la extension ({e}).")
+        return 1
+    instrucciones = (
+        "       Cargala a mano: chrome://extensions -> Modo de desarrollador ->\n"
+        f"       Cargar descomprimida -> {build}"
+    )
+
+    chrome = _localizar_chrome()
+    if not chrome:
+        print(
+            "[WARN] Google Chrome no encontrado: la extension 'Renovar sesion WinForce'\n"
+            "       no se fuerza-instalo.\n" + instrucciones
+        )
+        return 1
 
     try:
         _empaquetar_crx(chrome)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-        print(f"[WARN] No se pudo empaquetar el .crx ({e}). Extension no instalada.")
-        return 0
+        print(f"[WARN] No se pudo empaquetar el .crx ({e}).\n" + instrucciones)
+        return 1
 
     ext_id = _id_desde_pem()
     _UPDATES.write_text(_render_updates_xml(ext_id, _CRX.as_uri(), version), encoding="utf-8")

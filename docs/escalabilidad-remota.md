@@ -48,8 +48,17 @@ secundarios ni repositorios.
 # En PC proxy (como Admin)
 winget install Tailscale.Tailscale
 # Login con cuenta empresa (Google/GitHub/Microsoft)
-# Anotar IP Tailscale: ej. 100.64.12.34
+tailscale up --unattended   # sigue conectado sin que nadie inicie sesion en Windows (24/7)
+tailscale ip -4             # anotar la IP Tailscale: ej. 100.64.12.34
 ```
+- En la consola de Tailscale (*Machines* → la PC del proxy → *Disable key expiry*):
+  **desactivar el vencimiento de la llave**; si no, el proxy se cae de la tailnet a los
+  ~180 días y los agentes remotos dejan de llegar.
+- **No abrir el puerto 8080 en el router** ni agregar la IP pública a `allowed_networks`:
+  Tailscale ya llega por `100.64.0.0/10`. `/admin/*` sigue siendo solo loopback.
+- Host 24/7 (plan "Proxy 24/7", [`PlanesAprobados.md`](../PlanesAprobados.md)): plan de energía sin
+  suspensión, encendido automático tras corte de luz (BIOS) y horas activas de Windows
+  Update; el autologin del proxy se encarga de la sesión de WinForce.
 
 ### 2. Instalar Tailscale en Cada Laptop Remota
 ```powershell

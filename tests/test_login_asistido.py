@@ -346,3 +346,151 @@ def test_lanzar_navegador_fallback_a_chromium():
     calls = p.chromium.launch_persistent_context.call_args_list
     assert calls[0].kwargs.get("channel") == "chrome"
     assert "channel" not in calls[1].kwargs
+
+
+# --------------------------------------------------------------------------
+# --guardar-login (credencial del autologin, plan Proxy 24/7)
+# --------------------------------------------------------------------------
+
+def test_push_credencial_login_envia_con_admin_key():
+    resp = mock.Mock(status_code=200, text='{"ok": true}')
+    with (
+        mock.patch.object(rotate_creds, "get_config", return_value=_FAKE_CFG),
+        mock.patch.object(httpx, "post", return_value=resp) as post,
+    ):
+        ok, msg = rotate_creds.push_credencial_login("proxy@empresa.pe", "secreta")
+    assert ok is True
+    url = post.call_args.args[0]
+    assert url == "http://127.0.0.1:8080/local/credenciales"
+    assert post.call_args.kwargs["headers"] == {"X-Admin-Key": "k" * 64}
+    assert post.call_args.kwargs["json"] == {"usuario": "proxy@empresa.pe", "password": "secreta"}
+    assert "secreta" not in msg
+
+
+def test_push_credencial_login_sin_permiso_pide_consola_de_administrador():
+    with mock.patch.object(rotate_creds, "get_config", side_effect=PermissionError("denegado")):
+        ok, msg = rotate_creds.push_credencial_login("u", "p")
+    assert ok is False
+    assert "Administrador" in msg
+
+
+def test_push_credencial_login_proxy_apagado():
+    with (
+        mock.patch.object(rotate_creds, "get_config", return_value=_FAKE_CFG),
+        mock.patch.object(httpx, "post", side_effect=httpx.ConnectError("x")),
+    ):
+        ok, msg = rotate_creds.push_credencial_login("u", "p")
+    assert ok is False
+    assert "JSWinProxy" in msg
+
+
+def test_push_credencial_login_http_error():
+    resp = mock.Mock(status_code=401, text="Admin key invalida")
+    with (
+        mock.patch.object(rotate_creds, "get_config", return_value=_FAKE_CFG),
+        mock.patch.object(httpx, "post", return_value=resp),
+    ):
+        ok, msg = rotate_creds.push_credencial_login("u", "p")
+    assert ok is False
+    assert "401" in msg
+
+
+def test_main_guardar_login_despacha(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _m: "proxy@empresa.pe")
+    monkeypatch.setattr(rotate_creds.getpass, "getpass", lambda _m: "secreta")
+    with mock.patch.object(
+        rotate_creds, "push_credencial_login", return_value=(True, "ok")
+    ) as push:
+        assert rotate_creds.main(["--guardar-login"]) == 0
+    push.assert_called_once_with("proxy@empresa.pe", "secreta")
+
+
+def test_main_guardar_login_vacio_no_envia(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _m: "")
+    monkeypatch.setattr(rotate_creds.getpass, "getpass", lambda _m: "")
+    with mock.patch.object(rotate_creds, "push_credencial_login") as push:
+        assert rotate_creds.main(["--guardar-login"]) == 1
+    push.assert_not_called()
+
+
+# --------------------------------------------------------------------------
+# Navegadores compartidos con el servicio (plan Proxy 24/7)
+# --------------------------------------------------------------------------
+
+def test_usar_navegadores_compartidos_fija_la_ruta_si_existe(monkeypatch, tmp_path):
+    monkeypatch.setattr(login_asistido, "NAVEGADORES_DIR", tmp_path)
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    login_asistido.usar_navegadores_compartidos()
+    import os
+
+    assert os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path)
+
+
+def test_usar_navegadores_compartidos_no_pisa_una_ruta_ya_definida(monkeypatch, tmp_path):
+    monkeypatch.setattr(login_asistido, "NAVEGADORES_DIR", tmp_path)
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", "C:/otra")
+    login_asistido.usar_navegadores_compartidos()
+    import os
+
+    assert os.environ["PLAYWRIGHT_BROWSERS_PATH"] == "C:/otra"
+
+
+def test_usar_navegadores_compartidos_sin_carpeta_no_toca_nada(monkeypatch, tmp_path):
+    monkeypatch.setattr(login_asistido, "NAVEGADORES_DIR", tmp_path / "no-existe")
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    login_asistido.usar_navegadores_compartidos()
+    import os
+
+    assert "PLAYWRIGHT_BROWSERS_PATH" not in os.environ
+
+
+def test_import_de_playwright_usa_los_navegadores_compartidos(monkeypatch):
+    from validator_app.proxy import autologin
+
+    llamadas = []
+    monkeypatch.setattr(
+        login_asistido, "usar_navegadores_compartidos", lambda: llamadas.append("asistido")
+    )
+    with mock.patch.dict("sys.modules", {"playwright.sync_api": types.SimpleNamespace(
+        sync_playwright="sp"
+    )}):
+        assert login_asistido._import_sync_playwright() == "sp"
+        assert autologin._import_sync_playwright() == "sp"
+    assert llamadas == ["asistido", "asistido"]
+
+
+def test_push_credencial_login_con_admin_key_explicita_no_lee_config():
+    resp = mock.Mock(status_code=200, text='{"ok": true}')
+    with (
+        mock.patch.object(rotate_creds, "get_config", side_effect=AssertionError("no")),
+        mock.patch.object(httpx, "post", return_value=resp) as post,
+    ):
+        ok, _msg = rotate_creds.push_credencial_login(
+            "u@x.pe", "p", admin_key="z" * 64, url="http://127.0.0.1:9000"
+        )
+    assert ok is True
+    assert post.call_args.args[0] == "http://127.0.0.1:9000/local/credenciales"
+    assert post.call_args.kwargs["headers"] == {"X-Admin-Key": "z" * 64}
+
+
+def test_push_freno_autologin_envia_perfil_y_minutos_con_admin_key():
+    resp = mock.Mock(status_code=200, text='{"ok": true}')
+    with mock.patch.object(httpx, "post", return_value=resp) as post:
+        ok, msg = rotate_creds.push_freno_autologin(
+            "personalizado", [2, 3, 4, 7], admin_key="z" * 64, url="http://127.0.0.1:8080"
+        )
+    assert ok is True
+    assert post.call_args.args[0] == "http://127.0.0.1:8080/local/freno"
+    assert post.call_args.kwargs["json"] == {"perfil": "personalizado", "minutos": [2, 3, 4, 7]}
+    assert post.call_args.kwargs["headers"] == {"X-Admin-Key": "z" * 64}
+    assert "Frenado" in msg
+
+
+def test_push_freno_autologin_422_devuelve_el_motivo():
+    resp = mock.Mock(
+        status_code=422, text='{"detail":"La espera antes del 2.o intento va de 1 a 5 min."}'
+    )
+    with mock.patch.object(httpx, "post", return_value=resp):
+        ok, msg = rotate_creds.push_freno_autologin("personalizado", [9, 9, 9, 9], "z" * 64, "u")
+    assert ok is False
+    assert "1 a 5" in msg

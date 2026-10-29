@@ -78,6 +78,7 @@ JS-Win-Coverage/              (raíz del proyecto)
 │   ├── test_medir_keepalive.py
 │   ├── test_proxy.py        # keepalive + endpoints /local/* (FastAPI TestClient)
 │   ├── test_login_asistido.py  # captura de PHPSESSID + dispatch de rotate_creds
+│   ├── test_autologin.py   # NUEVO 2026-10-28: FrenoAutologin + login_automatico (navegador falso) + CLI --probar
 │   ├── test_instalar_extension.py  # _crx_id + updates.xml
 │   ├── test_session_config.py  # cookie standalone (Fase 3)
 │   ├── test_activation.py    # verificación RSA y diagnósticos de código
@@ -108,11 +109,12 @@ JS-Win-Coverage/              (raíz del proyecto)
         ├── winsw.xml         # config servicio Windows
         ├── install_service.bat   # instala servicio (winsw, tokens, Chromium, icono Escritorio)
         ├── uninstall_service.bat # desinstala servicio
-        ├── rotate_creds.py   # CLI renovar sesión (fallback): asistido / --manual / --preview
+        ├── rotate_creds.py   # CLI renovar sesión (fallback): asistido / --manual / --preview / --guardar-login (credencial del autologin)
         ├── login_asistido.py # captura la PHPSESSID con navegador (Playwright, HttpOnly)
+        ├── autologin.py      # NUEVO 2026-10-28: autologin desatendido (Chromium sin ventana) + FrenoAutologin + CLI --probar
         ├── _instalar_extension.py  # empaqueta + fuerza-instala la extensión de Chrome
         ├── extension/        # extensión MV3 "Renovar sesion WinForce" (vía principal de renovación)
-        └── .browser_profile/ · .extension_build/ · *.pem · *.crx · updates.xml  # GITIGNORED
+        └── .browser_profile/ · .browser_profile_servicio/ · .ms-playwright/ · .extension_build/ · *.pem · *.crx · updates.xml  # GITIGNORED
 ```
 
 **Informes diarios:** las reglas de creación y la estética de la plantilla están

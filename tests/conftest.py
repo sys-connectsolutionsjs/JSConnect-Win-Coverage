@@ -85,3 +85,31 @@ def sin_espera_de_confirmacion(monkeypatch):
     from validator_app.proxy import server
 
     monkeypatch.setattr(server, "SESSION_CONFIRM_DELAY_SECONDS", 0.0)
+
+
+@pytest.fixture(autouse=True)
+def autologin_capturado(monkeypatch):
+    """El autologin (plan Proxy 24/7) lanza un hilo que abre Chromium contra
+    Microsoft. En los tests eso seria red real y un navegador: este fixture
+    sustituye `_lanzar_hilo` por un registrador. Los tests que quieran correr el
+    autologin llaman a `_ejecutar_autologin()` directamente, con
+    `autologin.login_automatico` monkeypatcheado."""
+    from validator_app.proxy import server
+
+    lanzados: list = []
+    monkeypatch.setattr(
+        server.ProxyValidatorAPI, "_lanzar_hilo", lambda self, target: lanzados.append(target)
+    )
+    return lanzados
+
+
+@pytest.fixture(autouse=True)
+def autologin_freno_path(monkeypatch, tmp_path):
+    """El frenado elegido en la consola owner se guarda en
+    `validator_app/proxy/autologin_freno.json` (junto al proxy). Sin aislar, un test
+    dejaria ahi un frenado de pega que el servicio real leeria al arrancar."""
+    from validator_app.proxy import server
+
+    ruta = tmp_path / "autologin_freno.json"
+    monkeypatch.setattr(server, "FRENO_PATH", ruta)
+    return ruta
