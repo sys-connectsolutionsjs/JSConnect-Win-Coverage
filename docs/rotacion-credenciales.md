@@ -20,11 +20,19 @@
 ## Autologin desatendido (vía principal desde 2026-10-28)
 
 Plan "Proxy 24/7" ([`PlanesAprobados.md`](../PlanesAprobados.md)). Cuando la sesión muere, el proxy vuelve a
-entrar solo: `validator_app/proxy/autologin.py` abre Chromium **sin ventana** (el servicio corre
-como LocalSystem) con su perfil propio `.browser_profile_servicio/`, deja actuar primero al SSO
-silencioso de Microsoft y, si Microsoft pide los datos, llena correo y contraseña (una vez cada
-uno), acepta "¿Mantener la sesión iniciada?", valida la `PHPSESSID` con
-`core.api.validar_cookie_sesion()` y hace un ping real de cobertura.
+entrar solo: `validator_app/proxy/autologin.py` abre Chromium **normal, no headless** (el servicio
+corre como LocalSystem, en la sesión 0, así que la ventana no se ve en el escritorio) con su perfil propio `.browser_profile_servicio/`, envía el formulario de
+WinForce (`/login`), pulsa "Iniciar con Microsoft" en la puerta de acceso
+(`accesoventas.win.pe`), deja actuar al SSO silencioso de Microsoft y, si Microsoft pide los datos,
+llena correo y contraseña (una vez cada uno), acepta "¿Mantener la sesión iniciada?", valida la
+`PHPSESSID` con `core.api.validar_cookie_sesion()` y hace un ping real de cobertura. Microsoft
+devuelve a `controllers/auth_app.php`, donde WinForce deja activa la sesión (~10 s en total,
+comprobado el 2026-10-30).
+
+> **Por qué no es headless (2026-10-30)**: WinForce responde **HTTP 410 "Request Denied!"** a
+> Chromium headless (User-Agent `HeadlessChrome`) y 200 al normal. El User-Agent no se cambia: no
+> se disfraza el navegador. Si WinForce rechaza el navegador, el autologin **se detiene y avisa**
+> ("no es la contraseña"), sin reintentar, hasta reiniciar el servicio o volver a guardar la credencial.
 
 ### Configurarlo (una vez, y cada vez que WinForce cambie la contraseña)
 Siempre en la PC del proxy (a distancia: escritorio remoto). Tres formas, de la más fácil a la
@@ -59,6 +67,13 @@ la cuenta y bota la sesión actual del proxy).
   `autologin: {habilitado, en_curso, ultimo_intento, ultimo_resultado, pausado_hasta, motivo}`.
 - Bitácora `logs/sesion_eventos.jsonl`: `muerta` → `renovada` con `origen: "autologin"`; si
   falla, `autologin_fallido`; `credencial_guardada` al configurar; `autologin_pausado` (abajo).
+- **La consulta del asesor no falla** (desde 2026-10-30): si la sesión está muerta o muere en esa
+  misma consulta (incluida una respuesta HTML de WinForce en vez de JSON: es su página de login; el proxy
+  revisa la cookie y solo si está muerta lo trata como muerte), el proxy espera al autologin hasta `autologin_espera_consulta_s` (15 s por defecto;
+  el agente corta a los 30 s) y la repite una sola vez. Queda `consulta_reintentada` con
+  `detalle: "deteccion X s, autologin Y s, consulta Z s, total T s"` en la bitácora y "consulta … salvada por el autologin" en
+  `winsw.err.log`. Si el autologin está en pausa, esperando su frenado, sin credencial o no termina a
+  tiempo: 503 al instante como antes y `consulta_sin_sesion`.
 - El owner **no recibe aviso** mientras el autologin pueda resolverlo; el badge de la extensión
   puede ponerse rojo unos segundos durante el relogin.
 
@@ -89,13 +104,22 @@ hasta 10; antes del 4.º, desde el 3.º hasta 15; del 5.º en adelante, un inter
   entra con la cuenta.
 - Tope por hora: lo que el frenado cabe en 60 min + 2 (solo red de seguridad). Si se alcanza →
   aviso "el proxy no logró volver a entrar".
-- **Contraseña rechazada** por Microsoft → no se reintenta (evita bloquear la cuenta), el
-  autologin queda desactivado hasta guardar la nueva con `--guardar-login`, y se avisa.
+- **Contraseña rechazada** por WinForce o Microsoft → no se reintenta (evita bloquear la cuenta),
+  el autologin queda desactivado hasta guardar la nueva con `--guardar-login`, y se avisa.
 - El keepalive (cada 15 min) relanza el autologin mientras no haya sesión: tras una pausa se
   reanuda solo, y en un host recién instalado consigue la primera `PHPSESSID` sin intervención.
-- Si falla siempre: ver `logs/autologin_fallo.png` (pantalla donde se quedó) y probar `--probar`.
-  Los selectores de Microsoft (`input[name=loginfmt]`, `input[name=passwd]`, `#idSIButton9`,
-  `#KmsiCheckboxField`, `#usernameError`/`#passwordError`) están en `autologin.py`.
+- En la pantalla de Microsoft el correo se reescribe si se pierde. La contraseña se envía una sola vez
+  por intento. Ojo: la pantalla del correo trae un `input[name=passwd]` oculto (`.moveOffScreen`) que
+  Playwright da por visible; el selector lo excluye.
+- **Cada fallo deja una imagen** de lo que se veía: `logs/autologin_fallo.png` es la última y
+  `logs/autologin_fallos/` conserva las 20 más recientes. La ruta queda en la bitácora. Muestra el
+  correo, nunca la contraseña.
+- `logs/autologin_pasos/` guarda el rastro del **último** intento: `traza.txt` (pasos, navegaciones y
+  tiempos, con URL sin valores de parámetros) y una imagen antes de cada acción.
+- Si falla siempre: ver esas imágenes y probar `--probar`.
+  Los selectores de WinForce (`#username`, `#password`, `#ingresar`, avisos `.swal2-popup`), de la
+  puerta de acceso (`button.login-button.azure`) y de Microsoft (`input[name=loginfmt]`, `input[name=passwd]:not(.moveOffScreen)`, `#idSIButton9`, `#KmsiCheckboxField`,
+  `#usernameError`/`#passwordError`) están en `autologin.py`.
 
 ---
 
@@ -355,7 +379,9 @@ dura ~24 min y se renueva solo) con la credencial `Authorization: Basic …` de 
 
 ## ⚠️ NOTA: Login WinForce + SSO de Microsoft (Entra ID)
 
-El login de WinForce redirige a `login.microsoftonline.com` (SSO de Microsoft Entra ID,
+El login de WinForce son tres pasos: su formulario propio (`/login`, que llama a `acceso.php`,
+responde "Redireccionar" y recarga), la puerta de acceso `accesoventas.win.pe` ("Iniciar con Microsoft"
+o "Iniciar con Google") y `login.microsoftonline.com` (SSO de Microsoft Entra ID,
 solo correo y contraseña; **no hay segundo factor**, corregido el 2026-10-23). No hay login
 directo por HTTP; hoy la `PHPSESSID` sale de un login en navegador. El **login asistido**
 (`login_asistido.py`, Playwright) automatiza la parte de *extraer* la cookie —

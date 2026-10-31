@@ -57,7 +57,7 @@ tailscale ip -4             # anotar la IP Tailscale: ej. 100.64.12.34
 - **No abrir el puerto 8080 en el router** ni agregar la IP pública a `allowed_networks`:
   Tailscale ya llega por `100.64.0.0/10`. `/admin/*` sigue siendo solo loopback.
 - Host 24/7 (plan "Proxy 24/7", [`PlanesAprobados.md`](../PlanesAprobados.md)): plan de energía sin
-  suspensión, encendido automático tras corte de luz (BIOS) y horas activas de Windows
+  suspensión (`install_service.bat` → `[ENERGIA]`), encendido automático tras corte de luz (BIOS) y horas activas de Windows
   Update; el autologin del proxy se encarga de la sesión de WinForce.
 
 ### 2. Instalar Tailscale en Cada Laptop Remota

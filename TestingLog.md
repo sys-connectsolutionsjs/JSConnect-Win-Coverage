@@ -11,7 +11,14 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 - Comando de lint: `ruff check .` (config en pyproject.toml, `target-version = "py312"`).
 - Convención: cualquier cambio de comportamiento va acompañado de su test.
 
-## Inventario de tests (637 en total, a 2026-10-28; el desglose de abajo es de 2026-10-02 salvo las filas marcadas 2026-10-28)
+## Inventario de tests (667 en total, a 2026-10-30; el desglose de abajo es de 2026-10-02 salvo las filas marcadas 2026-10-28 o posteriores)
+
+> 2026-10-30 (rastro por pasos, +3; campo oculto de Microsoft, +1; retirados 4 del reenvío con Enter):
+> `test_autologin.py` pasa a 74.
+
+> 2026-10-30 (formulario de WinForce en el autologin, +6; navegador rechazado, +4; puerta de acceso, +3;
+> captura en cada fallo, +8; correo perdido, +5): `test_autologin.py` pasa a 70, `test_proxy.py` a 103 y
+> `test_owner_app.py` a 70.
 
 > 2026-10-28 (autologin + frenado configurable + carpeta de la extensión, +137): `test_autologin.py`
 > nuevo (47); recontados en esa fecha `test_proxy.py` 101, `test_login_asistido.py` 35,
@@ -25,12 +32,12 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | Archivo | Casos | Qué cubre |
 |---|---|---|
 | tests/conftest.py | (fixtures) | autouse: `keyring_en_memoria` (aísla el Credential Manager) + `avisos_capturados` (aísla el Event Log / webhook de la Etapa R) + `sin_config_yaml_real` (aísla el `config.yaml` de la PC; sin él la suite fallaba sin elevar en una PC con el proxy instalado) + **`bitacora_sesion_aislada` (aísla `logs/sesion_eventos.jsonl` en `tmp_path`) + `sin_espera_de_confirmacion` (pone `SESSION_CONFIRM_DELAY_SECONDS` en 0, 2026-09-29)** + `autologin_capturado` (sustituye `_lanzar_hilo`: ningún test abre Chromium ni hilos, 2026-10-28) |
-| tests/test_autologin.py | 47 | **frenado configurable: `validar_freno` (2.º 1-5, 3.º desde el 2.º hasta 10, 4.º desde el 3.º hasta 15, fijo 1-20, sin fracciones), los 6 perfiles cumplen las reglas, `resolver_freno`, `esperas_de`, `tope_por_hora` (no corta un perfil válido: 14 intentos en la 1.ª hora con el recomendado), `configurar()` en vivo**; autologin desatendido (NUEVO 2026-10-28): `FrenoAutologin` con reloj falso (espera 0→2→10→30 min, tope por hora, pausa tras 2 muertes rápidas, credencial inválida hasta `reactivar()`, `estado()`), `login_automatico` con un navegador falso que simula las pantallas de Microsoft (SSO silencioso, usuario → contraseña → KMSI, contraseña/usuario rechazados sin reintento, contraseña enviada una sola vez, timeout con captura, cookie aún no autenticada, sin Playwright) y el CLI `--probar` (ventana visible, perfil temporal, no imprime la cookie ni la contraseña) |
+| tests/test_autologin.py | 74 (2026-10-30) | **campo oculto `.moveOffScreen` en la pantalla del correo, traza por pasos sin secretos**; **correo perdido en Microsoft (se reescribe hasta 3 veces, sin apagar el autologin)**; **captura en cada fallo (conserva el tipo de error, ruta en el mensaje, últimas 20, nunca tapa el error real)**; **formulario de WinForce y puerta "Iniciar con Microsoft" antes de Microsoft (cada uno una sola vez, rechazo sin reintento, HTTP 410 = `NavegadorRechazadoError` y freno detenido, Chromium normal por defecto, 2026-10-30)**; **frenado configurable: `validar_freno` (2.º 1-5, 3.º desde el 2.º hasta 10, 4.º desde el 3.º hasta 15, fijo 1-20, sin fracciones), los 6 perfiles cumplen las reglas, `resolver_freno`, `esperas_de`, `tope_por_hora` (no corta un perfil válido: 14 intentos en la 1.ª hora con el recomendado), `configurar()` en vivo**; autologin desatendido (NUEVO 2026-10-28): `FrenoAutologin` con reloj falso (espera 0→2→10→30 min, tope por hora, pausa tras 2 muertes rápidas, credencial inválida hasta `reactivar()`, `estado()`), `login_automatico` con un navegador falso que simula las pantallas de Microsoft (SSO silencioso, usuario → contraseña → KMSI, contraseña/usuario rechazados sin reintento, contraseña enviada una sola vez, timeout con captura, cookie aún no autenticada, sin Playwright) y el CLI `--probar` (ventana visible, perfil temporal, no imprime la cookie ni la contraseña) |
 | tests/test_fields.py | 7 | parseo de coordenadas y detección DNI/RUC/CE |
 | tests/test_captura_guard.py | 4 | guard de instancia única de captura.py |
 | tests/test_api.py | 23 | núcleo: login, cobertura, score, su parser, `validar_cookie_sesion()`, BOM/doble-encoding, **`validar_score` con `lat`/`lon` en `None` (payload en blanco, sin coordenadas)** |
 | tests/test_prueba_core.py | 7 | lógica del arnés gráfico (flujo, errores, mocks) |
-| tests/test_proxy.py | 101 (2026-10-28) | **frenado: recomendado sin archivo, `configurar_freno` en vivo + persistencia en `autologin_freno.json` (reinicio), perfil con nombre ignora minutos, inválido no cambia nada, JSON corrupto → recomendado, `POST /local/freno` (admin key + loopback, 422 con el motivo), pausa en el aviso con los minutos del frenado**; **autologin en el proxy (2026-10-28): credencial en el keyring (`credentials_login`), muerte → autologin sin aviso / aviso si no hay credencial o está apagado, single-flight, reintento con espera, tope por hora, credencial inválida, pausa por muertes rápidas, keepalive que lo relanza, mensajes de aviso, `POST /local/credenciales` (admin key + loopback, sin eco) y `login_configurado`/`autologin` en `/health` y `/admin/status`**; proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`), `/api/score` con `lat`/`lon` en `null` (2026-09-25) y **la reconfirmación `_confirmar_muerte()` antes de marcar sesión muerta + la bitácora `logs/sesion_eventos.jsonl` (2026-09-29)** |
+| tests/test_proxy.py | 116 (2026-10-30) | **respuesta HTML de WinForce comprobada como posible sesión muerta; 502 con detalle en el log**; **la consulta espera al autologin y se repite una vez (cobertura y score, 503 si no termina a tiempo, sin espera con frenado/pausa/intento fallido, endpoints `def`, 2026-10-30)**; **frenado: recomendado sin archivo, `configurar_freno` en vivo + persistencia en `autologin_freno.json` (reinicio), perfil con nombre ignora minutos, inválido no cambia nada, JSON corrupto → recomendado, `POST /local/freno` (admin key + loopback, 422 con el motivo), pausa en el aviso con los minutos del frenado**; **autologin en el proxy (2026-10-28): credencial en el keyring (`credentials_login`), muerte → autologin sin aviso / aviso si no hay credencial o está apagado, single-flight, reintento con espera, tope por hora, credencial inválida, pausa por muertes rápidas, keepalive que lo relanza, mensajes de aviso, `POST /local/credenciales` (admin key + loopback, sin eco) y `login_configurado`/`autologin` en `/health` y `/admin/status`**; proxy: keepalive "latido perezoso", `/local/*`, capa FastAPI (`/api/*`, `/health`, `/admin/*`), auth (token+IP, admin key **loopback-only desde 2026-09-21**), exception handlers, la **Etapa R** (bug de `_last_activity`, validación al arrancar, fail-fast 503, `_marcar_sesion_muerta/viva`), `/api/score` con `lat`/`lon` en `null` (2026-09-25) y **la reconfirmación `_confirmar_muerte()` antes de marcar sesión muerta + la bitácora `logs/sesion_eventos.jsonl` (2026-09-29)** |
 | tests/test_client.py | 4 | `ProxyClient`: 503 terminal → `ProxySesionCaducadaError` sin reintentos; `HealthResult.session_alive` (usa `httpx.MockTransport`); **`validar_score` sin coordenadas manda `null` en el body** |
 | tests/test_config.py | 6 | `ProxyConfig` lee `config.yaml`; precedencia y `proxy_local_url` |
 | tests/test_session_config.py | 6 | modo standalone: keyring `JSWinCoverage/session_cookie`, `validar_y_guardar`, `cliente_standalone` |
@@ -41,7 +48,7 @@ Fecha de creación: 2026-08-18 · Proyecto: JSConnect-Win-Coverage
 | tests/test_generator.py | 3 | firma con PEM, error claro y ruta junto al `.exe` owner |
 | tests/test_owner_app.py | 69 (2026-10-28) | **frenado desde la consola (`rangos_freno`, `ajustar_minutos`, `linea_de_tiempo_freno`, `perfiles_para_combo`, `describir_freno`, `guardar_freno_autologin` valida antes de UAC) y botón de la extensión (`ruta_extension_build` solo con la carpeta existente; sin ella → "Preparar carpeta"; subcomando elevado `--preparar-extension`)**; **autologin desde la consola (2026-10-28): `describir_autologin()` para cada estado de `/health` (sin configurar, sin bloque, sin proxy, activo, en curso, pausado con hora, contraseña rechazada, apagado, tope/espera), `guardar_credencial_autologin()` (UAC solo para la admin key, la contraseña no va al proceso elevado, vacíos sin UAC, UAC cancelado, error del proxy) y `_leer_health()`/`describir_proxy()`**; formato de huella, estado del servicio, `consultar_proxy` con `config.yaml` ilegible/inexistente (PermissionError, ValidationError), reinicio elevado del servicio (`comando_reinicio`, `reiniciar_servicio`: ok, UAC cancelado, fallo, sin PowerShell), el relanzo elevado para credenciales (`_comando_propio`, `_ejecutar_elevado`: ok, UAC cancelado, error propagado, temporal borrado — la ruta de salida va como argumento posicional, ya no por `-RedirectStandardOutput`, incompatible con `-Verb RunAs`; subcomandos `--leer-secretos`/`--rotar-secretos` de `main()` escriben a archivo) y **detección de IP de LAN para la "URL para los agentes"** (`detectar_ip_lan`: socket UDP, respaldo con `getaddrinfo`, descarte de loopback/APIPA, sin candidatas; `url_para_agentes`; `puerto_proxy_local`) |
 | tests/test_gui_activacion.py | 37 | `activacion_vigente()` del agente + `clasificar_score()` (bordes de cada tramo, vendible, colores, valores inválidos) + `_ruta_recurso()` (repo/PyInstaller, logo y borrador existen) + `_recortar_margen()` |
-| tests/test_install_bat.py | 15 (2026-10-28) | **pregunta `[AUTOLOGIN]` al final (por defecto No, sin numerar, corre `rotate_creds --guardar-login` desde `%REPO_ROOT%`, "ya estaba" si `/health` trae `login_configurado`)**; **Chromium en `validator_app\proxy\.ms-playwright` (variable antes de `playwright install`, `winsw.xml` generado y plantilla con `PLAYWRIGHT_BROWSERS_PATH`, 2026-10-28)**; guardas estáticas de `install_service.bat`/`uninstall_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, carga manual de la extensión sin `exit`/`pause` en el paso 7, **numeración de pasos `[N/TOTAL]` consecutiva y con un solo TOTAL (guarda genérica), regla de firewall creada de forma idempotente con el puerto real y fallback si el firewall es de dominio, y `uninstall_service.bat` quita esa regla** |
+| tests/test_install_bat.py | 17 (2026-10-30) | **quita la suspensión e hibernación con corriente (`[ENERGIA]`, sin numerar, sin tocar la batería, en el resumen; lee antes con `powercfg /q` y dice "ya estaba" si ya era 0, 2026-10-30)**; **pregunta `[AUTOLOGIN]` al final (por defecto No, sin numerar, corre `rotate_creds --guardar-login` desde `%REPO_ROOT%`, "ya estaba" si `/health` trae `login_configurado`)**; **Chromium en `validator_app\proxy\.ms-playwright` (variable antes de `playwright install`, `winsw.xml` generado y plantilla con `PLAYWRIGHT_BROWSERS_PATH`, 2026-10-28)**; guardas estáticas de `install_service.bat`/`uninstall_service.bat`: sin `)` sin escapar en `echo` dentro de bloques, ventana persistente + pregunta de tokens, carga manual de la extensión sin `exit`/`pause` en el paso 7, **numeración de pasos `[N/TOTAL]` consecutiva y con un solo TOTAL (guarda genérica), regla de firewall creada de forma idempotente con el puerto real y fallback si el firewall es de dominio, y `uninstall_service.bat` quita esa regla** |
 | tests/test_secretos.py | 12 | `validator_app/proxy/secretos.py`: lectura de `proxy_token`/`admin_key`, rotación preserva el resto de `config.yaml` y no toca el otro secreto, fallback de `icacls` a `Administrators`, `ruta_instalacion` vía `sc qc` con sus dos caminos de fallback y reconociendo la etiqueta del binPath tanto en inglés (`BINARY_PATH_NAME`) como en español (`NOMBRE_RUTA_BINARIO`) |
 | tests/test_updater.py | 18 | `validator_app/updater/`: `hay_actualizacion()` elige el asset del agente por nombre exacto aunque el release traiga tambien el `.exe` del owner (y en cualquier orden), `None` si mismo commit o sin release; **`_commit_de_tag()` resuelve el SHA real del tag via `/commits/{tag}` en vez de `target_commitish` (que es la rama, no un SHA) — `None` si la resolucion falla, en vez de un falso positivo**; `extraer_checksum()` no cruza el hash del owner con el del agente cuando el release trae ambos; `aplicar_actualizacion()` feliz, checksum no coincide, sin exe congelado |
 | tests/test_diagramas.py | 5 | guardas estáticas de `docs/diagramas/*.puml` (NUEVO 2026-09-27): `@startuml`/`@enduml` presentes, `!include _comun.puml`, `footer` de verificación, y que las clases citadas (`ValidatorAPI`, `ProxyValidatorAPI`, `ProxyClient`, `OwnerApp`) sigan existiendo en el código |
@@ -53,6 +60,139 @@ tests automáticos a propósito (piden credenciales y hacen peticiones reales); 
 validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
+
+### Sesión 2026-10-30 — respuesta HTML de WinForce = posible sesión muerta (679 → 683 tests)
+- **Problema** (tercera prueba, ~20:00, ya con la espera cargada): a las 19:59:43 la cookie pasó la
+  validación del relogin y murió segundos después; `coordenada.php` devolvió la página de login y `_json`
+  lanzó `APIError("Respuesta inesperada…")`. `_consultar()` solo reconocía `LoginError` o
+  "sesion"/"expirada" → 502 tres veces, sin marcar la muerte. La detectó un `/health` a las 20:02:11.
+- **Solución**: `_puede_ser_sesion_muerta()` suma "respuesta inesperada". Ante la sospecha, `_relogin_silent()`
+  (con su confirmación); si la sesión sigue viva con la misma cookie se relanza el error original (sin
+  reintento ciego); si murió, espera al autologin y reintenta una vez. Los handlers de 502 dejan
+  `502 en <ruta>: <error>` en `winsw.err.log`.
+- **Tests**: HTML con cookie muerta (cobertura y score) → autologin y reintento; con cookie viva → mismo
+  error y una sola llamada; el 502 queda en el log.
+
+### Sesión 2026-10-30 — clave vacía tumbó el servicio + medición por fases (678 → 679 tests)
+- **Incidente**: el owner dejó `autologin_espera_consulta_s:` sin valor en `config.yaml` (19:25). Al
+  reiniciar (19:41) pydantic lo rechazó (`input_value=None`) y winsw lo relanzó cada minuto sin abrir el
+  puerto: `WinError 10061` en los agentes hasta que el owner corrigió la línea. La doc no decía que la clave
+  lleva número.
+- **Solución**: `model_validator(mode="before")` en `ProxyConfig`: claves nulas usan el default, con
+  aviso en el log. Guarda `test_clave_vacia_en_yaml_usa_el_default_y_no_tumba_el_servicio`.
+- **Medición**: `consulta_reintentada` / `consulta_sin_sesion` traen `deteccion`, `autologin`,
+  `consulta` y `total` (tests endurecidos con regex).
+- **Prueba de las 19:40**: corrió con el código anterior (502, autologin 6 s); la espera nueva sigue sin
+  probarse en vivo.
+
+### Sesión 2026-10-30 — la consulta espera al autologin (669 → 678 tests)
+- **Problema**: en la prueba de muerte (19:00) el autologin renovó en 12 s, pero el asesor recibió 502. La
+  consulta llegó tras >120 s sin actividad; `_relogin_silent` vio la cookie del keyring muerta y lanzó el
+  autologin, pero la consulta seguía con la cookie muerta. Con la sesión ya marcada, el fail-fast daba 503.
+- **Además**: `api_cobertura`/`api_score` eran `async def` con código bloqueante: cualquier espera congelaba
+  todo el proxy. Pasan a `def` (pool de hilos de FastAPI).
+- **Solución**: `_consultar()` único para cobertura y score; `_esperar_autologin()` con un
+  `threading.Condition` (despierta al revivir la sesión, al fallar un intento o al terminar el hilo); no
+  espera si el autologin está en pausa, en frenado o sin credencial; un solo reintento. Nueva config
+  `autologin_espera_consulta_s` = 15 (el agente corta a 30 s). Eventos `consulta_reintentada` (espera y
+  total, sin coordenadas ni documento) y `consulta_sin_sesion`. Se retiró `_abortar_si_sesion_muerta`.
+- **Tests** (hilo de autologin real con login falso de 0.2 s): espera y responde, score igual, 503 si no
+  termina a tiempo, sin espera si el intento falla o hay frenado, el caso exacto de las 19:00, un único
+  reintento, endpoints no corrutina. Primera versión con carreras (login falso instantáneo, aserciones
+  antes de que el hilo terminara): corregido; 8 corridas seguidas en verde.
+
+### Sesión 2026-10-30 — la PC del proxy se suspendía (667 → 669 tests)
+- **Problema**: `getaddrinfo failed` en el keepalive (16:58) y en `/health` (17:22), con la sesión viva.
+- **Causa** (registro de Windows, Kernel-Power 42/107): 15 suspensiones entre 16:50 y 17:37. Con corriente
+  se suspendía a los 30 min sin uso; la Intel I219-LM la despertaba (`powercfg /lastwake`) y a los ~2 min
+  volvía a dormir. El chequeo corría al despertar, antes de que el cable volviera (~4 s).
+- **Lo que hizo bien el proxy**: lo clasificó como red, sin marcar la sesión muerta ni lanzar autologin.
+- **Solución**: `install_service.bat` → bloque `[ENERGIA]` sin número (`powercfg /change standby-timeout-ac 0`
+  y `hibernate-timeout-ac 0`, sin tocar la batería) y línea en el resumen. Guarda
+  `test_instalador_evita_que_la_pc_del_proxy_se_suspenda` (rojo → verde).
+- **Después** (668 → 669): como los demás pasos, lee antes el valor con corriente (`powercfg /q`, penúltimo
+  `0x`) y si ya es 0 dice "ya estaba" sin `/change`. Guarda `test_energia_no_toca_nada_si_ya_estaba_sin_suspension`;
+  la línea de lectura se probó en `cmd` en esta PC (devuelve 1: suspensión a 1800 s).
+
+### Sesión 2026-10-30 — causa real: campo oculto de Microsoft (670 → 667 tests)
+- **Evidencia**: `traza.txt` pasó de `puerta` a `password` sin `correo`, y `03-password.png` era la pantalla
+  del correo. En la página real, `input[name=passwd]` existe ahí con `.moveOffScreen` y
+  `page.is_visible()` devuelve True.
+- **Por qué la suite no lo vio**: el navegador falso modelaba cada pantalla con un solo campo. Ahora la
+  pantalla `usuario` incluye el campo oculto.
+- **Lección**: dos arreglos (`sso_reload`, transición de vistas) se hicieron sobre hipótesis sin
+  reproducir. Se retiró el reenvío con Enter y su espera; el rastro por pasos encontró la causa en un intento.
+- **Comprobado en vivo (16:11:54)**: login completo como LocalSystem en ~10 s, `renovada` con `origen:
+  autologin`. El campo real pierde `.moveOffScreen` en la pantalla de contraseña y el paso KMSI funciona.
+
+### Sesión 2026-10-30 — rastro por pasos del autologin (667 → 670 tests)
+- **Síntoma**: con los dos arreglos anteriores, el intento de las 15:55 acabó otra vez en el correo vacío.
+  Una sola imagen final no distingue recarga, regreso o bucle; las causas anteriores siguen sin demostrar.
+- **Verde**: `_Traza` en `logs/autologin_pasos/`: `traza.txt` e imagen antes de cada acción, y navegaciones
+  con `_url_segura` (sin valores de parámetros). La imagen añade unos ms antes de cada acción.
+
+### Sesión 2026-10-30 — contraseña escrita pero sin enviar (663 → 667 tests)
+- **Síntoma**: el correo ya pasa, pero `20261030-154850.png` muestra "Escribir contraseña" con el campo lleno,
+  sin error, hasta agotar los 90 s.
+- **Causa probable, sin reproducir**: clic durante la transición entre vistas, que comparten `#idSIButton9`;
+  `password_enviada` impedía otro intento.
+- **Rojo**: 4 tests (reenvío con Enter, tope, rechazo tras reenviar, espera de asiento).
+- **Verde**: 1.5 s de asiento, una sola escritura y hasta 2 reenvíos con Enter cada 8 s.
+
+### Sesión 2026-10-30 — falso "credencial inválida": correo perdido en Microsoft (658 → 663 tests)
+- **Síntoma**: "Microsoft rechazo el usuario o la contrasena" a los ~10 s de cada arranque.
+- **Causa**: la primera captura muestra el aviso de Microsoft con el campo de correo **vacío**: Siguiente
+  se pulsó sin correo, y todo `#usernameError` se trataba como credencial inválida. Causa de fondo
+  probable, **sin reproducir**: recarga `sso_reload` entre `fill` y `click`. Ensayos sin credenciales por
+  `accesoventas-azure`: el valor no se borra y Siguiente envía el dato aunque se pulse al instante.
+- **Rojo**: 3 tests (aviso con campo vacío, recarga silenciosa, tope de envíos); otros 2 protegen lo que ya
+  funcionaba (aviso persistente con correo escrito, campo ya lleno).
+- **Verde**: `_usuario_vacio`, hasta 3 envíos del correo y 3 s de gracia antes de creer el aviso. La
+  contraseña sigue enviándose una sola vez.
+
+### Sesión 2026-10-30 — captura en cada fallo del autologin (650 → 658 tests)
+- **Síntoma**: Microsoft rechazó la credencial (15:28 y 15:29), pero `autologin_fallo.png` seguía siendo
+  de las 15:23: solo se capturaba al agotar el tiempo, así que no se sabía qué error mostró.
+- **Rojo**: 9 tests fallando (8 nuevos más el del 410, que antes esperaba cero capturas).
+- **Verde**: `login_automatico` captura en un solo `except`, antes de cerrar el navegador;
+  `_guardar_captura` nunca lanza y conserva 20 copias; el mensaje lleva la ruta y el texto de Microsoft.
+- **Sin verificar en vivo**: la captura como LocalSystem en la pantalla de error de Microsoft.
+
+### Sesión 2026-10-30 — puerta "Iniciar con Microsoft" (647 → 650 tests)
+- **Síntoma**: tras reiniciar el servicio ya no hay 410, pero cada intento agota los 90 s;
+  `logs/autologin_fallo.png` muestra "Iniciar con Microsoft / Iniciar con Google".
+- **Causa**: pantalla no registrada en `tools/captura.json`. Es `accesoventas.win.pe`, entre el formulario
+  de WinForce y Microsoft. Botón real, leído en la página sin credenciales: `button.login-button.azure`.
+- **Rojo**: 3 tests con la pantalla `puerta` en el navegador falso.
+- **Verde**: `_completar_login` pulsa el botón de Microsoft una sola vez por intento; el de Google no se toca.
+- **Comprobado en vivo**: Chromium normal arranca como LocalSystem y WinForce acepta el formulario.
+  **Sin verificar**: las pantallas de Microsoft con la cuenta y el regreso a WinForce.
+
+### Sesión 2026-10-30 — HTTP 410: Chromium normal y sin reintentos (643 → 647 tests)
+- **Síntoma**: credencial correcta en la consola owner, pero el autologin oscilaba entre "reintentando" y
+  "entrando a WinForce"; 47 intentos desde las 11:15, todos con HTTP 410, y la contraseña sin enviar.
+- **Causa**: el servicio abría Chromium headless, y la consola no mostraba el motivo.
+- **Rojo**: `NavegadorRechazadoError`, `registrar_navegador_rechazado()`, aviso propio, texto de la
+  consola y `headless=False` por defecto.
+- **Problema en los tests → causa → solución**: la corrida en rojo **se colgó**. La excepción aún no
+  existía, el `AttributeError` del falso entraba en `except Exception` de `_bucle_autologin`, y el bucle
+  reintentaba sin fin con el reloj falso. Se paró la corrida y se implementó. No hay `pytest-timeout`.
+- **Verde**: el freno guarda el motivo en `_detenido_por`; el rechazo detiene el autologin y avisa una
+  sola vez; guardar la credencial o reiniciar el servicio lo reactiva.
+
+### Sesión 2026-10-30 — el autologin se saltaba el formulario de WinForce (637 → 643 tests)
+- **Síntoma**: ensayo sin credenciales antes de gastar un login real: `/login` no redirige a Microsoft
+  y ningún selector del autologin aparece.
+- **Causa**: `login_automatico` asumía que `/login` redirige directo a Microsoft. En realidad hay un
+  formulario de WinForce antes (`acceso.php` → "Redireccionar" → `location.reload()`), documentado desde
+  2026-08-27 pero no reflejado en el código. La suite pasaba porque el navegador falso **empezaba** en
+  Microsoft: el test confirmaba el mismo supuesto equivocado del código.
+- **Rojo**: 6 tests; el falso ahora arranca en la pantalla `form`, con `form_error` y `form_aviso`.
+- **Verde**: `_completar_login` envía el formulario una vez; los avisos `.swal2-popup` de error o
+  advertencia son `CredencialInvalidaError`; un HTTP ≥ 400 en `/login` es `AutologinError` inmediato.
+- **Comprobado en la página real, sin enviar nada**: campos, botón y clases de SweetAlert 11.1.5
+  (disparado solo en el navegador local, incluido el toast).
+- **Sin verificar en vivo** en esa fecha: el envío real del formulario y las pantallas de Microsoft.
 
 ### Sesión 2026-10-28 — autologin desatendido del proxy (500 → 568 → 585 → 637 tests)
 - **Tercera parte (585 → 637)**: frenado configurable (perfiles + personalizado, `POST /local/freno`,

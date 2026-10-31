@@ -244,7 +244,9 @@ def describir_autologin(datos: dict | None) -> str:
         return "Autologin: sin configurar (pulsa Configurar)"
     motivo = estado.get("motivo") or ""
     if motivo == "credencial_invalida":
-        return "Autologin: contrasena rechazada por Microsoft; vuelve a guardarla"
+        return "Autologin: contrasena rechazada; vuelve a guardarla"
+    if motivo == "navegador_rechazado":
+        return "Autologin: WinForce rechazo el navegador (no es la contrasena)"
     if not estado.get("habilitado"):
         return "Autologin: apagado (autologin_enabled en config.yaml)"
     if estado.get("en_curso"):

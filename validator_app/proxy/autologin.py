@@ -1,8 +1,9 @@
 """Autologin desatendido de WinForce para el proxy (plan Proxy 24/7, 2026-10-28).
 
-El login de WinForce es el SSO de Microsoft Entra ID (solo correo y contrasena,
-sin segundo factor): se puede completar con un navegador sin ventana. La
-credencial vive en el keyring del servicio (nunca en config.yaml ni en el repo).
+El login son tres pasos: el formulario propio de WinForce (`/login`, que responde
+"Redireccionar" y recarga), la puerta de acceso ("Iniciar con Microsoft") y el SSO
+de Microsoft Entra ID (solo correo y contrasena, sin segundo factor). La credencial
+vive en el keyring del servicio (nunca en config.yaml ni en el repo).
 
 `FrenoAutologin` evita pelear por la sesion: si otra persona sigue entrando con
 la misma cuenta, cada relogin del proxy la bota y ella bota al proxy. Con dos
@@ -14,11 +15,13 @@ from __future__ import annotations
 import argparse
 import contextlib
 import getpass
+import shutil
 import sys
 import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from validator_app.core import api as core_api
 from validator_app.proxy import login_asistido
@@ -120,13 +123,26 @@ ESPERAS_POR_DEFECTO = esperas_de(PERFILES_FRENO[PERFIL_RECOMENDADO]["minutos"])
 # login asistido del owner: dos procesos no pueden abrir el mismo perfil a la vez.
 PERFIL_SERVICIO = Path(__file__).resolve().parent / ".browser_profile_servicio"
 CAPTURA_FALLO = Path(__file__).resolve().parents[2] / "logs" / "autologin_fallo.png"
+MAX_CAPTURAS = 20
 
+_SEL_WF_USUARIO = "#username"
+_SEL_WF_PASSWORD = "#password"
+_SEL_WF_INGRESAR = "#ingresar"
+_SEL_WF_RECHAZOS = (".swal2-popup.swal2-icon-error", ".swal2-popup.swal2-icon-warning")
+_SEL_PUERTA_MICROSOFT = "button.login-button.azure"
 _SEL_USUARIO = "input[name=loginfmt]"
-_SEL_PASSWORD = "input[name=passwd]"
+# La pantalla del correo trae un campo de contrasena oculto (.moveOffScreen) que Playwright
+# da por visible: sin excluirlo, la contrasena se escribe ahi y Siguiente sale sin correo.
+_SEL_PASSWORD = "input[name=passwd]:not(.moveOffScreen)"
 _SEL_SIGUIENTE = "#idSIButton9"
 _SEL_KMSI = "#KmsiCheckboxField"
-_SEL_ERRORES = ("#usernameError", "#passwordError")
+_SEL_ERROR_USUARIO = "#usernameError"
+_SEL_ERRORES = (_SEL_ERROR_USUARIO, "#passwordError")
 _POLL_S = 1.0
+# Si Microsoft recarga su pagina (`sso_reload`) el correo escrito puede perderse.
+# Reescribirlo no es un intento de contrasena.
+_MAX_ENVIOS_USUARIO = 3
+_GRACIA_ERROR_USUARIO_S = 3.0
 
 
 class AutologinError(Exception):
@@ -134,8 +150,13 @@ class AutologinError(Exception):
 
 
 class CredencialInvalidaError(AutologinError):
-    """Microsoft rechazo el usuario o la contrasena. No se reintenta: insistir con
-    una contrasena mala puede bloquear la cuenta."""
+    """WinForce o Microsoft rechazaron el usuario o la contrasena. No se reintenta:
+    insistir con una contrasena mala puede bloquear la cuenta."""
+
+
+class NavegadorRechazadoError(AutologinError):
+    """WinForce rechazo el navegador antes del formulario. No se reintenta: insistir
+    contra su filtro no lo abre y puede hacer que bloquee la IP o la cuenta."""
 
 
 def _import_sync_playwright():
@@ -166,53 +187,155 @@ def _php_valida(context) -> str | None:
     return php
 
 
-def _completar_login(context, page, usuario, password, timeout_s, captura, reloj, dormir) -> str:
+def _texto_de(page, selector: str) -> str:
+    try:
+        return " ".join(page.inner_text(selector).split())
+    except Exception:
+        return ""
+
+
+def _usuario_vacio(page) -> bool:
+    try:
+        return bool(page.is_visible(_SEL_USUARIO)) and page.input_value(_SEL_USUARIO) == ""
+    except Exception:
+        return False
+
+
+def _guardar_captura(page, captura: Path) -> Path | None:
+    """Guarda lo que se ve ahora: `captura` es siempre el ultimo fallo y la carpeta
+    `<captura>s/` conserva los ultimos. Nunca lanza: no debe tapar el error real."""
+    captura = Path(captura)
+    try:
+        captura.parent.mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(captura))
+    except Exception:
+        return None
+    historial = captura.parent / f"{captura.stem}s"
+    try:
+        historial.mkdir(exist_ok=True)
+        copia = historial / time.strftime("%Y%m%d-%H%M%S.png")
+        shutil.copyfile(captura, copia)
+        for vieja in sorted(historial.glob("*.png"))[:-MAX_CAPTURAS]:
+            vieja.unlink()
+    except Exception:
+        return captura
+    return copia
+
+
+def _url_segura(url: str) -> str:
+    """Host y ruta, con solo los NOMBRES de los parametros: sus valores traen codigos."""
+    partes = urlsplit(url)
+    nombres = sorted(parse_qs(partes.query, keep_blank_values=True))
+    return f"{partes.netloc}{partes.path} {nombres}" if nombres else partes.netloc + partes.path
+
+
+class _Traza:
+    """Rastro del ULTIMO intento: `traza.txt` (pasos, navegaciones y tiempos) y una imagen
+    antes de cada accion. Sin correo ni contrasena en texto. Nunca lanza."""
+
+    def __init__(self, page, carpeta: Path, reloj: Callable[[], float]):
+        self._page = page
+        self._carpeta = Path(carpeta)
+        self._reloj = reloj
+        self._inicio = reloj()
+        self._n = 0
+        with contextlib.suppress(Exception):
+            self._carpeta.mkdir(parents=True, exist_ok=True)
+            for viejo in self._carpeta.iterdir():
+                viejo.unlink()
+        self.nota("inicio")
+
+    def nota(self, texto: str) -> None:
+        with contextlib.suppress(Exception), open(
+            self._carpeta / "traza.txt", "a", encoding="utf-8"
+        ) as f:
+            f.write(f"+{self._reloj() - self._inicio:6.1f}s {texto}\n")
+
+    def paso(self, nombre: str) -> None:
+        self._n += 1
+        self.nota(f"paso {self._n}: {nombre}")
+        with contextlib.suppress(Exception):
+            self._page.screenshot(path=str(self._carpeta / f"{self._n:02d}-{nombre}.png"))
+
+
+def _completar_login(context, page, usuario, password, timeout_s, reloj, dormir, traza) -> str:
     limite = reloj() + timeout_s
-    usuario_enviado = password_enviada = False
+    formulario_enviado = puerta_pulsada = False
+    password_enviada = False
+    envios_usuario = 0
+    gracia_usuario = 0.0
     while reloj() < limite:
         php = _php_valida(context)
         if php:
             return php
-        if any(_visible(page, sel) for sel in _SEL_ERRORES):
-            raise CredencialInvalidaError(
-                "Microsoft rechazo el usuario o la contrasena de WinForce guardados en el proxy."
-            )
-        if not password_enviada and _visible(page, _SEL_PASSWORD):
+        vacio = _usuario_vacio(page)
+        for sel in _SEL_ERRORES:
+            if sel == _SEL_ERROR_USUARIO and (vacio or reloj() < gracia_usuario):
+                continue
+            if _visible(page, sel):
+                raise CredencialInvalidaError(
+                    "Microsoft rechazo el usuario o la contrasena de WinForce guardados en "
+                    f"el proxy: {_texto_de(page, sel)}"
+                )
+        for sel in _SEL_WF_RECHAZOS:
+            if _visible(page, sel):
+                raise CredencialInvalidaError(f"WinForce rechazo el acceso: {_texto_de(page, sel)}")
+        if not formulario_enviado and _visible(page, _SEL_WF_USUARIO):
+            traza.paso("formulario")
+            page.fill(_SEL_WF_USUARIO, usuario)
+            page.fill(_SEL_WF_PASSWORD, password)
+            page.click(_SEL_WF_INGRESAR)
+            formulario_enviado = True
+        elif not puerta_pulsada and _visible(page, _SEL_PUERTA_MICROSOFT):
+            traza.paso("puerta")
+            page.click(_SEL_PUERTA_MICROSOFT)
+            puerta_pulsada = True
+        elif not password_enviada and _visible(page, _SEL_PASSWORD):
+            traza.paso("password")
             page.fill(_SEL_PASSWORD, password)
             page.click(_SEL_SIGUIENTE)
             password_enviada = True
-        elif not usuario_enviado and _visible(page, _SEL_USUARIO):
+        elif (
+            envios_usuario < _MAX_ENVIOS_USUARIO
+            and (vacio or envios_usuario == 0)
+            and _visible(page, _SEL_USUARIO)
+        ):
+            traza.paso("correo")
             page.fill(_SEL_USUARIO, usuario)
             page.click(_SEL_SIGUIENTE)
-            usuario_enviado = True
+            envios_usuario += 1
+            gracia_usuario = reloj() + _GRACIA_ERROR_USUARIO_S
         elif _visible(page, _SEL_KMSI):
+            traza.paso("kmsi")
             page.click(_SEL_SIGUIENTE)
         dormir(_POLL_S)
 
-    with contextlib.suppress(Exception):
-        Path(captura).parent.mkdir(parents=True, exist_ok=True)
-        page.screenshot(path=str(captura))
-    raise AutologinError(
-        f"El login no termino en {timeout_s:.0f} s. Captura de la pantalla en {captura}."
-    )
+    raise AutologinError(f"El login no termino en {timeout_s:.0f} s.")
 
 
 def login_automatico(
     usuario: str,
     password: str,
     timeout_s: float = 90,
-    headless: bool = True,
+    headless: bool = False,
     playwright=None,
     perfil: Path = PERFIL_SERVICIO,
     captura: Path = CAPTURA_FALLO,
     reloj: Callable[[], float] = time.monotonic,
     dormir: Callable[[float], None] = time.sleep,
 ) -> str:
-    """Inicia sesion en WinForce sin ventana y devuelve una PHPSESSID ya validada.
+    """Inicia sesion en WinForce y devuelve una PHPSESSID ya validada.
 
-    Primero deja actuar al SSO silencioso (el perfil persistente recuerda la
-    sesion de Microsoft); solo si Microsoft pide los datos los llena, una vez cada
-    uno. Lanza CredencialInvalidaError o AutologinError."""
+    Usa Chromium normal, no headless: WinForce responde HTTP 410 a `HeadlessChrome`.
+    Como servicio corre en la sesion 0, asi que la ventana no se ve en el escritorio.
+
+    Envia el formulario de WinForce, elige Microsoft en la puerta de acceso y deja
+    actuar al SSO silencioso (el perfil persistente recuerda la sesion de Microsoft);
+    solo si Microsoft pide los datos los llena. La contrasena se envia una sola vez;
+    el correo se reescribe si la pagina lo pierde.
+
+    Cada fallo deja una captura de la pantalla y su ruta en el mensaje. Lanza
+    CredencialInvalidaError, NavegadorRechazadoError o AutologinError."""
     if playwright is None:
         try:
             playwright = _import_sync_playwright()
@@ -228,11 +351,33 @@ def login_automatico(
         )
         try:
             page = context.pages[0] if context.pages else context.new_page()
+            traza = _Traza(page, Path(captura).parent / "autologin_pasos", reloj)
+
+            def al_navegar(frame) -> None:
+                if frame == page.main_frame:
+                    traza.nota(f"navega a {_url_segura(frame.url)}")
+
             with contextlib.suppress(Exception):
-                page.goto(login_asistido.LOGIN_URL)
-            return _completar_login(
-                context, page, usuario, password, timeout_s, captura, reloj, dormir
-            )
+                page.on("framenavigated", al_navegar)
+            try:
+                respuesta = None
+                with contextlib.suppress(Exception):
+                    respuesta = page.goto(login_asistido.LOGIN_URL)
+                if respuesta is not None and respuesta.status >= 400:
+                    raise NavegadorRechazadoError(
+                        f"WinForce rechazo el navegador automatico (HTTP {respuesta.status})."
+                    )
+                return _completar_login(
+                    context, page, usuario, password, timeout_s, reloj, dormir, traza
+                )
+            except Exception as e:
+                traza.nota(f"fallo: {type(e).__name__}")
+                ruta = _guardar_captura(page, captura)
+                conocido = isinstance(e, AutologinError)
+                detalle = str(e) if conocido else (str(e).splitlines() or [repr(e)])[0]
+                if ruta:
+                    detalle = f"{detalle} Captura: {ruta}"
+                raise (type(e) if conocido else AutologinError)(detalle) from e
         finally:
             with contextlib.suppress(Exception):
                 context.close()
@@ -306,7 +451,7 @@ class FrenoAutologin:
         self._fallos = 0
         self._proximo_permitido = 0.0
         self._pausado_hasta = 0.0
-        self._desactivado = False
+        self._detenido_por = ""
         self._ultimo_exito: float | None = None
         self._muertes_rapidas = 0
         self._ultimo_intento: float | None = None
@@ -323,8 +468,8 @@ class FrenoAutologin:
 
     def puede_intentar(self) -> tuple[bool, str]:
         ahora = self._reloj()
-        if self._desactivado:
-            return False, "credencial_invalida"
+        if self._detenido_por:
+            return False, self._detenido_por
         if ahora < self._pausado_hasta:
             return False, "pausado"
         if sum(1 for t in self._intentos if ahora - t < 3600) >= self.max_por_hora:
@@ -354,13 +499,19 @@ class FrenoAutologin:
         self._proximo_permitido = self._reloj() + espera
         self._ultimo_resultado = "fallo"
 
+    def _detener(self, motivo: str) -> None:
+        self._detenido_por = motivo
+        self._ultimo_resultado = motivo
+
     def registrar_credencial_invalida(self) -> None:
-        self._desactivado = True
-        self._ultimo_resultado = "credencial_invalida"
+        self._detener("credencial_invalida")
+
+    def registrar_navegador_rechazado(self) -> None:
+        self._detener("navegador_rechazado")
 
     def reactivar(self) -> None:
         """Credencial nueva guardada: borron y cuenta nueva."""
-        self._desactivado = False
+        self._detenido_por = ""
         self._fallos = 0
         self._proximo_permitido = 0.0
         self._pausado_hasta = 0.0
@@ -385,7 +536,7 @@ class FrenoAutologin:
         _, motivo = self.puede_intentar()
         pausado = self._pausado_hasta if self._pausado_hasta > self._reloj() else None
         return {
-            "habilitado": not self._desactivado,
+            "habilitado": not self._detenido_por,
             "ultimo_intento": _iso(self._ultimo_intento),
             "ultimo_resultado": self._ultimo_resultado,
             "pausado_hasta": _iso(pausado),

@@ -607,14 +607,58 @@ Pasos 1-6 y tests hechos; detalle en [`TestingLog.md`](TestingLog.md) (sesión 2
 - **Desvío del plan**: `PLAYWRIGHT_BROWSERS_PATH` además lo fija el código cuando existe la carpeta,
   para que el login asistido del owner (sin la variable del servicio) también encuentre el navegador.
 
+### Hallazgos del ensayo sin credenciales (2026-10-30)
+Se abrió `/login` con Playwright sin llenar ni enviar nada, y salieron dos cosas que la suite no veía:
+- **El formulario de WinForce va antes que Microsoft**: el código iba directo a los selectores de
+  Microsoft y habría agotado siempre el tiempo. **Corregido** (TDD, 637 → 643 tests): llena `#username` y
+  `#password`, pulsa `#ingresar` una sola vez, y un aviso de error/advertencia de WinForce cuenta como
+  credencial inválida (sin reintento). Los selectores `.swal2-*` se comprobaron en la página real.
+- **WinForce rechaza el modo headless**: Chromium headless recibe **HTTP 410 "Request Denied!"**
+  (User-Agent `HeadlessChrome`); con ventana, 200. El servicio llegó a acumular 47 rechazos en un día.
+  **Decisión aprobada 2026-10-30: Chromium normal dentro del servicio** (la sesión 0 no muestra nada), sin
+  cambiar el User-Agent. Pasa igualmente un filtro que WinForce puede haber puesto a propósito: si hay
+  contacto con WinForce, conviene pedir su autorización. **Implementado (643 → 647 tests)**: un rechazo
+  detiene el autologin y avisa una vez, y la consola dice que no es la contraseña. **Comprobado en vivo
+  el mismo día**: como LocalSystem ya no hay 410 y WinForce acepta el formulario.
+- **Tercera pantalla, la puerta de acceso** (`accesoventas.win.pe`, "Iniciar con Microsoft / Google"):
+  cada intento se quedaba ahí 90 s (`logs/autologin_fallo.png`). **Corregido** (647 → 650 tests): pulsa
+  `button.login-button.azure` una sola vez por intento. **Comprobado en vivo**: el autologin llega a
+  Microsoft.
+- **Falso "credencial inválida" en Microsoft** (2026-10-30, 15:28, 15:29 y 15:38). Desde hoy cada fallo
+  guarda una imagen en `logs/autologin_fallos/` y el texto de Microsoft va a la bitácora (650 → 658 tests).
+  La imagen mostró el campo de correo **vacío**: Siguiente se pulsó sin correo, así que Microsoft no
+  llegó a rechazar nada. Causa probable, sin confirmar: la recarga `sso_reload` entre escribir y pulsar.
+  **Corregido** (658 → 663 tests): reescribe el correo hasta 3 veces y ese aviso con el campo vacío ya no
+  apaga el autologin. **Comprobado en vivo**: llega a "Escribir contraseña" con la cuenta correcta.
+- **La contraseña se escribía pero no se enviaba** (15:48): sin error, la pantalla se quedó 90 s. Causa
+  probable, sin confirmar: la transición entre vistas, que comparten `#idSIButton9`. **Corregido** (663 →
+  667 tests): espera 1.5 s, escribe una sola vez y reenvía con Enter si no avanza (máximo 3 envíos).
+- **Causa real, demostrada con `logs/autologin_pasos/`** (traza + imagen por paso): la pantalla del correo
+  trae un campo de contraseña oculto (`.moveOffScreen`) que Playwright da por visible. La traza pasó de
+  la puerta a `password` sin `correo`. Las causas anteriores (`sso_reload`, transición de vistas) quedan
+  **descartadas**. **Corregido**: `_SEL_PASSWORD` lo excluye y se retiraron el asiento y el reenvío con
+  Enter; la contraseña vuelve a enviarse una sola vez.
+- **PRIMER LOGIN AUTOMÁTICO REAL (2026-10-30, 16:11:54)**: como LocalSystem, `renovada` con `origen:
+  autologin` y `session_alive: true`. Flujo real, ~10 s: formulario → `accesoventas.win.pe` → correo →
+  contraseña → KMSI → `controllers/auth_app.php` → `/consultarpedidos`. Pasos 0-1 de la verificación
+  cubiertos (`--probar` no hizo falta). **Faltan** los pasos 2-5: muerte de sesión, contraseña incorrecta,
+  reinicio sin sesión de Windows y Tailscale, además de una consulta real desde un agente.
+- **Token `win-azure-oauth2`**: **decidido 2026-10-30, no se guarda aparte**. En las pruebas de muerte el
+  perfil del servicio entró por SSO silencioso (sin pedir la contraseña) en 6-12 s.
+- **Paso 2 HECHO (2026-10-30)**: muertes provocadas a las 19:00, 19:40 y 20:02, todas renovadas por el
+  autologin. Consulta real desde un agente: 200. **Abierto (2026-11-03)**: que la consulta del asesor que
+  descubre la muerte espere al autologin y se repita sin error (código listo, sin probar en vivo; ver el
+  último cierre de [`AGENTS.md`](AGENTS.md)).
+
 ### Verificación en vivo (PENDIENTE — en la PC de desarrollo haciendo de owner)
-0. `python -m validator_app.proxy.autologin --probar`: la ventana completa sola el login de Microsoft
+0. `.venv\Scripts\python.exe -m validator_app.proxy.autologin --probar` (el `python` global no trae las
+   dependencias de desarrollo): la ventana completa sola el formulario de WinForce y el login de Microsoft
    (confirma los selectores reales; si falla, ver `logs/autologin_fallo.png`). Bota la sesión del proxy.
 1. Reinstalar el servicio (`install_service.bat`, opción C: baja Chromium a `.ms-playwright` y regenera
    `winsw.xml`) y guardar la credencial: responder **S** a la pregunta `[AUTOLOGIN]` del final, o
    `python -m generator.owner_app` → "Autologin de WinForce" → Configurar... (UAC). Luego `/health`
    debe mostrar `login_configurado: true` y la consola "Autologin: activo".
-2. Matar la sesión (login con la misma cuenta en otro navegador). La bitácora debe mostrar `muerta` y luego
+2. **[HECHO 2026-10-30; falta repetirlo con la espera de la consulta cargada]** Matar la sesión (login con la misma cuenta en otro navegador). La bitácora debe mostrar `muerta` y luego
    `renovada` con `origen: autologin` en menos de ~2 min, y `/health` debe volver a `session_alive: true`.
 3. Contraseña incorrecta: debe quedar `autologin_fallido`, el autologin desactivado y el aviso, sin reintentos.
 4. Reiniciar la PC sin iniciar sesión en Windows: el servicio y Tailscale tienen que estar arriba.
@@ -642,6 +686,14 @@ Pasos 1-6 y tests hechos; detalle en [`TestingLog.md`](TestingLog.md) (sesión 2
 4. **El keyring no viaja**, porque es del usuario SYSTEM de cada PC. Hay que repetir
    `rotate_creds --guardar-login` en el host. La primera PHPSESSID la consigue el propio autologin.
 5. Instalar Tailscale en el host y poner la **IP Tailscale del host** en los agentes.
+   Preparar el host para quedar sin pantalla, teclado ni mouse (hallazgo 2026-10-30: la PC de desarrollo
+   se suspendía y el proxy dejaba de atender):
+   - sin suspensión ni hibernación con corriente (`install_service.bat` lo aplica en `[ENERGIA]`);
+   - tarjeta de red sin "permitir que el equipo apague este dispositivo";
+   - BIOS: encender al volver la luz ("AC Power Recovery" → On); idealmente UPS;
+   - cable Ethernet, IP fija (reserva DHCP en el router) y horas activas de Windows Update;
+   - acceso remoto para la consola owner (Escritorio remoto en Pro, o Tailscale + otra herramienta en Home);
+   - sin probar: Chromium sin monitor conectado (aquí funcionó en sesión 0); lo dirá la verificación.
 6. Repetir la "Verificación en vivo" en el host.
 
 ## Notas de seguridad

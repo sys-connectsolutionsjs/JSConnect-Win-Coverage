@@ -118,3 +118,19 @@ def test_proxy_local_url_ignora_proxy_host(yaml_file):
     cfg = C.ProxyConfig()
     assert cfg.proxy_url == "http://0.0.0.0:9999"
     assert cfg.proxy_local_url == "http://127.0.0.1:9999"
+
+
+def test_clave_vacia_en_yaml_usa_el_default_y_no_tumba_el_servicio(yaml_file, caplog):
+    """2026-10-30: `autologin_espera_consulta_s:` sin valor (YAML lo lee como nulo)
+    hacia fallar la validacion y el servicio se reiniciaba cada minuto sin abrir el
+    puerto (WinError 10061 en los agentes)."""
+    yaml_file.write_text(
+        f'proxy_token: "{TOK}"\nadmin_key: "{ADM}"\n'
+        "autologin_espera_consulta_s:\nautologin_muerte_rapida_s:\n",
+        encoding="utf-8",
+    )
+    with caplog.at_level("WARNING"):
+        cfg = C.ProxyConfig()
+    assert cfg.autologin_espera_consulta_s == 15
+    assert cfg.autologin_muerte_rapida_s == 600
+    assert "autologin_espera_consulta_s" in caplog.text

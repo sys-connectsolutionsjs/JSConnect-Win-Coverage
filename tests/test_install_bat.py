@@ -160,3 +160,32 @@ def test_instalador_ofrece_configurar_el_autologin_al_final():
     assert '"%PYTHON_EXE%" -m validator_app.proxy.rotate_creds --guardar-login' in bloque
     assert "popd" in bloque
     assert "!R_AUTOLOGIN!" in texto.split("REM Resumen final")[1]
+
+
+def test_instalador_evita_que_la_pc_del_proxy_se_suspenda():
+    """2026-10-30: la PC del proxy se suspendia a los 30 min sin uso y la tarjeta
+    de red la despertaba unos minutos (15 suspensiones en una tarde): el servicio,
+    el keepalive y el autologin quedan congelados. El instalador quita la
+    suspension e hibernacion con corriente (no toca la bateria), sin numerar."""
+    texto = BAT.read_text(encoding="utf-8")
+    assert "echo [ENERGIA]" in texto
+    bloque = texto.split("echo [ENERGIA]")[1].split("[12/13]")[0]
+    assert texto.index("[11/13]") < texto.index("echo [ENERGIA]")
+    assert "powercfg /change standby-timeout-ac 0" in bloque
+    assert "powercfg /change hibernate-timeout-ac 0" in bloque
+    assert "-dc " not in bloque
+    assert "!R_ENERGIA!" in texto.split("REM Resumen final")[1]
+
+
+def test_energia_no_toca_nada_si_ya_estaba_sin_suspension():
+    """Como los demas pasos: primero lee el plan con `powercfg /q` (AC de
+    STANDBYIDLE e HIBERNATEIDLE) y, si ya esta en 0, dice "ya estaba" sin
+    ejecutar `/change`. Asi no pisa un ajuste hecho a mano sin necesidad."""
+    texto = BAT.read_text(encoding="utf-8")
+    bloque = texto.split("echo [ENERGIA]")[1].split("[12/13]")[0]
+    consulta = bloque.index("powercfg /q SCHEME_CURRENT SUB_SLEEP")
+    assert "STANDBYIDLE" in bloque and "HIBERNATEIDLE" in bloque
+    assert consulta < bloque.index("powercfg /change")
+    assert "ya estaba - nada que hacer" in bloque
+    assert 'set "R_ENERGIA=ya estaba"' in bloque
+    assert "goto :energia_lista" in bloque and ":energia_lista" in bloque

@@ -1100,3 +1100,52 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
 - **Estado**: **500** tests pasando, `ruff` limpio (sin cambios de código).
 - **Siguiente paso**: implementar el plan Proxy 24/7 en TDD, empezando por `FrenoAutologin` y
   `autologin.py` (pasos 1-4), luego Playwright bajo SYSTEM (5), la verificación en vivo y Tailscale (6).
+
+### Cierre de la sesión 2026-10-28 [CONTEXTO PARA LA SIGUIENTE — autologin desatendido implementado (sin verificar en vivo), credencial y frenado desde la consola owner, botón de la extensión arreglado]
+
+- **Hecho** (commit `0231cc2` en `main`, sin push; TDD 500 → 637 tests):
+  - **Autologin desatendido** (`validator_app/proxy/autologin.py`, nuevo):
+    - `login_automatico()`: Chromium headless con perfil `.browser_profile_servicio/`; primero el SSO
+      silencioso; cada dato una sola vez; acepta KMSI; `CredencialInvalidaError` sin reintento; captura
+      `logs/autologin_fallo.png` si se agota el tiempo;
+    - CLI `--probar` (ventana visible, perfil temporal, no guarda nada);
+    - `FrenoAutologin` con perfiles (Recomendado 0-1-2-3 min y luego cada 5, Rápido, Demasiado rápido,
+      Lento óptimo, Lento, Demasiado lento, Personalizado) y las reglas del owner: 2.º de 1 a 5; 3.º
+      desde el 2.º hasta 10; 4.º desde el 3.º hasta 15; fijo de 1 a 20 min;
+    - la pausa por "otra persona usa la cuenta" es el intervalo fijo; el tope por hora sale del frenado.
+  - **`server.py`**:
+    - credencial en el keyring del servicio (`credentials_login`), `POST /local/credenciales` y
+      `POST /local/freno` (admin key + loopback);
+    - relogin en un hilo único desde `_marcar_sesion_muerta()` y desde el keepalive (también sin sesión);
+    - aviso al owner solo si falla, se pausa o la credencial es inválida;
+    - frenado persistido en `autologin_freno.json` (gitignored);
+    - bloque `autologin` en `/health` y `/admin/status`.
+  - **Consola owner**: sección "Autologin de WinForce" (estado, **Configurar...** y **Frenado...**; UAC solo
+    para leer la admin key, la contraseña sale del proceso sin elevar). El botón "Instalar extensión"
+    muestra la ruta solo si existe y si no ofrece "Preparar carpeta" (subcomando elevado
+    `--preparar-extension`). `.exe` regenerado (`dist\`, SHA-256 `6212739…96C81`, sin Release).
+  - **Instalador**:
+    - Chromium compartido en `validator_app\proxy\.ms-playwright` (variable en `winsw.xml` y fijada
+      por el código para el owner);
+    - `.extension_build` se crea siempre;
+    - pregunta `[AUTOLOGIN]` al final.
+  - `rotate_creds --guardar-login` para técnicos. Docs: `docs/rotacion-credenciales.md` (autologin,
+    frenado), `docs/escalabilidad-remota.md` (Tailscale), `docs/proxy-deploy.md`, README, README_PROXY.
+- **Bug encontrado y corregido**: `_instalar_extension.main()` solo creaba `.extension_build` con Chrome
+  y devolvía 0 aunque fallara → el instalador marcaba "política registrada" y la consola mostraba una
+  carpeta inexistente.
+- **Decisiones**:
+  - credencial en el keyring del servicio, nunca en `config.yaml`;
+  - no se configura desde la extensión, porque no puede presentar la admin key;
+  - no hay opción de 30 s: el frenado actúa solo cuando el relogin *falla*; la pelea con otra persona
+    la limita la pausa, y reloguear cada pocos segundos arriesga la cuenta;
+  - no se extrae `win-azure-oauth2-cookie`;
+  - el proxy no se expone a Internet: se usa Tailscale.
+- **Incidentes** (sin daño, ver [`TestingLog.md`](../TestingLog.md)):
+  - un `git stash` para comparar el alto de la ventana, restaurado al momento;
+  - una corrida de la suite colgada por un test que abría la ventana real;
+  - una `.extension_build` real creada por un test con el código viejo, borrada.
+- **Estado**: **637** tests pasando, `ruff` limpio. **Sin verificar en vivo** contra Microsoft ni con
+  Playwright corriendo como LocalSystem.
+- **Siguiente paso**: tarea 7f (verificación en vivo en esta PC), luego la migración al host (7d) y
+  Tailscale. Revisar el alto de la consola (7g).

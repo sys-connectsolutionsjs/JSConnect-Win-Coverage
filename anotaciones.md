@@ -303,8 +303,19 @@ nada. Lo lanza `rotate_creds.py` (sin argumentos) y, en la PC del proxy, el icon
 ## M
 
 ### SSO de Microsoft Entra ID (Login WinForce)
-**Crítico**: Login en `appwinforce.win.pe` redirige a `login.microsoftonline.com`: el inicio de sesión
-único (SSO) de **Microsoft Entra ID**, que pide **solo correo y contraseña** (sin segundo factor).
+**Crítico**: Login en `appwinforce.win.pe` en tres pasos: primero su formulario propio (`#username`,
+`#password`, `#ingresar` → `POST acceso.php` → "Redireccionar" → `location.reload()`), luego la puerta
+de acceso `accesoventas.win.pe` ("Iniciar con Microsoft" = `button.login-button.azure`; también hay
+Google) y por último `login.microsoftonline.com`: el inicio de sesión único (SSO) de **Microsoft Entra
+ID**, que pide **solo correo y contraseña** (sin segundo factor). El callback de Microsoft es
+`accesoventas-azure.win.pe/oauth2/callback`.
+- **Filtro de navegadores (2026-10-30)**: `/login` responde 410 "Request Denied!" a Chromium headless
+  (User-Agent `HeadlessChrome`) y 200 con ventana; `server: openresty`. Por eso el autologin usa
+  Chromium normal, sin cambiar el User-Agent.
+- **Campo oculto en la pantalla del correo (2026-10-30)**: Microsoft incluye un `input[name=passwd]` con
+  clase `moveOffScreen` (10×13 px, `aria-hidden`), que Playwright da por visible. Si se confunde con la
+  pantalla de contraseña, Siguiente sale sin correo y Microsoft avisa "Escriba una dirección..." con el
+  campo vacío: ese aviso no significa que la cuenta o la contraseña sean malas.
 - **Corrección 2026-10-23**: la documentación de agosto-octubre lo llamaba "2FA"; el usuario
   confirmó que no hay segundo factor. Los archivos históricos (`resumenes/`, `HistorialResumenes.md`,
   `docs/historial-agents.md`) conservan el término viejo.
@@ -551,7 +562,7 @@ Consulta a `POST /controllers/cliente.php` con `accion=score_cliente` + muchos c
   prueba simplemente no tenga historial en Equifax, no decide la hipótesis.
 
 ### Sesión caducada (HTTP 503, Etapa R)
-Cuando el proxy ya sabe que su sesión con WinForce murió (`_session_dead_since` está puesto), `validar_cobertura`/`validar_score` lanzan `SesionCaducadaError` **antes de tocar WinForce** → el handler responde **HTTP 503** + `Retry-After: 120` + `{"detail": ..., "codigo": "ERR_SESION_CADUCADA", "owner_avisado": true}`.
+Cuando el proxy ya sabe que su sesión con WinForce murió (`_session_dead_since` está puesto) y **no hay autologin que esperar** (desde 2026-10-30, si lo hay la consulta lo espera hasta `autologin_espera_consulta_s` y se repite), `validar_cobertura`/`validar_score` lanzan `SesionCaducadaError` **antes de tocar WinForce** → el handler responde **HTTP 503** + `Retry-After: 120` + `{"detail": ..., "codigo": "ERR_SESION_CADUCADA", "owner_avisado": true}`.
 - Es "servicio temporalmente no disponible", no un error del agente. Se resuelve solo cuando el owner renueva la cookie (extensión / `/admin/rotar`), que limpia `_session_dead_since`.
 - **No se reintenta**: `ProxyClient` trata el 503 como terminal (`ProxySesionCaducadaError`), sin backoff. La GUI del agente muestra un aviso suave ("reintenta en 2-3 minutos"), no el diálogo rojo de error.
 - Antes de la Etapa R el proxy llamaba a WinForce igual → recibía el HTML de login → HTTP 502 opaco, y no había forma de que el agente supiera que era la sesión.

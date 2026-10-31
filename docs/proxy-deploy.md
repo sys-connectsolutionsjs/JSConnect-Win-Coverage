@@ -186,6 +186,11 @@ la consola owner (panel "Credenciales del proxy") sin volver a este resumen — 
 8. **Genera `winsw.xml`** con paths absolutos
 9. **Instala e inicia el servicio**
 10. **Prueba el health check**
+   Después del firewall, `[ENERGIA]` (sin número) quita la suspensión y la hibernación **con
+   corriente** (`powercfg /change standby-timeout-ac 0` y `hibernate-timeout-ac 0`; la batería y la
+   pantalla no se tocan). Como los demás pasos, primero lo lee con `powercfg /q` y, si ya estaba en 0,
+   dice "ya estaba" sin cambiar nada. Una PC suspendida congela el servicio, el keepalive y el autologin: el
+   2026-10-30 esta PC se durmió 15 veces en una tarde y la tarjeta de red la despertaba unos minutos.
 11. **Crea la tarea de aviso y la fuente de eventos**
 12. **Crea el acceso directo de renovación**
 13. **Ofrece configurar el autologin** (sin número en la pantalla, `[AUTOLOGIN]`): pregunta si

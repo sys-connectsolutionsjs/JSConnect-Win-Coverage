@@ -22,7 +22,7 @@ cd JSConnect-Win-Coverage
 4. ✅ Genera tokens y `config.yaml` con ACL restringida
 5. ✅ Empaqueta/fuerza-instala la extensión de Chrome
 6. ✅ Genera `winsw.xml`, instala e inicia `JSWinProxy`
-7. ✅ Prueba `/health`
+7. ✅ Prueba `/health`, abre el firewall y quita la suspensión con corriente (`[ENERGIA]`: la PC del proxy no debe dormirse)
 8. ✅ Registra alertas de sesión y crea el acceso directo de renovación
 9. ✅ Muestra y guarda los tokens en archivos gitignored
 
@@ -110,7 +110,7 @@ Ver [`docs/rotacion-credenciales.md`](docs/rotacion-credenciales.md) para detall
 
 ### Autologin desatendido (vía principal desde 2026-10-28)
 Con la credencial de la **cuenta dedicada** guardada, el proxy vuelve a entrar solo
-cuando la sesión muere: Chromium sin ventana, sin intervención del owner. Se configura
+cuando la sesión muere: Chromium dentro del servicio (la ventana no se ve), sin intervención del owner. Se configura
 **una vez** (y de nuevo solo si WinForce cambia la contraseña): **consola owner → "Autologin de
 WinForce" → Configurar...** (pide UAC), o respondiendo **S** a la pregunta del final de
 `install_service.bat`. Para técnicos, en una consola de **Administrador**:
@@ -232,7 +232,7 @@ validator_app/proxy/
 ├── uninstall_service.bat    # Desinstalador (en repo)
 ├── rotate_creds.py          # CLI renovar sesión (fallback): asistido / --manual / --guardar-login
 ├── login_asistido.py        # Captura la PHPSESSID con navegador (Playwright)
-├── autologin.py             # Autologin desatendido (Chromium sin ventana) + freno anti-bucle
+├── autologin.py             # Autologin desatendido (Chromium en el servicio) + freno anti-bucle
 ├── _instalar_extension.py   # Empaqueta + fuerza-instala la extensión de Chrome
 ├── extension/               # Extensión MV3 "Renovar sesion WinForce" (plantilla)
 ├── .browser_profile/        # GITIGNORED - perfil del login asistido

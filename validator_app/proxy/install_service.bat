@@ -524,6 +524,35 @@ if /i "!NET_CAT!"=="Public" (
     )
 )
 
+REM Energia: una PC suspendida congela el servicio, el keepalive y el autologin
+REM (2026-10-30: 15 suspensiones en una tarde, la tarjeta de red la despertaba
+REM unos minutos). Solo se toca el modo con corriente; la pantalla puede apagarse.
+echo.
+echo [ENERGIA] Evitando que esta PC se suspenda o hiberne con corriente...
+REM Lee el valor con corriente (el penultimo 0x de powercfg /q; el ultimo es la
+REM bateria) de suspension e hibernacion: si ambos ya son 0, no se toca nada.
+powershell -NoProfile -Command "$v=foreach($s in 'STANDBYIDLE','HIBERNATEIDLE'){ $h=@(powercfg /q SCHEME_CURRENT SUB_SLEEP $s) -match ':\s*0x[0-9a-fA-F]+\s*$'; [Convert]::ToInt32(($h[-2] -split ':')[-1].Trim(),16) }; if (($v | Measure-Object -Sum).Sum -eq 0) { exit 0 } else { exit 1 }" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo [OK] La PC ya no se suspendia ni hibernaba con corriente - ya estaba - nada que hacer.
+    set "R_ENERGIA=ya estaba"
+    goto :energia_lista
+)
+set "R_ENERGIA=FALLO - ver aviso"
+powercfg /change standby-timeout-ac 0 >nul 2>&1
+if !errorLevel! equ 0 (
+    powercfg /change hibernate-timeout-ac 0 >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo [OK] La PC ya no se suspende ni hiberna mientras este enchufada.
+        set "R_ENERGIA=sin suspension"
+    )
+)
+if not "!R_ENERGIA!"=="sin suspension" (
+    echo [WARN] No se pudo cambiar el plan de energia. Ejecuta a mano como Administrador:
+    echo        powercfg /change standby-timeout-ac 0
+    echo        powercfg /change hibernate-timeout-ac 0
+)
+:energia_lista
+
 REM Tarea programada: popup al owner cuando el proxy avise que la sesion murio.
 REM El servicio corre como LocalSystem (sesion 0, sin escritorio) y escribe un
 REM evento de Windows (origen JSWinProxy, ID 101); esta tarea lo convierte en un
@@ -629,6 +658,7 @@ echo   [8/13]  winsw.xml .................. !R8!
 echo   [9/13]  Servicio instalado ......... !R9!
 echo   [10/13] Servicio en ejecucion ...... !R10!
 echo   [11/13] Firewall (puerto abierto) .. !R11!
+echo   Energia (sin suspension) ........... !R_ENERGIA!
 echo   [12/13] Tarea de aviso ............. !R12!
 echo   [13/13] Icono del Escritorio ....... !R13!
 echo   Autologin de WinForce .............. !R_AUTOLOGIN!

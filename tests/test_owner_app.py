@@ -593,7 +593,15 @@ def test_describir_autologin_credencial_rechazada():
         _health(habilitado=False, motivo="credencial_invalida",
                 ultimo_resultado="credencial_invalida")
     )
-    assert texto == "Autologin: contrasena rechazada por Microsoft; vuelve a guardarla"
+    assert texto == "Autologin: contrasena rechazada; vuelve a guardarla"
+
+
+def test_describir_autologin_navegador_rechazado():
+    texto = owner_app.describir_autologin(
+        _health(habilitado=False, motivo="navegador_rechazado",
+                ultimo_resultado="navegador_rechazado")
+    )
+    assert texto == "Autologin: WinForce rechazo el navegador (no es la contrasena)"
 
 
 def test_describir_autologin_apagado_en_config():

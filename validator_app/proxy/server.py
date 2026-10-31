@@ -92,8 +92,8 @@ _RENOVAR_A_MANO = (
 _MENSAJES_AVISO = {
     "sesion_caducada": f"La sesion de WinForce del proxy caduco. {_RENOVAR_A_MANO}",
     "autologin_credencial_invalida": (
-        "El proxy no pudo volver a entrar a WinForce: Microsoft rechazo el usuario o la "
-        "contrasena guardados. Guarda la credencial nueva con "
+        "El proxy no pudo volver a entrar a WinForce: WinForce o Microsoft rechazo el "
+        "usuario o la contrasena guardados. Guarda la credencial nueva con "
         "'python -m validator_app.proxy.rotate_creds --guardar-login' (consola de "
         f"Administrador). Mientras tanto: {_RENOVAR_A_MANO}"
     ),
@@ -106,7 +106,25 @@ _MENSAJES_AVISO = {
         "El proxy no logro volver a entrar a WinForce por su cuenta (ver "
         f"logs/autologin_fallo.png). {_RENOVAR_A_MANO}"
     ),
+    "autologin_navegador_rechazado": (
+        "WinForce rechazo el navegador automatico del proxy (no es la contrasena). El "
+        "autologin queda detenido hasta reiniciar el servicio o volver a guardar la "
+        f"credencial. {_RENOVAR_A_MANO}"
+    ),
 }
+
+
+def _puede_ser_sesion_muerta(e: core_api.APIError) -> bool:
+    """Errores de WinForce que pueden venir de una sesion muerta. "Respuesta
+    inesperada" es la pagina de login (HTML) en vez de JSON: la cookie puede haber
+    pasado la validacion y morir segundos despues (2026-10-30). Solo es sospecha: el
+    caller lo confirma validando la cookie antes de reintentar."""
+    if isinstance(e, SesionCaducadaError):
+        return False
+    if isinstance(e, core_api.LoginError):
+        return True
+    texto = str(e).lower()
+    return any(p in texto for p in ("sesion", "expirada", "respuesta inesperada"))
 
 
 class SesionCaducadaError(core_api.APIError):
@@ -331,6 +349,9 @@ class ProxyValidatorAPI:
         self._autologin_lock = threading.Lock()
         self._autologin_corriendo = False
         self._dormir = time.sleep
+        # Despierta a las consultas que esperan al autologin (sesion viva, intento
+        # fallido o fin del hilo).
+        self._cambio_sesion = threading.Condition()
 
     def _get_client(self) -> core_api.ValidatorAPI:
         if self._client is None:
@@ -576,29 +597,10 @@ class ProxyValidatorAPI:
         self._marcar_actividad()
         log.info("Sesion restaurada y verificada desde keyring (%s).", keyring_ref)
 
-    def _abortar_si_sesion_muerta(self) -> None:
-        """Fail fast: si ya sabemos que la sesión está muerta, no tocamos
-        WinForce (evita que 20 agentes con 3 reintentos lo martilleen) y
-        devolvemos un error accionable de inmediato. El keepalive sigue
-        reintentando y limpia `_session_dead_since` en cuanto el owner renueva."""
-        if self._session_dead_since is not None:
-            raise SesionCaducadaError()
-
     def validar_cobertura(self, lat: float, lon: float) -> dict:
-        self._abortar_si_sesion_muerta()
-        self.auto_relogin_if_needed()
-        client = self._get_client()
-        try:
-            resultado = client.validar_cobertura(lat, lon)
-        except core_api.APIError as e:
-            if "sesion" in str(e).lower() or "expirada" in str(e).lower():
-                self._relogin_silent()
-                self._abortar_si_sesion_muerta()
-                resultado = client.validar_cobertura(lat, lon)
-            else:
-                raise
-        self._marcar_actividad()
-        return resultado
+        return self._consultar(
+            "cobertura", lambda client: client.validar_cobertura(lat, lon)
+        )
 
     def validar_score(
         self,
@@ -608,22 +610,90 @@ class ProxyValidatorAPI:
         lon: float | None,
         cobertura: str = "SI",
     ) -> dict:
-        self._abortar_si_sesion_muerta()
+        return self._consultar(
+            "score",
+            lambda client: client.validar_score(
+                tipo_doc, num_doc, lat, lon, cobertura=cobertura
+            ),
+        )
+
+    def _consultar(self, nombre: str, consulta) -> dict:
+        """Consulta a WinForce para un agente. Si la sesion esta muerta (o muere en
+        esta misma consulta) espera al autologin y la repite una sola vez, para que
+        el asesor no reciba un error; sin autologin que esperar, 503 al instante.
+        Mide cada fase (deteccion, autologin, consulta) para ajustar los tiempos."""
+        fases = {"deteccion": 0.0, "autologin": 0.0, "consulta": 0.0}
+        inicio = time.monotonic()
+        self._esperar_o_abortar(nombre, fases, inicio)
+        marca = time.monotonic()
         self.auto_relogin_if_needed()
-        client = self._get_client()
+        fases["deteccion"] += time.monotonic() - marca
+        self._esperar_o_abortar(nombre, fases, inicio)
+        marca = time.monotonic()
         try:
-            resultado = client.validar_score(tipo_doc, num_doc, lat, lon, cobertura=cobertura)
+            resultado = consulta(self._get_client())
         except core_api.APIError as e:
-            if "sesion" in str(e).lower() or "expirada" in str(e).lower():
-                self._relogin_silent()
-                self._abortar_si_sesion_muerta()
-                resultado = client.validar_score(
-                    tipo_doc, num_doc, lat, lon, cobertura=cobertura
-                )
-            else:
+            if not _puede_ser_sesion_muerta(e):
                 raise
+            cookie_antes = self._php_actual()
+            self._relogin_silent()
+            fases["deteccion"] += time.monotonic() - marca
+            if self._session_dead_since is None and self._php_actual() == cookie_antes:
+                raise
+            self._esperar_o_abortar(nombre, fases, inicio)
+            marca = time.monotonic()
+            resultado = consulta(self._get_client())
+        fases["consulta"] += time.monotonic() - marca
         self._marcar_actividad()
+        if fases["autologin"] > 0:
+            detalle = self._detalle_fases(fases, inicio)
+            log.info("consulta %s salvada por el autologin: %s.", nombre, detalle)
+            _registrar_evento_sesion(
+                "consulta_reintentada", nombre, self._php_actual(), detalle
+            )
         return resultado
+
+    @staticmethod
+    def _detalle_fases(fases: dict, inicio: float) -> str:
+        partes = [f"{fase} {seg:.1f} s" for fase, seg in fases.items()]
+        partes.append(f"total {time.monotonic() - inicio:.1f} s")
+        return ", ".join(partes)
+
+    def _esperar_o_abortar(self, nombre: str, fases: dict, inicio: float) -> None:
+        """Con la sesion muerta, espera al autologin y suma esa espera a `fases`. Si
+        no revive, la consulta termina en 503 (`SesionCaducadaError`)."""
+        if self._session_dead_since is None:
+            return
+        marca = time.monotonic()
+        revivio = self._esperar_autologin()
+        fases["autologin"] += time.monotonic() - marca
+        if not revivio:
+            detalle = self._detalle_fases(fases, inicio)
+            log.warning("consulta %s sin sesion tras esperar al autologin: %s.", nombre, detalle)
+            _registrar_evento_sesion("consulta_sin_sesion", nombre, None, detalle)
+            raise SesionCaducadaError()
+
+    def _esperar_autologin(self) -> bool:
+        """Espera a que el autologin renueve la sesion, hasta
+        `autologin_espera_consulta_s`. False si no hay autologin que esperar (sin
+        credencial, apagado, en pausa o esperando su frenado) o no termino a tiempo:
+        sin eso, 20 agentes quedarian colgados minutos."""
+        if not self._autologin_corriendo:
+            self._programar_autologin("consulta de un agente con la sesion muerta")
+        if not self._autologin_corriendo or self._freno.espera_restante() > 0:
+            return False
+        with self._cambio_sesion:
+            self._cambio_sesion.wait_for(
+                lambda: self._session_dead_since is None
+                or not self._autologin_corriendo
+                or self._freno.espera_restante() > 0,
+                timeout=self.config.autologin_espera_consulta_s,
+            )
+        return self._session_dead_since is None
+
+    def _avisar_cambio_sesion(self) -> None:
+        with self._cambio_sesion:
+            self._cambio_sesion.notify_all()
 
     def set_session_cookie(self, php_sessid: str, origen: str = "desconocido") -> None:
         """Inyecta y valida una cookie PHPSESSID obtenida de un login manual
@@ -743,6 +813,7 @@ class ProxyValidatorAPI:
             log.exception("autologin: error inesperado (el proxy sigue)")
         finally:
             self._autologin_corriendo = False
+            self._avisar_cambio_sesion()
 
     def _bucle_autologin(self) -> None:
         credencial = self._leer_credencial_login()
@@ -765,12 +836,19 @@ class ProxyValidatorAPI:
                 self._ping_tras_autologin()
             except autologin.CredencialInvalidaError as e:
                 self._freno.registrar_credencial_invalida()
-                log.error("autologin: credencial rechazada por Microsoft; no se reintenta.")
+                log.error("autologin: credencial rechazada; no se reintenta.")
                 _registrar_evento_sesion("autologin_fallido", "credencial_invalida", None, str(e))
                 self._disparar_aviso("autologin_credencial_invalida", str(e))
                 return
+            except autologin.NavegadorRechazadoError as e:
+                self._freno.registrar_navegador_rechazado()
+                log.error("autologin: %s No se reintenta.", e)
+                _registrar_evento_sesion("autologin_fallido", "navegador_rechazado", None, str(e))
+                self._disparar_aviso("autologin_navegador_rechazado", str(e))
+                return
             except Exception as e:
                 self._freno.registrar_fallo()
+                self._avisar_cambio_sesion()
                 log.warning(
                     "autologin: intento fallido (%s); reintento en %.0f s.",
                     e,
@@ -875,6 +953,7 @@ class ProxyValidatorAPI:
             return
         self._session_dead_since = None
         self._keepalive_consecutive_failures = 0
+        self._avisar_cambio_sesion()
         log.info("sesion WinForce renovada; el proxy vuelve a estar operativo.")
         self._disparar_aviso("sesion_renovada", "")
 
@@ -1298,7 +1377,7 @@ app.add_middleware(
     response_model=CoberturaResponse,
     dependencies=[Depends(verify_proxy_token)],
 )
-async def api_cobertura(request: CoberturaRequest):
+def api_cobertura(request: CoberturaRequest):
     proxy_api = get_proxy_api()
     result = proxy_api.validar_cobertura(request.lat, request.lon)
     return CoberturaResponse(**result)
@@ -1309,7 +1388,7 @@ async def api_cobertura(request: CoberturaRequest):
     response_model=ScoreResponse,
     dependencies=[Depends(verify_proxy_token)],
 )
-async def api_score(request: ScoreRequest):
+def api_score(request: ScoreRequest):
     proxy_api = get_proxy_api()
     result = proxy_api.validar_score(
         tipo_doc=request.tipo_doc,
@@ -1494,11 +1573,13 @@ async def login_error_handler(request: Request, exc: core_api.LoginError):
 
 @app.exception_handler(core_api.ScoreError)
 async def score_error_handler(request: Request, exc: core_api.ScoreError):
+    log.warning("502 en %s: %s", request.url.path, exc)
     return JSONResponse(status_code=502, content={"detail": f"Error de score: {exc}"})
 
 
 @app.exception_handler(core_api.APIError)
 async def api_error_handler(request: Request, exc: core_api.APIError):
+    log.warning("502 en %s: %s", request.url.path, exc)
     return JSONResponse(
         status_code=502, content={"detail": f"Error API WinForce: {exc}"}
     )

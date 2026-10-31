@@ -45,6 +45,9 @@ keepalive_interval_seconds: 900    # 15 min (validado en la investigación de ke
 # el autologin se pausa el intervalo fijo del frenado.
 autologin_enabled: true
 autologin_muerte_rapida_s: 600
+# Si la sesión muere, la consulta del agente espera hasta estos segundos a que el
+# autologin termine y se repite sola (el agente corta a los 30 s).
+autologin_espera_consulta_s: 15   # siempre con número (10-22 s razonable; 0 = no esperar)
 
 # Reglas de venta por zona (Google My Maps "PARAMETROS VENTAS" publicado como KML):
 # carpetas PREFERENTE 2 (score >= 401) y CODIGOS BLOQUEADOS (no vender). Se descarga

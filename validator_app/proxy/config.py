@@ -6,11 +6,12 @@ config.yaml es GITIGNORED - solo existe en la PC del proxy.
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -20,6 +21,8 @@ from pydantic_settings import (
 
 # config.yaml vive JUNTO a este modulo, no en el cwd. El servicio de Windows
 # arranca con cwd = raiz del repo, asi que una ruta relativa no lo encontraria.
+log = logging.getLogger(__name__)
+
 _CONFIG_YAML = Path(__file__).resolve().parent / "config.yaml"
 
 
@@ -66,6 +69,9 @@ class ProxyConfig(BaseSettings):
     # entrando con la misma cuenta).
     autologin_enabled: bool = True
     autologin_muerte_rapida_s: int = 600
+    # Cuanto espera la consulta de un agente a que el autologin renueve la sesion antes de
+    # responder 503. Holgura frente a los 30 s de lectura del agente (client.py).
+    autologin_espera_consulta_s: float = 15
 
     # Reglas de venta por zona (mapa de Google My Maps exportado como KML). La URL es
     # informacion del negocio: va SOLO en config.yaml (gitignored), nunca en el repo publico.
@@ -114,6 +120,21 @@ class ProxyConfig(BaseSettings):
             YamlConfigSettingsSource(settings_cls),
             file_secret_settings,
         )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _claves_vacias_usan_default(cls, datos):
+        """Una clave sin valor en config.yaml (YAML la lee como nulo) usa el valor por
+        defecto: antes tumbaba el servicio al arrancar (2026-10-30)."""
+        if not isinstance(datos, dict):
+            return datos
+        vacias = sorted(k for k, v in datos.items() if v is None)
+        if vacias:
+            log.warning(
+                "config.yaml: claves sin valor, se usa el valor por defecto: %s",
+                ", ".join(vacias),
+            )
+        return {k: v for k, v in datos.items() if v is not None}
 
     @field_validator("allowed_networks", mode="before")
     @classmethod

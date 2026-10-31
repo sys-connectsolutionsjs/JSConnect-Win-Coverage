@@ -7,6 +7,8 @@ con FastAPI TestClient — adelanta parte de la Fase 4).
 
 import asyncio
 import json
+import re
+import threading
 import time
 import types
 from pathlib import Path
@@ -1083,6 +1085,35 @@ def test_ejecutar_autologin_credencial_invalida_no_reintenta_y_avisa(
     assert [e for e, _ in avisos_capturados] == ["autologin_credencial_invalida"]
 
 
+def test_ejecutar_autologin_navegador_rechazado_no_reintenta_y_avisa(
+    monkeypatch, avisos_capturados
+):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php=None)
+    _pa_reloj_falso(pa)
+    llamadas = []
+
+    def falla(u, p):
+        llamadas.append(1)
+        raise autologin.NavegadorRechazadoError("HTTP 410")
+
+    monkeypatch.setattr(autologin, "login_automatico", falla)
+    pa._ejecutar_autologin()
+
+    assert llamadas == [1]
+    assert pa._freno.puede_intentar() == (False, "navegador_rechazado")
+    assert pa._autologin_disponible() is False
+    assert _eventos()[-1]["evento"] == "autologin_fallido"
+    assert [e for e, _ in avisos_capturados] == ["autologin_navegador_rechazado"]
+
+
+def test_guardar_credencial_reactiva_el_freno_tras_navegador_rechazado():
+    pa = _mk_proxy_api()
+    pa._freno.registrar_navegador_rechazado()
+    pa.guardar_credencial_login("u@x.pe", "nueva")
+    assert pa._freno.puede_intentar() == (True, "")
+
+
 def test_ejecutar_autologin_reintenta_con_espera_tras_un_fallo(monkeypatch):
     pa = _pa_con_credencial()
     pa._client = FakeCore(php=None)
@@ -1213,12 +1244,19 @@ def test_enviar_avisos_tiene_mensaje_para_cada_evento_de_autologin(monkeypatch):
         "_aviso_event_log",
         staticmethod(lambda event_id, tipo, mensaje: escritos.append((event_id, tipo, mensaje))),
     )
-    for evento in ("autologin_credencial_invalida", "autologin_pausado", "autologin_detenido"):
+    for evento in (
+        "autologin_credencial_invalida",
+        "autologin_pausado",
+        "autologin_detenido",
+        "autologin_navegador_rechazado",
+    ):
         pa._enviar_avisos(evento, "detalle")
-    assert [e[0] for e in escritos] == [server.EVENTO_SESION_CADUCADA] * 3
+    assert [e[0] for e in escritos] == [server.EVENTO_SESION_CADUCADA] * 4
     assert all(e[1] == "ERROR" for e in escritos)
     assert "rotate_creds --guardar-login" in escritos[0][2]
+    assert "WinForce o Microsoft" in escritos[0][2]
     assert "otra persona" in escritos[1][2]
+    assert "no es la contrasena" in escritos[3][2]
 
 
 # --- endpoint /local/credenciales --------------------------------------------
@@ -1383,3 +1421,280 @@ def test_mensaje_de_pausa_dice_los_minutos_del_frenado(monkeypatch):
     )
     pa._enviar_avisos("autologin_pausado", "")
     assert "10 min" in escritos[0]
+
+
+# --------------------------------------------------------------------------
+# La consulta espera al autologin y se reintenta (2026-10-30: el asesor que
+# descubrio la muerte recibia 502 aunque el autologin la renovaba en 12 s)
+# --------------------------------------------------------------------------
+
+def _autologin_en_hilo_real(monkeypatch, login):
+    """Corre el autologin en un hilo de verdad (el fixture autouse lo captura) con
+    `login_automatico` falso: asi la consulta realmente espera a otro hilo."""
+    hilos = []
+
+    def lanzar(self, target):
+        h = threading.Thread(target=target, daemon=True)
+        hilos.append(h)
+        h.start()
+
+    monkeypatch.setattr(server.ProxyValidatorAPI, "_lanzar_hilo", lanzar)
+    monkeypatch.setattr(autologin, "login_automatico", login)
+    return hilos
+
+
+def _login_lento(usuario, password):
+    """Como el real (~6 s), pero corto: la consulta alcanza a quedarse esperando."""
+    time.sleep(0.2)
+    return "php-nueva"
+
+
+def _esperar_hilos(hilos):
+    for h in hilos:
+        h.join(5)
+
+
+def test_config_espera_de_la_consulta_por_defecto():
+    cfg = ProxyConfig(proxy_token="a" * 64, admin_key="b" * 64)
+    assert cfg.autologin_espera_consulta_s == 15
+
+
+def test_consulta_con_sesion_muerta_espera_al_autologin_y_responde(monkeypatch):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="vieja")
+    hilos = _autologin_en_hilo_real(monkeypatch, _login_lento)
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._marcar_sesion_muerta("prueba", php_sessid="vieja")
+        pa._last_activity = time.time()
+        resultado = pa.validar_cobertura(-12.05, -77.03)
+        _esperar_hilos(hilos)
+
+    assert resultado["cobertura"] == "SI"
+    assert pa._client._sesion.cookies["PHPSESSID"] == "php-nueva"
+    reintento = [e for e in _eventos() if e["evento"] == "consulta_reintentada"]
+    assert len(reintento) == 1
+    assert reintento[0]["origen"] == "cobertura"
+    detalle = reintento[0]["detalle"]
+    for fase in ("deteccion", "autologin", "consulta", "total"):
+        assert re.search(rf"{fase} \d+\.\d s", detalle), detalle
+    assert "-12.05" not in json.dumps(reintento)
+
+
+def test_score_tambien_espera_al_autologin(monkeypatch):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="vieja")
+    hilos = _autologin_en_hilo_real(monkeypatch, _login_lento)
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._marcar_sesion_muerta("prueba", php_sessid="vieja")
+        pa._last_activity = time.time()
+        resultado = pa.validar_score("DNI", "10412031", -12.05, -77.03)
+        _esperar_hilos(hilos)
+
+    assert resultado["valido"] is True
+    reintento = [e for e in _eventos() if e["evento"] == "consulta_reintentada"]
+    assert [e["origen"] for e in reintento] == ["score"]
+    assert "10412031" not in json.dumps(_eventos())
+
+
+def test_consulta_da_503_si_el_autologin_no_termina_a_tiempo(monkeypatch):
+    pa = _pa_con_credencial(autologin_espera_consulta_s=0.3)
+    pa._client = FakeCore(php="vieja")
+    soltar = threading.Event()
+    hilos = _autologin_en_hilo_real(monkeypatch, lambda u, p: (soltar.wait(5), "php-nueva")[1])
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._marcar_sesion_muerta("prueba", php_sessid="vieja")
+        inicio = time.monotonic()
+        try:
+            with pytest.raises(server.SesionCaducadaError):
+                pa.validar_cobertura(-12.05, -77.03)
+            assert time.monotonic() - inicio < 2
+            assert pa._client.llamadas == 0
+        finally:
+            soltar.set()
+            for h in hilos:
+                h.join(5)
+    sin_sesion = [e for e in _eventos() if e["evento"] == "consulta_sin_sesion"]
+    assert len(sin_sesion) == 1
+    assert re.search(r"autologin \d+\.\d s", sin_sesion[0]["detalle"])
+
+
+def test_consulta_no_espera_si_el_autologin_falla(monkeypatch):
+    """Si el intento falla, el autologin queda esperando su frenado (minutos): la
+    consulta no se queda colgada el plazo entero."""
+    pa = _pa_con_credencial(autologin_espera_consulta_s=5)
+    pa._client = FakeCore(php="vieja")
+
+    def falla(u, p):
+        time.sleep(0.1)
+        raise autologin.AutologinError("no termino")
+
+    hilos = _autologin_en_hilo_real(monkeypatch, falla)
+    pa._freno = autologin.FrenoAutologin(esperas=(0, 600))
+    with mock.patch.object(core_api, "validar_cookie_sesion", return_value=None):
+        pa._marcar_sesion_muerta("prueba", php_sessid="vieja")
+        inicio = time.monotonic()
+        with pytest.raises(server.SesionCaducadaError):
+            pa.validar_cobertura(-12.05, -77.03)
+        assert time.monotonic() - inicio < 3
+    # el hilo queda dormido en su frenado de 600 s (daemon, sin red)
+    assert all(h.is_alive() for h in hilos)
+
+
+def test_consulta_no_espera_si_el_autologin_esta_en_frenado(autologin_capturado):
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="vieja")
+    pa._freno.registrar_fallo()  # proximo intento en minutos
+    pa._session_dead_since = time.time() - 10
+    inicio = time.monotonic()
+    with pytest.raises(server.SesionCaducadaError):
+        pa.validar_cobertura(-12.05, -77.03)
+    assert time.monotonic() - inicio < 1
+    assert pa._client.llamadas == 0
+
+
+def test_relogin_que_descubre_la_muerte_no_consulta_con_la_cookie_muerta(monkeypatch):
+    """Lo que paso a las 19:00: la consulta llego tras >120 s sin actividad, el
+    relogin vio la cookie del keyring muerta y lanzo el autologin, pero la consulta
+    seguia con la cookie muerta y el asesor recibia 502."""
+    pa = _pa_con_credencial()
+    pa._client = FakeCore(php="vieja")
+    pa._save_session_cookies()
+    pa._last_activity = time.time() - 5000
+    hilos = _autologin_en_hilo_real(monkeypatch, _login_lento)
+
+    def validar(php):
+        if php == "vieja":
+            raise core_api.LoginError("la sesion no quedo activa")
+
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=validar):
+        resultado = pa.validar_cobertura(-12.05, -77.03)
+        _esperar_hilos(hilos)
+
+    assert resultado["cobertura"] == "SI"
+    assert pa._client._sesion.cookies["PHPSESSID"] == "php-nueva"
+    reintento = [e for e in _eventos() if e["evento"] == "consulta_reintentada"]
+    assert len(reintento) == 1
+    # la deteccion (validar la cookie del keyring y confirmar) es una fase propia
+    assert re.search(r"deteccion \d+\.\d s", reintento[0]["detalle"])
+
+
+def test_error_de_sesion_de_winforce_se_reintenta_una_sola_vez(monkeypatch):
+    pa = _pa_con_credencial()
+    pa._last_activity = time.time()
+
+    class CoreQueCaduca(FakeCore):
+        def validar_cobertura(self, lat, lon):
+            self.llamadas += 1
+            if self._sesion.cookies.get("PHPSESSID") == "vieja":
+                raise core_api.APIError("Sesion expirada", "ERR_SESSION")
+            return self._resultado
+
+    pa._client = CoreQueCaduca(php="vieja")
+    pa._save_session_cookies()
+    hilos = _autologin_en_hilo_real(monkeypatch, _login_lento)
+
+    def validar(php):
+        if php == "vieja":
+            raise core_api.LoginError("la sesion no quedo activa")
+
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=validar):
+        resultado = pa.validar_cobertura(-12.05, -77.03)
+        _esperar_hilos(hilos)
+
+    assert resultado["cobertura"] == "SI"
+    # la fallida + el ping del autologin + el unico reintento
+    assert pa._client.llamadas == 3
+
+
+def test_endpoints_de_consulta_no_bloquean_el_bucle_del_servidor():
+    """Async + codigo bloqueante congelaba todo el proxy (y /health) mientras una
+    consulta esperaba; como `def`, FastAPI las corre en su pool de hilos."""
+    import inspect
+
+    assert not inspect.iscoroutinefunction(server.api_cobertura)
+    assert not inspect.iscoroutinefunction(server.api_score)
+
+
+# 2026-10-30 ~20:00: la cookie paso la validacion y murio segundos despues;
+# coordenada.php devolvio la pagina de login (HTML) y el asesor recibio 502 sin
+# que el proxy marcara la muerte ni lanzara el autologin.
+_HTML_INESPERADO = (
+    "Respuesta inesperada del servidor al consultar {}. "
+    "[HTTP 200 text/html; charset=UTF-8 body='<!DOCTYPE html>']"
+)
+
+
+class CoreConLoginHTML(FakeCore):
+    """Con la cookie muerta, WinForce responde su pagina de login en vez de JSON."""
+
+    def validar_cobertura(self, lat, lon):
+        self.llamadas += 1
+        if self._sesion.cookies.get("PHPSESSID") == "vieja":
+            raise core_api.APIError(_HTML_INESPERADO.format("cobertura"), "ERR_NETWORK")
+        return self._resultado
+
+    def validar_score(self, tipo, numero, lat, lon, cobertura="SI"):
+        self.llamadas += 1
+        if self._sesion.cookies.get("PHPSESSID") == "vieja":
+            raise core_api.APIError(_HTML_INESPERADO.format("score"), "ERR_NETWORK")
+        return {"valor": 1, "riesgo": "BAJO", "valido": True}
+
+
+def _vieja_muerta(php):
+    if php == "vieja":
+        raise core_api.LoginError("la sesion no quedo activa")
+
+
+@pytest.mark.parametrize("nombre", ["cobertura", "score"])
+def test_respuesta_html_con_cookie_muerta_lanza_autologin_y_reintenta(monkeypatch, nombre):
+    pa = _pa_con_credencial()
+    pa._last_activity = time.time()
+    pa._client = CoreConLoginHTML(php="vieja")
+    pa._save_session_cookies()
+    hilos = _autologin_en_hilo_real(monkeypatch, _login_lento)
+
+    with mock.patch.object(core_api, "validar_cookie_sesion", side_effect=_vieja_muerta):
+        if nombre == "cobertura":
+            resultado = pa.validar_cobertura(-12.05, -77.03)
+            assert resultado["cobertura"] == "SI"
+        else:
+            resultado = pa.validar_score("DNI", "10412031", -12.05, -77.03)
+            assert resultado["valido"] is True
+        _esperar_hilos(hilos)
+
+    eventos = [e["evento"] for e in _eventos()]
+    assert "muerta" in eventos and "consulta_reintentada" in eventos
+
+
+def test_respuesta_inesperada_con_cookie_viva_da_el_error_real_sin_reintentar():
+    pa = _pa_con_credencial()
+    pa._last_activity = time.time()
+    pa._client = FakeCore(
+        php="viva",
+        excepcion=core_api.APIError(_HTML_INESPERADO.format("cobertura"), "ERR_NETWORK"),
+    )
+    pa._save_session_cookies()
+
+    with (
+        mock.patch.object(core_api, "validar_cookie_sesion", return_value=None),
+        pytest.raises(core_api.APIError, match="Respuesta inesperada"),
+    ):
+        pa.validar_cobertura(-12.05, -77.03)
+
+    assert pa._client.llamadas == 1
+    assert pa._session_dead_since is None
+
+
+def test_el_502_deja_el_detalle_en_el_log(client, caplog):
+    tc, fake = client
+    fake.validar_cobertura.side_effect = core_api.APIError(
+        _HTML_INESPERADO.format("cobertura"), "ERR_NETWORK"
+    )
+    with caplog.at_level("WARNING"):
+        r = tc.post(
+            "/api/cobertura", json={"lat": -12.05, "lon": -77.03},
+            headers={"X-Proxy-Token": _TOKEN},
+        )
+    assert r.status_code == 502
+    assert "Respuesta inesperada" in caplog.text
+    assert "/api/cobertura" in caplog.text

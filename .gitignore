@@ -67,6 +67,7 @@ validator_app/proxy/autologin_freno.json
 validator_app/proxy/.extension_build/
 validator_app/proxy/extension.pem
 validator_app/proxy/extension.crx
+validator_app/proxy/.extension_build.crx
 validator_app/proxy/updates.xml
 
 # Copia local del KML de reglas de venta (se descarga sola, ver proxy/capas.py)

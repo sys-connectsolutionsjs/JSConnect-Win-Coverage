@@ -410,8 +410,19 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     puertos. **Diseñado 2026-10-27** en el mismo plan (Tailscale `--unattended`, sin abrir el 8080);
     runbook escrito el 2026-10-28 en [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md). Falta la
     migración al host ([`PlanesAprobados.md`](PlanesAprobados.md) → "Migración al host definitivo").
-7f. **Verificación en vivo del autologin** (NUEVA 2026-10-28), en la PC de desarrollo haciendo de owner:
-    `python -m validator_app.proxy.autologin --probar` (confirma los selectores de Microsoft; bota la
+7f. **Verificación en vivo del autologin** (NUEVA 2026-10-28). **2026-10-30**: WinForce responde HTTP 410 a
+    Chromium headless; ya se usa Chromium normal (comprobado como LocalSystem, formulario aceptado) y se
+    añadió la puerta "Iniciar con Microsoft". En Microsoft, un `passwd` oculto (`.moveOffScreen`) se
+    confundía con la pantalla de contraseña (corregido). Cada fallo deja imagen en `logs/autologin_fallos/`
+    y traza por pasos en `logs/autologin_pasos/`. **Primer login automático real: 2026-10-30, 16:11:54.**
+    **2026-10-30, 19:00: prueba de muerte superada** (login en otra PC → `renovada` con `origen: autologin` en
+    12 s, por SSO silencioso, sin escribir la contraseña; cobertura desde un agente 200). **No se guarda el token
+    `win-azure-oauth2`** (decidido: basta el perfil del servicio). **Pendiente 2026-11-03**: probar en vivo que la
+    consulta del asesor espera al autologin y se repite (ver el último cierre). Falta observar un día laboral; un `#passwordError` sí sería real, no repetirlo a ciegas. Luego, reevaluar
+    guardar el token `win-azure-oauth2` (ver
+    [`PlanesAprobados.md`](PlanesAprobados.md) → "Hallazgos del ensayo sin credenciales").
+    En la PC de desarrollo haciendo de owner:
+    `python -m validator_app.proxy.autologin --probar` (confirma los selectores reales; bota la
     sesión del proxy), instalar el servicio (`install_service.bat`), guardar la credencial (pregunta
     `[AUTOLOGIN]` o consola owner → Configurar...), comprobar en la consola el botón "Instalar extensión"
     y "Frenado...", y tumbar la sesión para ver `renovada` con `origen: autologin` en la bitácora.
@@ -430,55 +441,37 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     tarea con pasos.
 
 ## Historial (bitácora del proyecto)
-> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-13) están en
+> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-28) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-10-28 [CONTEXTO PARA LA SIGUIENTE — autologin desatendido implementado (sin verificar en vivo), credencial y frenado desde la consola owner, botón de la extensión arreglado]
+### Cierre de la sesión 2026-10-30 [CONTEXTO PARA LA SIGUIENTE (martes 2026-11-03) — autologin verificado en vivo; falta probar la consulta que espera al autologin]
 
-- **Hecho** (commit `0231cc2` en `main`, sin push; TDD 500 → 637 tests):
-  - **Autologin desatendido** (`validator_app/proxy/autologin.py`, nuevo):
-    - `login_automatico()`: Chromium headless con perfil `.browser_profile_servicio/`; primero el SSO
-      silencioso; cada dato una sola vez; acepta KMSI; `CredencialInvalidaError` sin reintento; captura
-      `logs/autologin_fallo.png` si se agota el tiempo;
-    - CLI `--probar` (ventana visible, perfil temporal, no guarda nada);
-    - `FrenoAutologin` con perfiles (Recomendado 0-1-2-3 min y luego cada 5, Rápido, Demasiado rápido,
-      Lento óptimo, Lento, Demasiado lento, Personalizado) y las reglas del owner: 2.º de 1 a 5; 3.º
-      desde el 2.º hasta 10; 4.º desde el 3.º hasta 15; fijo de 1 a 20 min;
-    - la pausa por "otra persona usa la cuenta" es el intervalo fijo; el tope por hora sale del frenado.
-  - **`server.py`**:
-    - credencial en el keyring del servicio (`credentials_login`), `POST /local/credenciales` y
-      `POST /local/freno` (admin key + loopback);
-    - relogin en un hilo único desde `_marcar_sesion_muerta()` y desde el keepalive (también sin sesión);
-    - aviso al owner solo si falla, se pausa o la credencial es inválida;
-    - frenado persistido en `autologin_freno.json` (gitignored);
-    - bloque `autologin` en `/health` y `/admin/status`.
-  - **Consola owner**: sección "Autologin de WinForce" (estado, **Configurar...** y **Frenado...**; UAC solo
-    para leer la admin key, la contraseña sale del proceso sin elevar). El botón "Instalar extensión"
-    muestra la ruta solo si existe y si no ofrece "Preparar carpeta" (subcomando elevado
-    `--preparar-extension`). `.exe` regenerado (`dist\`, SHA-256 `6212739…96C81`, sin Release).
-  - **Instalador**:
-    - Chromium compartido en `validator_app\proxy\.ms-playwright` (variable en `winsw.xml` y fijada
-      por el código para el owner);
-    - `.extension_build` se crea siempre;
-    - pregunta `[AUTOLOGIN]` al final.
-  - `rotate_creds --guardar-login` para técnicos. Docs: `docs/rotacion-credenciales.md` (autologin,
-    frenado), `docs/escalabilidad-remota.md` (Tailscale), `docs/proxy-deploy.md`, README, README_PROXY.
-- **Bug encontrado y corregido**: `_instalar_extension.main()` solo creaba `.extension_build` con Chrome
-  y devolvía 0 aunque fallara → el instalador marcaba "política registrada" y la consola mostraba una
-  carpeta inexistente.
-- **Decisiones**:
-  - credencial en el keyring del servicio, nunca en `config.yaml`;
-  - no se configura desde la extensión, porque no puede presentar la admin key;
-  - no hay opción de 30 s: el frenado actúa solo cuando el relogin *falla*; la pelea con otra persona
-    la limita la pausa, y reloguear cada pocos segundos arriesga la cuenta;
-  - no se extrae `win-azure-oauth2-cookie`;
-  - el proxy no se expone a Internet: se usa Tailscale.
-- **Incidentes** (sin daño, ver [`TestingLog.md`](TestingLog.md)):
-  - un `git stash` para comparar el alto de la ventana, restaurado al momento;
-  - una corrida de la suite colgada por un test que abría la ventana real;
-  - una `.extension_build` real creada por un test con el código viejo, borrada.
-- **Estado**: **637** tests pasando, `ruff` limpio. **Sin verificar en vivo** contra Microsoft ni con
-  Playwright corriendo como LocalSystem.
-- **Siguiente paso**: tarea 7f (verificación en vivo en esta PC), luego la migración al host (7d) y
-  Tailscale. Revisar el alto de la consola (7g).
+- **Hecho** (TDD 637 → 683 tests, `ruff` limpio; commit de esta sesión en `main`, **sin push ni Release**):
+  - **Autologin funcionando en vivo** como LocalSystem: Chromium normal (WinForce da HTTP 410 a headless),
+    formulario de WinForce → puerta "Iniciar con Microsoft" → correo/contraseña (el `passwd` oculto
+    `.moveOffScreen` confundía la pantalla) → KMSI → `auth_app.php`. Primer login real 16:11:54.
+  - **Pruebas de muerte** (owner entra en otra PC): 19:00 y 19:40 renovó en 12 s y 6 s por **SSO silencioso**
+    (sin escribir la contraseña); 20:02 en 12 s. → **No guardar el token `win-azure-oauth2`**: basta el perfil.
+  - Imagen por cada fallo (`logs/autologin_fallos/`) y traza por pasos (`logs/autologin_pasos/`).
+  - **La consulta espera al autologin** (`_consultar()` en `server.py`): hasta `autologin_espera_consulta_s`
+    (15 s; razonable 10-22; 0 = no esperar) y se repite una vez; 503 inmediato si hay pausa, frenado o no
+    hay credencial. Una "respuesta inesperada" (página de login HTML) se comprueba como posible muerte.
+    Mide `deteccion / autologin / consulta / total` en `consulta_reintentada` / `consulta_sin_sesion`.
+  - `api_cobertura`/`api_score` pasan a `def` (antes congelaban todo el proxy mientras esperaban; ahora
+    hasta 40 consultas a la vez). Los 502 dejan su detalle en `winsw.err.log`.
+  - `config.yaml`: una clave vacía usa el valor por defecto (una vacía tumbó el servicio de 19:41 a 19:50 →
+    `WinError 10061` en los agentes).
+  - Instalador: paso `[ENERGIA]` (sin suspensión ni hibernación con corriente; "ya estaba" si ya era así).
+    La PC se suspendía cada pocos minutos y congelaba el proxy. En esta PC ya se aplicó a mano.
+  - Capas: el owner puso el enlace de descarga KML; `/api/capas` 200.
+- **Sin probar en vivo**: la espera + reintento con la consulta del asesor descubriendo la muerte (las
+  pruebas de 19:40 y 20:00 corrieron antes de cargar cada arreglo) y la concurrencia real (sesión
+  `requests` compartida entre hilos; si da errores con carga, limitar consultas simultáneas).
+- **Siguiente paso (martes 2026-11-03)**:
+  1. "Reiniciar servicio" (el servicio corre el código del repo).
+  2. Prueba de muerte **sin abrir `/health` ni la consola antes**: entrar con la cuenta en otra PC y
+     consultar desde un agente. Esperado: el asesor recibe la cobertura y `logs/sesion_eventos.jsonl` muestra
+     `muerta` → `renovada` (autologin) → `consulta_reintentada` con las cuatro fases.
+  3. Con 2-3 muertes medidas, decidir recortes (confirmación de 3 s → 1 s, no revalidar la misma cookie).
+  4. Observar un día laboral; regenerar `JSConnect-Win-Owner.exe` (consola cerrada); luego la mini PC (7d).
