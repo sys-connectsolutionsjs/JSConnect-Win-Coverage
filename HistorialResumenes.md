@@ -20,6 +20,19 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-10-30 — Sesión — Autologin verificado en vivo y consulta que espera al autologin
+
+Snapshot completo: [resumenes/2026-10-30.md](resumenes/2026-10-30.md)
+
+- WinForce responde HTTP 410 a Chromium headless: el servicio usa Chromium normal (funciona como LocalSystem); un rechazo detiene el autologin y avisa.
+- Flujo real cubierto: formulario de WinForce → puerta "Iniciar con Microsoft" → correo/contraseña (un `passwd` oculto `.moveOffScreen` confundía las pantallas) → KMSI → `auth_app.php`. Imagen por fallo y traza por pasos.
+- Primer login automático real (16:11:54); muertes provocadas a las 19:00, 19:40 y 20:02 renovadas en 6-12 s por SSO silencioso → no se guarda el token `win-azure-oauth2`.
+- La consulta del asesor espera al autologin (`autologin_espera_consulta_s` = 15) y se repite una vez; una respuesta HTML de WinForce se comprueba como posible muerte; medición por fases. **Sin probar en vivo.**
+- Endpoints de consulta como `def` (antes congelaban todo el proxy); los 502 dejan detalle en el log; una clave vacía en `config.yaml` (tumbó el servicio 19:41-19:50) usa el default.
+- La PC se suspendía cada pocos minutos: instalador con paso `[ENERGIA]`; aplicado a mano en esta PC. Capas por enlace KML: `/api/capas` 200.
+- 637 → 683 tests, ruff limpio. Commit `0a44e2d` (sin push ni Release).
+
 ### 2026-10-28 — Sesión — autologin desatendido del proxy, credencial y frenado desde la consola owner
 Detalle completo: [`resumenes/2026-10-28.md`](resumenes/2026-10-28.md).
 - **Autologin** (`proxy/autologin.py`): si la sesión de WinForce muere, el proxy vuelve a entrar solo (Chromium sin ventana, SSO silencioso primero, credencial inválida sin reintento). La credencial de la cuenta dedicada va al keyring del servicio, nunca a `config.yaml`.
