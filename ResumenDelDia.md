@@ -49,3 +49,7 @@ condensada en `HistorialResumenes.md`.
 - Después: migrar a la mini PC (PlanesAprobados → "Migración al host definitivo") y Tailscale; alto de la consola owner (AGENTS 7g); cobertura observada (7e).
 - Reactivar los agentes con la huella estable (**NO borrar `huellas_legacy()`**); agente W10 contra owner W11; archivo del pendrive con URL + token; firma de código.
 - Diferido: Etapa C.12, `actualizar_score_cliente` / `newsearch.php`, backlog v1.1.
+- **Release `v2026.11.03` publicado** (tag en `1b98a80`) con los dos `.exe`:
+  - agente, SHA-256 `BEAE0634…6B00E`;
+  - consola owner regenerada, SHA-256 `19B256D7…BB893`.
+  - El actualizador lee bien los dos checksums de las notas (`extraer_checksum`).
