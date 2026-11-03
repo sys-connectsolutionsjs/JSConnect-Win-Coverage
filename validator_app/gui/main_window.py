@@ -13,7 +13,7 @@ from validator_app import version as build_version
 from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
 from validator_app.core import api, capas_local, direccion, geo
-from validator_app.gui import ficha, fields, session_config, zonas
+from validator_app.gui import ficha, fields, session_config, tarjetas, zonas
 from validator_app.gui.map_page import MapaPage
 from validator_app.proxy.client import ProxyClient, ProxySesionCaducadaError
 from validator_app.updater import check as update_check
@@ -295,16 +295,12 @@ class App(ttk.Window):
         # texto"); lo tecnico va a "Ver detalle", copiable para WhatsApp.
         fila_tarjetas = ttk.Frame(frame_res)
         fila_tarjetas.pack(fill="x")
-        self._tarjetas: dict[str, tuple] = {}
+        self._tarjetas: dict[str, tarjetas.Tarjeta] = {}
         for columna, nombre in enumerate(("Cobertura", "Zona", "Score")):
             fila_tarjetas.columnconfigure(columna, weight=1, uniform="tarjetas")
-            marco = ttk.LabelFrame(fila_tarjetas, text=nombre, padding=8, bootstyle="secondary")
-            marco.grid(row=0, column=columna, sticky="nsew", padx=(0 if columna == 0 else 8, 0))
-            titulo = ttk.Label(marco, text=zonas.SIN_DATO, font=("", 12, "bold"))
-            titulo.pack(anchor="w")
-            nota = ttk.Label(marco, text="", justify="left", wraplength=260)
-            nota.pack(anchor="w")
-            self._tarjetas[nombre] = (marco, titulo, nota)
+            tarjeta = tarjetas.Tarjeta(fila_tarjetas, nombre)
+            tarjeta.grid(row=0, column=columna, sticky="nsew", padx=(0 if columna == 0 else 8, 0))
+            self._tarjetas[nombre] = tarjeta
 
         fila_aviso = ttk.Frame(frame_res)
         fila_aviso.pack(fill="x", pady=(6, 0))
@@ -703,11 +699,7 @@ class App(ttk.Window):
         self.after(0, lambda: self._mostrar_resultado(resultado))
 
     def _pintar_tarjeta(self, nombre: str, tarjeta: tuple) -> None:
-        marco, lbl_titulo, lbl_nota = self._tarjetas[nombre]
-        titulo, nota, estilo = tarjeta
-        marco.config(bootstyle=estilo)
-        lbl_titulo.config(text=titulo, bootstyle=estilo)
-        lbl_nota.config(text=nota)
+        self._tarjetas[nombre].pintar(tarjeta)
 
     def _mostrar_resultado(self, resultado):
         cobertura = resultado["cobertura"]
@@ -808,31 +800,7 @@ class App(ttk.Window):
         self.after(0, lambda: self._mostrar_resultado(completo))
 
     def _ver_detalle(self) -> None:
-        """Todos los datos y el error exacto, para copiarlos y mandarlos por WhatsApp."""
-        if not self._detalle:
-            return
-        dialog = tk.Toplevel(self)
-        dialog.title("Detalle de la validacion")
-        dialog.geometry("620x360")
-        dialog.transient(self)
-        frame = ttk.Frame(dialog, padding=12)
-        frame.pack(fill="both", expand=True)
-        texto = tk.Text(frame, wrap="word", height=14)
-        texto.insert("1.0", self._detalle)
-        texto.config(state="disabled")
-        texto.pack(fill="both", expand=True)
-
-        def copiar():
-            self.clipboard_clear()
-            self.clipboard_append(self._detalle)
-            self.update()
-            boton.config(text="✓ Copiado")
-            dialog.after(1500, lambda: boton.config(text="\U0001f4cb Copiar para WhatsApp"))
-
-        boton = ttk.Button(
-            frame, text="\U0001f4cb Copiar para WhatsApp", command=copiar, bootstyle="success"
-        )
-        boton.pack(fill="x", pady=(8, 0))
+        tarjetas.mostrar_detalle(self, self._detalle)
 
     def _resaltar_leyenda(self, categoria: str | None) -> None:
         colores = {c: col for _t, _r, c, col in _TABLA_SCORE}

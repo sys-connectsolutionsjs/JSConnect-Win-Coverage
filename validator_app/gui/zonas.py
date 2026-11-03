@@ -68,7 +68,7 @@ def tarjeta_score(
 ) -> tuple:
     """Veredicto primero. Con `valor`, si vende segun el rango y el minimo de la
     zona; sin el, `motivo`: no_consultado, pendiente, error, no_disponible,
-    bloqueada o sin_documento."""
+    bloqueada, sin_documento, listo o consultando (estos dos, del boton del Mapa)."""
     if valor is not None:
         detalle = f"{valor} (mín. {minimo})" if minimo is not None else f"{valor}"
         if not vendible:
@@ -82,9 +82,12 @@ def tarjeta_score(
         return "▲ Sin score", "reintenta", "warning"
     if motivo == "no_disponible":
         return "▲ Sin score", "puntaje no disponible", "warning"
+    if motivo == "consultando":
+        return "Consultando…", "", "secondary"
     nota = {
         "pendiente": "pendiente de confirmar",
-        "sin_documento": "sin documento",
+        "listo": "pulsa CONSULTAR SCORE",
+        "sin_documento": "ingresa un documento",
     }.get(motivo, "no se consultó")
     titulo = f"Necesita {minimo}+" if minimo is not None and motivo != "sin_documento" else SIN_DATO
     return titulo, nota, "secondary"
@@ -141,15 +144,3 @@ def detalle_para_copiar(
         lineas.append(f"Error de score: {_error_exacto(score_exc)}")
     return "\n".join(lineas)
 
-
-def resumen_vertical(hay_cobertura: bool | None, decision: geo.Decision) -> tuple[str, str]:
-    """Cobertura y zona en pocas lineas, para el panel angosto de la pagina Mapa.
-    El estilo es el de la tarjeta mas grave."""
-    tarjetas = (tarjeta_cobertura(hay_cobertura, decision), tarjeta_zona(decision))
-    lineas = []
-    for titulo, nota, _ in tarjetas:
-        lineas.append(titulo)
-        lineas.extend(f"   {n}" for n in nota.split("\n") if n)
-    orden = ("danger", "warning", "success", "info", "secondary")
-    estilo = min((t[2] for t in tarjetas), key=orden.index)
-    return "\n".join(lineas), estilo

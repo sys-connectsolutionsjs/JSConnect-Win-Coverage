@@ -32,7 +32,12 @@ condensada en `HistorialResumenes.md`.
 - **Regla de negocio nueva**: el **fraude solo informa** (dentro o cerca); deciden el score, la cobertura y
   WinForce. Los **códigos bloqueados siguen bloqueando**.
   - Actualizado en `core/geo.py`, README (es/en), AGENTS, arquitectura y anotaciones.
-- Tests: 683 → 703, `ruff` limpio. Sin commit ni Release todavía.
+- Tests: 683 → 703, `ruff` limpio. Commit `c1e2e05` y `.exe` regenerado, sin Release.
+- **Tarjetas también en la página Mapa** (la captura del owner mostraba ahí el texto plano de antes):
+  - Cobertura y Zona lado a lado, con títulos a 10 pt que caben en ~125 px; Score debajo, con el botón.
+  - Línea de aviso y "Ver detalle" también ahí. Un error del score ya no abre un diálogo rojo.
+  - El contenido va centrado de arriba abajo en cada tarjeta (pedido del owner).
+  - Widget compartido en `gui/tarjetas.py`. Comprobado con capturas de 5 casos y de la página principal.
 
 ## Pendiente al iniciar
 

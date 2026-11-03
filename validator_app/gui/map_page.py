@@ -1,14 +1,16 @@
 """Pagina "Mapa": capas de cobertura, fraude y reglas de venta sobre OpenStreetMap."""
 
 import contextlib
+import datetime
 import threading
 import tkinter as tk
 from tkinter import messagebox
 
 import ttkbootstrap as ttk
 
+from validator_app import version as build_version
 from validator_app.core import api, direccion, geo
-from validator_app.gui import ficha, fields, limites_mapa, tiles, zonas
+from validator_app.gui import ficha, fields, limites_mapa, tarjetas, tiles, zonas
 
 CENTRO_LIMA = (-12.0464, -77.0428)
 RADIO_DIBUJO_M = 2000
@@ -81,25 +83,45 @@ class MapaPage(ttk.Frame):
         self.panel_lateral = lateral
         ajuste = ANCHO_LATERAL - 30
 
-        marco_zona = ttk.LabelFrame(lateral, text="Zona", padding=8, bootstyle="info")
-        marco_zona.pack(fill="x")
-        self.lbl_zona = ttk.Label(
-            marco_zona, text="Ingresa coordenadas o haz clic derecho en el mapa.",
-            wraplength=ajuste, justify="left",
+        # Cobertura y Zona lado a lado (titulos a 10 pt, ~125 px de texto) y Score
+        # debajo a todo el ancho; los textos salen de gui/zonas.py.
+        fila_tarjetas = ttk.Frame(lateral)
+        fila_tarjetas.pack(fill="x")
+        self.tarjeta_cobertura = tarjetas.Tarjeta(
+            fila_tarjetas, "Cobertura", tamano_titulo=10, ancho_texto=125
         )
-        self.lbl_zona.pack(anchor="w")
+        self.tarjeta_zona = tarjetas.Tarjeta(
+            fila_tarjetas, "Zona", tamano_titulo=10, ancho_texto=125
+        )
+        for columna, tarjeta in enumerate((self.tarjeta_cobertura, self.tarjeta_zona)):
+            fila_tarjetas.columnconfigure(columna, weight=1, uniform="tarjetas")
+            tarjeta.grid(row=0, column=columna, sticky="nsew", padx=(0 if columna == 0 else 6, 0))
+        self.tarjeta_cobertura.pintar(
+            (zonas.SIN_DATO, "ingresa coordenadas o clic derecho en el mapa", "secondary")
+        )
 
-        marco_score = ttk.LabelFrame(lateral, text="Score", padding=8, bootstyle="info")
-        marco_score.pack(fill="x", pady=(8, 0))
-        self.lbl_score = ttk.Label(marco_score, text="—", wraplength=ajuste, justify="left")
-        self.lbl_score.pack(anchor="w")
-        self.lbl_veredicto = ttk.Label(marco_score, text="", wraplength=ajuste, justify="left")
-        self.lbl_veredicto.pack(anchor="w")
+        self.tarjeta_score = tarjetas.Tarjeta(
+            lateral, "Score", tamano_titulo=10, ancho_texto=ajuste
+        )
+        self.tarjeta_score.pack(fill="x", pady=(8, 0))
         self.btn_score = ttk.Button(
-            marco_score, text="CONSULTAR SCORE", command=self._consultar_score,
+            self.tarjeta_score, text="CONSULTAR SCORE", command=self._consultar_score,
             bootstyle="success", state="disabled",
         )
         self.btn_score.pack(fill="x", pady=(6, 0))
+
+        fila_aviso = ttk.Frame(lateral)
+        fila_aviso.pack(fill="x", pady=(6, 0))
+        self.lbl_aviso = ttk.Label(
+            fila_aviso, text="", bootstyle="warning", justify="left", wraplength=ajuste - 90
+        )
+        self.lbl_aviso.pack(side="left")
+        self.btn_detalle = ttk.Button(
+            fila_aviso, text="Ver detalle", bootstyle="secondary-outline", state="disabled",
+            command=lambda: tarjetas.mostrar_detalle(self, self._detalle),
+        )
+        self.btn_detalle.pack(side="right")
+        self._detalle = ""
 
         self.ficha = ficha.FichaCliente(lateral)
         self.ficha.pack(fill="x", pady=(8, 0))
@@ -198,7 +220,11 @@ class MapaPage(ttk.Frame):
                 return
         self.btn_zona.config(state="disabled")
         self.btn_score.config(state="disabled")
-        self.lbl_zona.config(text="Validando cobertura...", bootstyle="default")
+        self.tarjeta_cobertura.pintar(("Validando…", "", "secondary"))
+        self.tarjeta_zona.pintar((zonas.SIN_DATO, "", "secondary"))
+        self.tarjeta_score.pintar((zonas.SIN_DATO, "", "secondary"))
+        self.lbl_aviso.config(text="")
+        self.btn_detalle.config(state="disabled")
         self.ficha.limpiar()
         threading.Thread(
             target=self._validar_en_hilo, args=(lat, lon, tipo, numero), daemon=True
@@ -245,30 +271,28 @@ class MapaPage(ttk.Frame):
     ) -> None:
         self._capas = capas
         hay = cobertura["hay_cobertura"] if cobertura else None
-        texto, estilo = zonas.resumen_vertical(hay, decision)
-        if error:
-            texto = f"{texto}\n\n{zonas.linea_estado(error, None)}"
-        self.lbl_zona.config(text=texto, bootstyle=estilo)
+        self.tarjeta_cobertura.pintar(zonas.tarjeta_cobertura(hay, decision))
+        self.tarjeta_zona.pintar(zonas.tarjeta_zona(decision))
         self._ultimo = {
             "lat": lat, "lon": lon, "cobertura": cobertura, "decision": decision,
             "tipo": tipo, "numero": numero, "direccion": dir_encontrada,
             "aviso_direccion": aviso_direccion, "score": None, "rango": None,
+            "cobertura_error": error, "score_error": None,
         }
         self._actualizar_ficha()
-        self.lbl_veredicto.config(text="")
         plan = zonas.plan_score(decision)
-        if error:
-            self.lbl_score.config(text="Score no disponible: no se pudo confirmar la cobertura.")
-            self.btn_score.config(state="disabled")
+        minimo = decision.score_minimo
+        if decision.estado == geo.BLOQUEADA:
+            motivo = "bloqueada"
         elif tipo is None:
-            self.lbl_score.config(text="Ingresa un documento para consultar el score.")
-            self.btn_score.config(state="disabled")
-        elif plan == "no":
-            self.lbl_score.config(text="Score no disponible en esta zona (no se consulta).")
-            self.btn_score.config(state="disabled")
+            motivo = "sin_documento"
+        elif error or plan == "no":
+            motivo = "no_consultado"
         else:
-            self.lbl_score.config(text="Listo para consultar el score.")
-            self.btn_score.config(state="normal")
+            motivo = "listo"
+        self.tarjeta_score.pintar(zonas.tarjeta_score(minimo=minimo, motivo=motivo))
+        self.btn_score.config(state="normal" if motivo == "listo" else "disabled")
+        self._actualizar_detalle()
 
         self.mapa.delete_all_marker()
         self.mapa.set_position(lat, lon)
@@ -355,7 +379,7 @@ class MapaPage(ttk.Frame):
         ):
             return
         self.btn_score.config(state="disabled")
-        self.lbl_score.config(text="Consultando score...")
+        self.tarjeta_score.pintar(zonas.tarjeta_score(motivo="consultando"))
         threading.Thread(target=self._score_en_hilo, args=(u,), daemon=True).start()
 
     def _score_en_hilo(self, u: dict) -> None:
@@ -367,15 +391,17 @@ class MapaPage(ttk.Frame):
                 )
             )
         except Exception as exc:
-            mensaje = str(exc)
-            self.after(0, lambda: self._error_score(mensaje))
+            self.after(0, lambda e=exc: self._error_score(e))
             return
         self.after(0, lambda: self._mostrar_score(score, u["decision"]))
 
-    def _error_score(self, mensaje: str) -> None:
-        self.lbl_score.config(text="No se pudo consultar el score.")
+    def _error_score(self, exc: Exception) -> None:
+        """Sin dialogo rojo: la tarjeta dice "reintenta" y el error exacto va al detalle."""
+        self.tarjeta_score.pintar(zonas.tarjeta_score(motivo="error"))
         self.btn_score.config(state="normal")
-        messagebox.showerror("Error", mensaje)
+        if self._ultimo is not None:
+            self._ultimo["score_error"] = exc
+        self._actualizar_detalle()
 
     def _mostrar_score(self, score: dict, decision: geo.Decision) -> None:
         valor = score.get("valor")
@@ -383,23 +409,31 @@ class MapaPage(ttk.Frame):
         if self._ultimo is not None:
             self._ultimo["score"] = score
             self._ultimo["rango"] = clase["rango"] if clase else None
+            self._ultimo["score_error"] = None
             self._actualizar_ficha()
-        if clase:
-            self.lbl_score.config(
-                text=f"Score: {valor} — Riesgo {clase['riesgo']} ({clase['categoria']})\n"
-                f"{clase['rango']}",
-                foreground=clase["color"],
-            )
-        else:
-            self.lbl_score.config(text="Score: — (puntaje no disponible)", foreground="")
         if clase:
             titulo, nota, estilo = zonas.tarjeta_score(
                 valor, clase["vendible"], decision.score_minimo
             )
-            self.lbl_veredicto.config(
-                text=f"{titulo} · {nota}",
-                foreground="#2B8A3E" if estilo == "success" else "#C8102E",
-            )
+            self.tarjeta_score.pintar((titulo, f"{nota}\n{clase['rango']}", estilo))
         else:
-            self.lbl_veredicto.config(text="")
+            self.tarjeta_score.pintar(zonas.tarjeta_score(motivo="no_disponible"))
         self.btn_score.config(state="normal")
+        self._actualizar_detalle()
+
+    def _actualizar_detalle(self) -> None:
+        u = self._ultimo
+        if u is None:
+            return
+        cobertura = u["cobertura"]
+        score = u["score"]
+        self.lbl_aviso.config(text=zonas.linea_estado(u["cobertura_error"], u["score_error"]))
+        self._detalle = zonas.detalle_para_copiar(
+            fecha=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            version=f"{build_version.BUILD_TAG} ({build_version.BUILD_COMMIT[:7]})",
+            lat=u["lat"], lon=u["lon"], tipo_doc=u["tipo"], num_doc=u["numero"],
+            hay_cobertura=cobertura["hay_cobertura"] if cobertura else None,
+            decision=u["decision"], score_valor=score.get("valor") if score else None,
+            rango=u["rango"], cobertura_exc=u["cobertura_error"], score_exc=u["score_error"],
+        )
+        self.btn_detalle.config(state="normal")

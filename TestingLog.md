@@ -73,6 +73,11 @@ validan con `ruff` e import.
   y `resumen_vertical` (panel del Mapa). Se retiraron los tests de `resumen_decision`, `veredicto_score`,
   `condiciones_de_venta`, `mensaje_sin_cobertura` y `motivo_cobertura`, porque esas funciones salieron.
 - Verificación visual: ventana real con datos falsos (`_inicio` anulado) y captura de pantalla de dos casos.
+- **Tarjetas en la página Mapa** (703 → 704): `tarjeta_score` gana los motivos `listo` y `consultando`, y
+  `sin_documento` pasa a decir "ingresa un documento". Rojo y luego verde. Se borró `resumen_vertical` (y su
+  test) porque el panel usa ahora el widget `gui/tarjetas.Tarjeta`, que es tkinter y se verifica con
+  capturas: 5 casos del Mapa (normal, caducada, fraude con score, código bloqueado, confirma con soporte) y
+  la página principal.
 
 ### Sesión 2026-10-30 — respuesta HTML de WinForce = posible sesión muerta (679 → 683 tests)
 - **Problema** (tercera prueba, ~20:00, ya con la espera cargada): a las 19:59:43 la cookie pasó la

@@ -256,7 +256,10 @@ def test_tarjeta_zona(decision, esperado):
         (dict(motivo="no_disponible", minimo=201),
          ("▲ Sin score", "puntaje no disponible", "warning")),
         (dict(motivo="bloqueada"), ("No se consulta", "código bloqueado", "secondary")),
-        (dict(motivo="sin_documento", minimo=201), ("—", "sin documento", "secondary")),
+        (dict(motivo="sin_documento", minimo=201), ("—", "ingresa un documento", "secondary")),
+        (dict(motivo="listo", minimo=201),
+         ("Necesita 201+", "pulsa CONSULTAR SCORE", "secondary")),
+        (dict(motivo="consultando", minimo=401), ("Consultando…", "", "secondary")),
         (dict(motivo="no_consultado", minimo=None), ("—", "no se consultó", "secondary")),
     ],
 )
@@ -308,14 +311,3 @@ def test_detalle_para_copiar_sin_errores_ni_coordenadas():
     assert "RUC 20123456789" in texto
     assert "652 (SCORE: 601 - 700)" in texto
     assert "Error" not in texto
-
-
-def test_resumen_vertical_para_el_panel_del_mapa_usa_las_tarjetas():
-    d = _d(geo.SIN_CONFIRMAR, distancia=0, capas=("FRAUDE",), en_fraude=True, fraude_m=0)
-    texto, estilo = zonas.resumen_vertical(None, d)
-    assert texto.splitlines() == [
-        "▲ Reintenta", "   el mapa lo cubre", "Normal", "   mín. 201",
-        "   ⚠ zona de fraude",
-    ]
-    assert estilo == "warning"
-    assert zonas.resumen_vertical(True, _d(geo.BLOQUEADA, None))[1] == "danger"
