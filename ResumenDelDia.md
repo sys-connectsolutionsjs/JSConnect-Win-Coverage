@@ -38,6 +38,10 @@ condensada en `HistorialResumenes.md`.
   - Línea de aviso y "Ver detalle" también ahí. Un error del score ya no abre un diálogo rojo.
   - El contenido va centrado de arriba abajo en cada tarjeta (pedido del owner).
   - Widget compartido en `gui/tarjetas.py`. Comprobado con capturas de 5 casos y de la página principal.
+- **Release `v2026.11.03` publicado** (tag en `1b98a80`) con los dos `.exe`:
+  - agente, SHA-256 `BEAE0634…6B00E`;
+  - consola owner regenerada, SHA-256 `19B256D7…BB893`.
+  - El actualizador lee bien los dos checksums de las notas (`extraer_checksum`).
 
 ## Pendiente al iniciar
 
@@ -49,7 +53,3 @@ condensada en `HistorialResumenes.md`.
 - Después: migrar a la mini PC (PlanesAprobados → "Migración al host definitivo") y Tailscale; alto de la consola owner (AGENTS 7g); cobertura observada (7e).
 - Reactivar los agentes con la huella estable (**NO borrar `huellas_legacy()`**); agente W10 contra owner W11; archivo del pendrive con URL + token; firma de código.
 - Diferido: Etapa C.12, `actualizar_score_cliente` / `newsearch.php`, backlog v1.1.
-- **Release `v2026.11.03` publicado** (tag en `1b98a80`) con los dos `.exe`:
-  - agente, SHA-256 `BEAE0634…6B00E`;
-  - consola owner regenerada, SHA-256 `19B256D7…BB893`.
-  - El actualizador lee bien los dos checksums de las notas (`extraer_checksum`).
