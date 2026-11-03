@@ -659,7 +659,7 @@ Se abrió `/login` con Playwright sin llenar ni enviar nada, y salieron dos cosa
    `winsw.xml`) y guardar la credencial: responder **S** a la pregunta `[AUTOLOGIN]` del final, o
    `python -m generator.owner_app` → "Autologin de WinForce" → Configurar... (UAC). Luego `/health`
    debe mostrar `login_configurado: true` y la consola "Autologin: activo".
-2. **[HECHO 2026-10-30; falta repetirlo con la espera de la consulta cargada]** Matar la sesión (login con la misma cuenta en otro navegador). La bitácora debe mostrar `muerta` y luego
+2. **[HECHO 2026-10-30; con la espera de la consulta, HECHO 2026-11-03 (total 11.7 s)]** Matar la sesión (login con la misma cuenta en otro navegador). La bitácora debe mostrar `muerta` y luego
    `renovada` con `origen: autologin` en menos de ~2 min, y `/health` debe volver a `session_alive: true`.
 3. Contraseña incorrecta: debe quedar `autologin_fallido`, el autologin desactivado y el aviso, sin reintentos.
 4. Reiniciar la PC sin iniciar sesión en Windows: el servicio y Tailscale tienen que estar arriba.

@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en [`HistorialResumenes.md`](HistorialResumenes.md) y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-10-30.
+Última actualización: 2026-11-03.
 
 ---
 
@@ -20,7 +20,7 @@ actualizaciones propias), el runbook de la Etapa E está escrito (instalación c
 pendrive) y la Fase 5 (barrido de documentación) terminó. Lo que sigue: reactivar
 los agentes con la huella nueva, reemplazar a mano el `.exe` del owner una vez,
 probar un agente W10 contra el owner W11 y monitorear la primera semana en
-producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de venta por zona** (publicado en el Release v2026.10.13 junto con la dirección y la ficha copiable): falta probarlo con asesores.
+producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de venta por zona** (publicado en el Release v2026.10.13 junto con la dirección y la ficha copiable): falta probarlo con asesores. **El 2026-11-03** quedó verificado en vivo el autologin con la consulta que lo espera, y salió el Release `v2026.11.03`: resultado en tarjetas y fraude solo informativo. Las muertes diurnas de la sesión vienen de otra persona que usa la cuenta del proxy.
 
 ---
 
@@ -66,6 +66,7 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | 2026-10-27 | **Plan Proxy 24/7 aprobado (autologin desatendido + Tailscale)** — con la cuenta dedicada la sesión de WinForce sigue muriendo, así que se aprueba el autologin con Playwright headless (credencial en el keyring del servicio, freno anti-bucle) y el acceso remoto por Tailscale, sin exponer el proxy a Internet; detalle en [`PlanesAprobados.md`](PlanesAprobados.md). Además, guía para migrar a la PC owner (capas, `config.yaml`, llaves) y aclaración de `proxy-update/`. Sin código, 500 tests | (docs, sin commit) |
 | 2026-10-28 | **Autologin desatendido del proxy (sin verificar en vivo)** — si la sesión de WinForce muere, el proxy vuelve a entrar solo (`proxy/autologin.py`, Chromium sin ventana, SSO silencioso primero) con la credencial de la cuenta dedicada en el keyring del servicio; frenado configurable desde la consola owner (perfiles, recomendado 0-1-2-3 min y luego cada 5, o personalizado), pausa si otra persona usa la cuenta, aviso al owner solo si falla; credencial desde la consola owner o el instalador; Chromium compartido con SYSTEM; botón "Instalar extensión" arreglado (el instalador no creaba `.extension_build` sin Chrome). Consola owner regenerada, sin Release. 500 → 637 tests | `0231cc2` |
 | 2026-10-30 | **Autologin verificado en vivo + consulta que espera al autologin** — WinForce rechaza Chromium headless (410): Chromium normal como LocalSystem; puerta "Iniciar con Microsoft" y campo de contraseña oculto corregidos; imagen y traza por fallo. Primer login real 16:11; tres muertes provocadas renovadas en 6-12 s por SSO silencioso (no se guarda `win-azure-oauth2`). La consulta del asesor espera al autologin (15 s) y se repite, con medición por fases (sin probar en vivo); endpoints ya no congelan el proxy; clave vacía en `config.yaml` no lo tumba; instalador sin suspensión (`[ENERGIA]`); capas por KML 200. 637 → 683 tests | `0a44e2d` |
+| 2026-11-03 | **Consulta que espera al autologin verificada en vivo + resultado en tarjetas** — la consulta del asesor esperó al autologin y respondió en 11.7 s; confirmación de muerte 3 → 1 s. El log confirma (y el owner lo admite) que otra persona usa la cuenta del proxy en el día: muertes cada 5-15 min en oficina, 0 de noche. Resultado del asesor en tarjetas (Cobertura · Zona · Score) con "Ver detalle" copiable para WhatsApp, también en el Mapa. **El fraude pasa a ser solo informativo** (los códigos bloqueados siguen bloqueando). **Release v2026.11.03** (agente + owner). 683 → 704 tests | `c1e2e05` `1b98a80` |
 
 ---
 

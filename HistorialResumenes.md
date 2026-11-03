@@ -21,6 +21,24 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-11-03 — Sesión — Consulta que espera al autologin verificada, resultado en tarjetas y Release v2026.11.03
+
+Detalle completo: [resumenes/2026-11-03.md](resumenes/2026-11-03.md)
+
+- **Verificado en vivo**: la consulta del asesor que descubre la muerte esperó al autologin y respondió
+  (total 11.7 s; detección 3.5 s). Tres muertes provocadas en 6 min → pausa del freno (lo diseñado); las
+  pruebas se espacian más de 10 min.
+- **Recorte**: confirmación de muerte 3 → 1 s. "No revalidar la misma cookie" descartado (~0.3 s).
+- **Causa de las muertes diurnas**: otra persona usa la cuenta del proxy (lo confirma el owner). Muertes
+  cada 5-15 min en oficina, 0 de noche y el fin de semana. La extensión pide `/health` cada 5 min.
+- **Resultado en tarjetas** (Cobertura · Zona · Score), con una línea de aviso y "Ver detalle" copiable
+  para WhatsApp. En el Mapa, Cobertura y Zona van lado a lado; el contenido va centrado. Widget en
+  `gui/tarjetas.py`.
+- **Regla nueva**: el fraude solo informa; solo los códigos bloqueados bloquean.
+- **Release `v2026.11.03`** (agente + consola owner regenerada), con push. Tests 683 → 704, `ruff` limpio.
+  Commits `c1e2e05` y `1b98a80`.
+
 ### 2026-10-30 — Sesión — Autologin verificado en vivo y consulta que espera al autologin
 
 Snapshot completo: [resumenes/2026-10-30.md](resumenes/2026-10-30.md)

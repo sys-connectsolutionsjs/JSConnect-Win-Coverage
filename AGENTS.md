@@ -429,6 +429,8 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     y "Frenado...", y tumbar la sesión para ver `renovada` con `origen: autologin` en la bitácora.
 7g. **Alto de la consola owner** (NUEVA 2026-10-28): 650 × 836 px; revisar en una pantalla de 768 px
     y, si no cabe, compactar o hacer desplazable.
+7h. **Tarjetas del resultado** (NUEVA 2026-11-03, en `v2026.11.03`): recoger la opinión de los asesores
+    sobre las tarjetas y los textos; ajustar frases en `gui/zonas.py` (tests en `tests/test_capas_gui.py`).
 7e. **Cobertura observada** (TDD): el proxy registra cada `validar_cobertura` real (SQLite,
     gitignored), marca discrepancias con la capa local y las sirve como capa en `/api/capas`;
     sondeos extra acotados, apagados por defecto; exportar a KML desde la consola owner. Fraude /
@@ -442,37 +444,38 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     tarea con pasos.
 
 ## Historial (bitácora del proyecto)
-> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-28) están en
+> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-30) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-10-30 [CONTEXTO PARA LA SIGUIENTE (martes 2026-11-03) — autologin verificado en vivo; falta probar la consulta que espera al autologin]
+### Cierre de la sesión 2026-11-03 [CONTEXTO PARA LA SIGUIENTE — consulta que espera al autologin verificada, resultado en tarjetas, fraude informativo, Release v2026.11.03]
 
-- **Hecho** (TDD 637 → 683 tests, `ruff` limpio; commit de esta sesión en `main`, **sin push ni Release**):
-  - **Autologin funcionando en vivo** como LocalSystem: Chromium normal (WinForce da HTTP 410 a headless),
-    formulario de WinForce → puerta "Iniciar con Microsoft" → correo/contraseña (el `passwd` oculto
-    `.moveOffScreen` confundía la pantalla) → KMSI → `auth_app.php`. Primer login real 16:11:54.
-  - **Pruebas de muerte** (owner entra en otra PC): 19:00 y 19:40 renovó en 12 s y 6 s por **SSO silencioso**
-    (sin escribir la contraseña); 20:02 en 12 s. → **No guardar el token `win-azure-oauth2`**: basta el perfil.
-  - Imagen por cada fallo (`logs/autologin_fallos/`) y traza por pasos (`logs/autologin_pasos/`).
-  - **La consulta espera al autologin** (`_consultar()` en `server.py`): hasta `autologin_espera_consulta_s`
-    (15 s; razonable 10-22; 0 = no esperar) y se repite una vez; 503 inmediato si hay pausa, frenado o no
-    hay credencial. Una "respuesta inesperada" (página de login HTML) se comprueba como posible muerte.
-    Mide `deteccion / autologin / consulta / total` en `consulta_reintentada` / `consulta_sin_sesion`.
-  - `api_cobertura`/`api_score` pasan a `def` (antes congelaban todo el proxy mientras esperaban; ahora
-    hasta 40 consultas a la vez). Los 502 dejan su detalle en `winsw.err.log`.
-  - `config.yaml`: una clave vacía usa el valor por defecto (una vacía tumbó el servicio de 19:41 a 19:50 →
-    `WinError 10061` en los agentes).
-  - Instalador: paso `[ENERGIA]` (sin suspensión ni hibernación con corriente; "ya estaba" si ya era así).
-    La PC se suspendía cada pocos minutos y congelaba el proxy. En esta PC ya se aplicó a mano.
-  - Capas: el owner puso el enlace de descarga KML; `/api/capas` 200.
-- **Sin probar en vivo**: la espera + reintento con la consulta del asesor descubriendo la muerte (las
-  pruebas de 19:40 y 20:00 corrieron antes de cargar cada arreglo) y la concurrencia real (sesión
-  `requests` compartida entre hilos; si da errores con carga, limitar consultas simultáneas).
-- **Siguiente paso (martes 2026-11-03)**:
-  1. "Reiniciar servicio" (el servicio corre el código del repo).
-  2. Prueba de muerte **sin abrir `/health` ni la consola antes**: entrar con la cuenta en otra PC y
-     consultar desde un agente. Esperado: el asesor recibe la cobertura y `logs/sesion_eventos.jsonl` muestra
-     `muerta` → `renovada` (autologin) → `consulta_reintentada` con las cuatro fases.
-  3. Con 2-3 muertes medidas, decidir recortes (confirmación de 3 s → 1 s, no revalidar la misma cookie).
-  4. Observar un día laboral; regenerar `JSConnect-Win-Owner.exe` (consola cerrada); luego la mini PC (7d).
+- **Hecho** (TDD 683 → 704 tests, `ruff` limpio; commits `c1e2e05`, `1b98a80` y docs, **con push**):
+  - **Bitácora de sesiones** (lun 11-02 y mar 11-03): en horario de oficina la sesión muere cada 5-15 min
+    (lunes 21 muertes, ~70 min caída casi toda por pausas del freno); noches y finde, 0. **El owner confirma
+    que otra persona usa la cuenta del proxy** (ping-pong). La extensión de Chrome pide `/health` cada 5 min
+    y descubre casi todas las muertes; se deja así.
+  - **Verificado en vivo** que la consulta del asesor espera al autologin y se repite: 16:19, detección 3.5 s,
+    autologin 7.8 s, consulta 0.4 s, total 11.7 s. Tres muertes provocadas en 6 min activaron la pausa del
+    freno (lo diseñado): **las pruebas se espacian más de 10 min**.
+  - **Recorte**: `SESSION_CONFIRM_DELAY_SECONDS` 3 → 1 s (`proxy/server.py`). "No revalidar la misma cookie"
+    descartado (ahorraba ~0.3 s).
+  - **Resultado en tarjetas** (los asesores decían "mucho texto"): Cobertura · Zona · Score, con frases elegidas
+    por el owner (`gui/zonas.py::tarjeta_*`). Debajo, una línea de aviso y **Ver detalle**, con el error exacto y
+    "Copiar para WhatsApp". El widget está en `gui/tarjetas.py`.
+    - En el Mapa, Cobertura y Zona van lado a lado (títulos a 10 pt) y Score debajo.
+    - El contenido va centrado de arriba abajo.
+    - Un error del score ya no tumba el resultado.
+  - **Regla de negocio nueva**: el **fraude solo informa** (`Decision.en_fraude` / `fraude_m`); solo
+    `CODIGOS BLOQUEADOS` bloquea. Actualizado en README (es/en), arquitectura y anotaciones.
+  - **Release `v2026.11.03`** (tag en `1b98a80`): agente + consola owner regenerada, con los checksums leídos
+    bien por `extraer_checksum`.
+- **Sin probar**: el proxy con la confirmación de 1 s (falta "Reiniciar servicio") y la concurrencia real con
+  varios asesores durante una muerte.
+- **Siguiente paso**:
+  1. "Reiniciar servicio" y, en la próxima muerte, comprobar en `consulta_reintentada` que la detección baja a
+     ~1.5 s.
+  2. Owner: identificar a quien usa la cuenta del proxy (o darle otra) y medir un día laboral; lo esperado es
+     ~0 muertes diurnas.
+  3. Confirmar que los asesores se actualizan a `v2026.11.03` y opinan sobre las tarjetas.
+  4. Luego la mini PC (7d) y Tailscale; alto de la consola owner (7g).
