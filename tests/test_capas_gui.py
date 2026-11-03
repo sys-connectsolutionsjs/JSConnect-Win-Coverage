@@ -104,36 +104,6 @@ def _decision(estado, minimo=201, distancia=None, avisos=()):
 
 
 @pytest.mark.parametrize(
-    ("estado", "etiqueta", "estilo"),
-    [
-        (geo.VENDER, "CON COBERTURA", "success"),
-        (geo.EXTENSIBLE, "EXTENSIBLE", "warning"),
-        (geo.SIN_COBERTURA, "SIN COBERTURA", "danger"),
-        (geo.BLOQUEADA, "ZONA BLOQUEADA", "danger"),
-    ],
-)
-def test_resumen_decision_etiqueta_y_estilo(estado, etiqueta, estilo):
-    texto, est = zonas.resumen_decision(_decision(estado, None if estado == geo.BLOQUEADA else 201))
-    assert texto.startswith(etiqueta)
-    assert est == estilo
-
-
-def test_resumen_decision_incluye_distancia_y_avisos():
-    texto, _ = zonas.resumen_decision(_decision(geo.EXTENSIBLE, 401, 150, ("Aviso uno",)))
-    assert "150 m" in texto
-    assert "401" in texto
-    assert "Aviso uno" in texto
-
-
-def test_veredicto_score_alcanza_o_no_el_minimo():
-    assert zonas.veredicto_score(450, 401) == ("Alcanza el minimo de la zona (401).", True)
-    assert zonas.veredicto_score(300, 401) == ("NO alcanza el minimo de la zona (401).", False)
-    assert zonas.veredicto_score(201, 201)[1] is True
-    assert zonas.veredicto_score(None, 201) is None
-    assert zonas.veredicto_score(450, None) is None
-
-
-@pytest.mark.parametrize(
     ("estado", "plan"),
     [
         (geo.VENDER, "pedir"),
@@ -213,50 +183,139 @@ def test_capas_cargadas_si_vence_la_espera_devuelve_vacio_sin_colgarse():
     assert carga.listo is False
 
 
-def test_resumen_decision_sin_confirmar_indica_las_capas_del_punto():
-    d = geo.Decision(
-        geo.SIN_CONFIRMAR, 401, "m", avisos=("Mapa sin confirmar",), capas=("PREFERENTE 2",)
-    )
-    texto, estilo = zonas.resumen_decision(d)
-    assert texto.startswith("COBERTURA SIN CONFIRMAR")
-    assert estilo == "warning"
-    assert "Este punto est\u00e1 en: PREFERENTE 2" in texto
-
-
 def test_plan_score_sin_confirmar_no_pide_score():
     assert zonas.plan_score(_decision(geo.SIN_CONFIRMAR)) == "no"
+
+
+# --- Tarjetas del resultado (pedido de los asesores 2026-11-03: "mucho texto") ---
+
+
+def _d(estado, minimo=201, distancia=None, capas=(), en_fraude=False, fraude_m=None):
+    return geo.Decision(
+        estado, minimo, "m", distancia_m=distancia, capas=capas,
+        en_fraude=en_fraude, fraude_m=fraude_m,
+    )
+
+
+@pytest.mark.parametrize(
+    ("hay", "decision", "esperado"),
+    [
+        (True, _d(geo.VENDER), ("✔ Hay cobertura", "", "success")),
+        (False, _d(geo.EXTENSIBLE, distancia=0),
+         ("▲ Confirma con soporte", "el mapa lo cubre", "warning")),
+        (False, _d(geo.EXTENSIBLE, distancia=120.4),
+         ("▲ Posible extensión", "a 120 m", "warning")),
+        (False, _d(geo.SIN_COBERTURA), ("✖ Sin cobertura", "", "danger")),
+        (None, _d(geo.SIN_CONFIRMAR, distancia=0),
+         ("▲ Reintenta", "el mapa lo cubre", "warning")),
+        (None, _d(geo.SIN_CONFIRMAR, distancia=80),
+         ("▲ Reintenta", "cobertura a 80 m", "warning")),
+        (None, _d(geo.SIN_CONFIRMAR, distancia=None),
+         ("▲ Reintenta", "el mapa no lo cubre", "warning")),
+        (None, None, ("—", "sin coordenadas", "secondary")),
+    ],
+)
+def test_tarjeta_cobertura(hay, decision, esperado):
+    assert zonas.tarjeta_cobertura(hay, decision) == esperado
 
 
 @pytest.mark.parametrize(
     ("decision", "esperado"),
     [
-        (geo.Decision(geo.BLOQUEADA, None, "m"), "No se vende"),
-        (geo.Decision(geo.SIN_CONFIRMAR, 401, "m", capas=("PREFERENTE 2",)), "score 401"),
-        (geo.Decision(geo.SIN_CONFIRMAR, 201, "m"), "score 201"),
-        (
-            geo.Decision(geo.VENDER, 201, "m", avisos=("Zona de fraude cercana (a 120 m): x",)),
-            "120 m",
-        ),
+        (_d(geo.VENDER), ("Normal", "mín. 201", "info")),
+        (_d(geo.VENDER, 401, capas=("PREFERENTE 2",)), ("Preferente 2", "mín. 401", "info")),
+        (_d(geo.VENDER, capas=("FRAUDE",), en_fraude=True, fraude_m=0),
+         ("Normal", "mín. 201\n⚠ zona de fraude", "warning")),
+        (_d(geo.SIN_COBERTURA, fraude_m=150.2),
+         ("Normal", "mín. 201\n⚠ fraude a 150 m", "warning")),
+        (_d(geo.VENDER, 401, capas=("FRAUDE", "PREFERENTE 2"), en_fraude=True, fraude_m=0),
+         ("Preferente 2", "mín. 401\n⚠ zona de fraude", "warning")),
+        (_d(geo.BLOQUEADA, None), ("✖ Código bloqueado", "no vender", "danger")),
+        (None, ("—", "sin coordenadas", "secondary")),
     ],
 )
-def test_condiciones_de_venta(decision, esperado):
-    assert esperado in zonas.condiciones_de_venta(decision)
+def test_tarjeta_zona(decision, esperado):
+    assert zonas.tarjeta_zona(decision) == esperado
 
 
-def test_mensaje_cobertura_no_disponible_incluye_motivo_y_condiciones():
-    d = geo.Decision(geo.SIN_CONFIRMAR, 201, "m")
-    texto = zonas.mensaje_sin_cobertura("sesion caducada", d)
-    assert "No se pudo obtener la informaci\u00f3n de cobertura" in texto
-    assert "sesion caducada" in texto
-    assert "Del resto de los datos s\u00ed" in texto
-    assert "score 201" in texto
+@pytest.mark.parametrize(
+    ("kwargs", "esperado"),
+    [
+        (dict(valor=652, vendible=True, minimo=401),
+         ("✔ VENDE", "652 (mín. 401)", "success")),
+        (dict(valor=180, vendible=False, minimo=201),
+         ("✖ NO VENDE", "rango no vendible", "danger")),
+        (dict(valor=350, vendible=True, minimo=401),
+         ("✖ NO VENDE", "350 (mín. 401)", "danger")),
+        (dict(valor=652, vendible=True, minimo=None), ("✔ VENDE", "652", "success")),
+        (dict(motivo="no_consultado", minimo=201),
+         ("Necesita 201+", "no se consultó", "secondary")),
+        (dict(motivo="pendiente", minimo=401),
+         ("Necesita 401+", "pendiente de confirmar", "secondary")),
+        (dict(motivo="error", minimo=201), ("▲ Sin score", "reintenta", "warning")),
+        (dict(motivo="no_disponible", minimo=201),
+         ("▲ Sin score", "puntaje no disponible", "warning")),
+        (dict(motivo="bloqueada"), ("No se consulta", "código bloqueado", "secondary")),
+        (dict(motivo="sin_documento", minimo=201), ("—", "sin documento", "secondary")),
+        (dict(motivo="no_consultado", minimo=None), ("—", "no se consultó", "secondary")),
+    ],
+)
+def test_tarjeta_score(kwargs, esperado):
+    assert zonas.tarjeta_score(**kwargs) == esperado
 
 
-def test_motivo_cobertura_distingue_sesion_caducada_de_otros_errores():
-    from validator_app.gui import main_window as mw
+def test_linea_estado_resume_los_errores_en_una_linea():
     from validator_app.proxy.client import ProxySesionCaducadaError
 
-    caducada = mw.motivo_cobertura(ProxySesionCaducadaError("x"))
-    assert "caducada" in caducada
-    assert "administrador" in caducada
-    assert mw.motivo_cobertura(OSError("sin red")) == "sin red"
+    caducada = ProxySesionCaducadaError("x")
+    assert zonas.linea_estado(None, None) == ""
+    assert zonas.linea_estado(caducada, None) == (
+        "Sesión del proxy caducada · reintenta en 2-3 min"
+    )
+    # La misma sesion caducada en cobertura y score es un solo aviso.
+    assert zonas.linea_estado(caducada, caducada) == zonas.linea_estado(caducada, None)
+    assert zonas.linea_estado(RuntimeError("t"), None) == "WinForce no respondió · reintenta"
+    assert zonas.linea_estado(None, RuntimeError("t")) == (
+        "No se pudo obtener el score · reintenta"
+    )
+
+
+def test_detalle_para_copiar_trae_el_error_exacto_sin_recortar():
+    largo = "Respuesta inesperada del servidor " + "x" * 300
+    d = _d(geo.SIN_CONFIRMAR, 401, distancia=0, capas=("COBERTURA", "PREFERENTE 2"),
+           en_fraude=True, fraude_m=0)
+    texto = zonas.detalle_para_copiar(
+        fecha="2026-11-03 16:21", version="abc1234", lat=-12.05, lon=-77.04,
+        tipo_doc="DNI", num_doc="10412031", hay_cobertura=None, decision=d,
+        score_valor=None, rango=None, cobertura_exc=RuntimeError(largo), score_exc=None,
+    )
+    assert "2026-11-03 16:21" in texto
+    assert "abc1234" in texto
+    assert "-12.05, -77.04" in texto
+    assert "DNI 10412031" in texto
+    assert "sin respuesta" in texto
+    assert "COBERTURA, PREFERENTE 2" in texto
+    assert "zona de fraude" in texto
+    assert f"RuntimeError: {largo}" in texto
+
+
+def test_detalle_para_copiar_sin_errores_ni_coordenadas():
+    texto = zonas.detalle_para_copiar(
+        fecha="f", version="v", lat=None, lon=None, tipo_doc="RUC", num_doc="20123456789",
+        hay_cobertura=None, decision=None, score_valor=652, rango="SCORE: 601 - 700",
+        cobertura_exc=None, score_exc=None,
+    )
+    assert "RUC 20123456789" in texto
+    assert "652 (SCORE: 601 - 700)" in texto
+    assert "Error" not in texto
+
+
+def test_resumen_vertical_para_el_panel_del_mapa_usa_las_tarjetas():
+    d = _d(geo.SIN_CONFIRMAR, distancia=0, capas=("FRAUDE",), en_fraude=True, fraude_m=0)
+    texto, estilo = zonas.resumen_vertical(None, d)
+    assert texto.splitlines() == [
+        "▲ Reintenta", "   el mapa lo cubre", "Normal", "   mín. 201",
+        "   ⚠ zona de fraude",
+    ]
+    assert estilo == "warning"
+    assert zonas.resumen_vertical(True, _d(geo.BLOQUEADA, None))[1] == "danger"

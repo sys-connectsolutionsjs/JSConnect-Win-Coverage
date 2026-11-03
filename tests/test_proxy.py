@@ -1698,3 +1698,21 @@ def test_el_502_deja_el_detalle_en_el_log(client, caplog):
     assert r.status_code == 502
     assert "Respuesta inesperada" in caplog.text
     assert "/api/cobertura" in caplog.text
+
+
+def test_confirmacion_de_muerte_espera_un_segundo_en_produccion():
+    """Medido en vivo el 2026-11-03: de 3.5 s de deteccion, 3 s eran esta espera.
+    Con 1 s el segundo intento sigue separado del primero (falso positivo del
+    2026-09-29) y la consulta del asesor tarda ~2 s menos. Los tests la ponen
+    en 0 (conftest), asi que se lee el valor del codigo fuente."""
+    import ast
+    from pathlib import Path
+
+    fuente = Path(__file__).resolve().parents[1] / "validator_app" / "proxy" / "server.py"
+    valores = [
+        nodo.value.value
+        for nodo in ast.parse(fuente.read_text(encoding="utf-8")).body
+        if isinstance(nodo, ast.Assign)
+        and any(getattr(t, "id", "") == "SESSION_CONFIRM_DELAY_SECONDS" for t in nodo.targets)
+    ]
+    assert valores == [1.0]

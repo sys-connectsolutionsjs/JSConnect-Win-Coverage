@@ -646,9 +646,10 @@ Se abrió `/login` con Playwright sin llenar ni enviar nada, y salieron dos cosa
 - **Token `win-azure-oauth2`**: **decidido 2026-10-30, no se guarda aparte**. En las pruebas de muerte el
   perfil del servicio entró por SSO silencioso (sin pedir la contraseña) en 6-12 s.
 - **Paso 2 HECHO (2026-10-30)**: muertes provocadas a las 19:00, 19:40 y 20:02, todas renovadas por el
-  autologin. Consulta real desde un agente: 200. **Abierto (2026-11-03)**: que la consulta del asesor que
-  descubre la muerte espere al autologin y se repita sin error (código listo, sin probar en vivo; ver el
-  último cierre de [`AGENTS.md`](AGENTS.md)).
+  autologin. Consulta real desde un agente: 200. **Hecho (2026-11-03)**: la consulta del asesor que descubre la
+  muerte esperó al autologin y se repitió sin error (`consulta_reintentada`: detección 3.5 s, autologin 7.8 s,
+  consulta 0.4 s, total 11.7 s). Tres muertes provocadas en 6 min activaron la pausa del freno (lo diseñado):
+  las pruebas se espacian más de 10 min. La confirmación de muerte bajó de 3 s a 1 s.
 
 ### Verificación en vivo (PENDIENTE — en la PC de desarrollo haciendo de owner)
 0. `.venv\Scripts\python.exe -m validator_app.proxy.autologin --probar` (el `python` global no trae las

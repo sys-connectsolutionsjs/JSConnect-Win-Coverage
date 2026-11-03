@@ -1,43 +1,13 @@
-"""Textos y estilos del resultado de zona (sin tkinter, para poder probarlos)."""
+"""Textos y estilos del resultado (sin tkinter, para poder probarlos).
+
+Desde el 2026-11-03 el resultado se muestra en tres tarjetas (Cobertura, Zona y
+Score) con frases cortas; lo tecnico va a `detalle_para_copiar()`. Cada tarjeta
+es (titulo, nota, estilo ttkbootstrap)."""
 
 from validator_app.core import geo
 from validator_app.proxy.client import ProxySesionCaducadaError
 
-_ETIQUETAS = {
-    geo.VENDER: ("CON COBERTURA", "success"),
-    geo.EXTENSIBLE: ("EXTENSIBLE", "warning"),
-    geo.SIN_COBERTURA: ("SIN COBERTURA", "danger"),
-    geo.BLOQUEADA: ("ZONA BLOQUEADA — no vender", "danger"),
-    geo.SIN_CONFIRMAR: ("COBERTURA SIN CONFIRMAR", "warning"),
-}
-
-
-def resumen_decision(decision: geo.Decision) -> tuple[str, str]:
-    """(texto de varias lineas, estilo ttkbootstrap) para mostrar la decision."""
-    etiqueta, estilo = _ETIQUETAS[decision.estado]
-    lineas = [etiqueta]
-    if decision.estado == geo.EXTENSIBLE:
-        if decision.distancia_m:
-            lineas[0] += f" — cobertura a {decision.distancia_m:.0f} m"
-            if decision.proyecto:
-                lineas[0] += f" ({decision.proyecto})"
-        else:
-            lineas[0] += " — el mapa lo muestra cubierto"
-    if decision.score_minimo is not None:
-        lineas.append(f"Score minimo en la zona: {decision.score_minimo}")
-    if decision.capas:
-        lineas.append("Este punto está en: " + ", ".join(decision.capas))
-    lineas.extend(f"• {aviso}" for aviso in decision.avisos)
-    return "\n".join(lineas), estilo
-
-
-def veredicto_score(valor, minimo) -> tuple[str, bool] | None:
-    """Si el score alcanza el minimo de la zona; None si falta alguno de los datos."""
-    if valor is None or minimo is None:
-        return None
-    if valor >= minimo:
-        return f"Alcanza el minimo de la zona ({minimo}).", True
-    return f"NO alcanza el minimo de la zona ({minimo}).", False
+SIN_DATO = "—"
 
 
 def plan_score(decision: geo.Decision) -> str:
@@ -46,33 +16,140 @@ def plan_score(decision: geo.Decision) -> str:
     return {geo.VENDER: "pedir", geo.EXTENSIBLE: "confirmar"}.get(decision.estado, "no")
 
 
-def condiciones_de_venta(decision: geo.Decision) -> str:
-    """Condiciones de venta de la zona del punto (solo datos locales)."""
+def _metros(distancia: float) -> str:
+    return f"{distancia:.0f} m"
+
+
+def tarjeta_cobertura(hay_cobertura: bool | None, decision: geo.Decision | None) -> tuple:
+    """`hay_cobertura`: respuesta de WinForce; None si no respondio."""
+    if decision is None:
+        return SIN_DATO, "sin coordenadas", "secondary"
+    if hay_cobertura:
+        return "✔ Hay cobertura", "", "success"
+    distancia = decision.distancia_m
+    if hay_cobertura is None:
+        if decision.estado == geo.BLOQUEADA:
+            nota = ""
+        elif distancia is None:
+            nota = "el mapa no lo cubre"
+        elif distancia == 0:
+            nota = "el mapa lo cubre"
+        else:
+            nota = f"cobertura a {_metros(distancia)}"
+        return "▲ Reintenta", nota, "warning"
+    if decision.estado == geo.EXTENSIBLE:
+        if not distancia:
+            return "▲ Confirma con soporte", "el mapa lo cubre", "warning"
+        return "▲ Posible extensión", f"a {_metros(distancia)}", "warning"
+    return "✖ Sin cobertura", "", "danger"
+
+
+def tarjeta_zona(decision: geo.Decision | None) -> tuple:
+    """El fraude solo informa (nota en ambar); los codigos bloqueados no se venden."""
+    if decision is None:
+        return SIN_DATO, "sin coordenadas", "secondary"
     if decision.estado == geo.BLOQUEADA:
-        return "No se vende: zona bloqueada (fraude), ni con score 999."
-    texto = f"Se vende solo con score {decision.score_minimo} o más"
-    if geo.CAPA_PREFERENTE in decision.capas:
-        texto += " (zona Preferente 2)"
-    texto += "."
-    cercana = next((a for a in decision.avisos if a.startswith("Zona de fraude cercana")), None)
-    return f"{texto}\n• {cercana}" if cercana else texto
+        return "✖ Código bloqueado", "no vender", "danger"
+    titulo = "Preferente 2" if geo.CAPA_PREFERENTE in decision.capas else "Normal"
+    notas = [f"mín. {decision.score_minimo}"]
+    if decision.en_fraude:
+        notas.append("⚠ zona de fraude")
+    elif decision.fraude_m is not None:
+        notas.append(f"⚠ fraude a {_metros(decision.fraude_m)}")
+    estilo = "warning" if len(notas) > 1 else "info"
+    return titulo, "\n".join(notas), estilo
 
 
-def mensaje_sin_cobertura(motivo: str, decision: geo.Decision) -> str:
-    """Texto cuando WinForce no dio la cobertura pero el resto de los datos si."""
-    return (
-        f"No se pudo obtener la información de cobertura ({motivo}).\n"
-        "Del resto de los datos sí. Condiciones de venta de esta zona:\n"
-        f"{condiciones_de_venta(decision)}"
-    )
+def tarjeta_score(
+    valor: int | None = None,
+    vendible: bool | None = None,
+    minimo: int | None = None,
+    motivo: str = "",
+) -> tuple:
+    """Veredicto primero. Con `valor`, si vende segun el rango y el minimo de la
+    zona; sin el, `motivo`: no_consultado, pendiente, error, no_disponible,
+    bloqueada o sin_documento."""
+    if valor is not None:
+        detalle = f"{valor} (mín. {minimo})" if minimo is not None else f"{valor}"
+        if not vendible:
+            return "✖ NO VENDE", "rango no vendible", "danger"
+        if minimo is not None and valor < minimo:
+            return "✖ NO VENDE", detalle, "danger"
+        return "✔ VENDE", detalle, "success"
+    if motivo == "bloqueada":
+        return "No se consulta", "código bloqueado", "secondary"
+    if motivo == "error":
+        return "▲ Sin score", "reintenta", "warning"
+    if motivo == "no_disponible":
+        return "▲ Sin score", "puntaje no disponible", "warning"
+    nota = {
+        "pendiente": "pendiente de confirmar",
+        "sin_documento": "sin documento",
+    }.get(motivo, "no se consultó")
+    titulo = f"Necesita {minimo}+" if minimo is not None and motivo != "sin_documento" else SIN_DATO
+    return titulo, nota, "secondary"
 
 
-def motivo_cobertura(exc: Exception, limite: int = 80) -> str:
-    """Motivo corto de por que no se pudo obtener la cobertura (para el asesor)."""
-    if isinstance(exc, ProxySesionCaducadaError):
-        return (
-            "sesión del proxy caducada; el administrador ya fue avisado, "
-            "reintenta en 2-3 minutos"
-        )
-    texto = " ".join(str(exc).split()) or exc.__class__.__name__
-    return texto if len(texto) <= limite else texto[: limite - 1] + "…"
+def linea_estado(cobertura_exc: Exception | None, score_exc: Exception | None) -> str:
+    """Una sola linea con lo que fallo y que hacer; el error exacto va al detalle."""
+    partes = []
+    if isinstance(cobertura_exc, ProxySesionCaducadaError) or isinstance(
+        score_exc, ProxySesionCaducadaError
+    ):
+        partes.append("Sesión del proxy caducada · reintenta en 2-3 min")
+    if cobertura_exc is not None and not isinstance(cobertura_exc, ProxySesionCaducadaError):
+        partes.append("WinForce no respondió · reintenta")
+    if score_exc is not None and not isinstance(score_exc, ProxySesionCaducadaError):
+        partes.append("No se pudo obtener el score · reintenta")
+    return "\n".join(partes)
+
+
+def _error_exacto(exc: Exception) -> str:
+    return f"{exc.__class__.__name__}: {exc}"
+
+
+def detalle_para_copiar(
+    *, fecha, version, lat, lon, tipo_doc, num_doc, hay_cobertura, decision,
+    score_valor, rango, cobertura_exc, score_exc,
+) -> str:
+    """Texto plano para mandar por WhatsApp a soporte: todos los datos y el error
+    exacto, sin recortar."""
+    lineas = [f"JSConnect-Win · {fecha} · versión {version}"]
+    lineas.append(f"Coordenadas: {lat}, {lon}" if lat is not None else "Coordenadas: —")
+    if num_doc:
+        lineas.append(f"Documento: {tipo_doc} {num_doc}")
+    if lat is not None:
+        respuesta = {True: "sí", False: "no", None: "sin respuesta"}[hay_cobertura]
+        lineas.append(f"Cobertura WinForce: {respuesta}")
+    if decision is not None:
+        lineas.append(f"Decisión: {decision.mensaje}")
+        lineas.append("Capas del punto: " + (", ".join(decision.capas) or "ninguna"))
+        if decision.distancia_m:
+            proyecto = f" ({decision.proyecto})" if decision.proyecto else ""
+            lineas.append(f"Cobertura más cercana: {_metros(decision.distancia_m)}{proyecto}")
+        if decision.en_fraude:
+            lineas.append("Fraude: zona de fraude (informativo)")
+        elif decision.fraude_m is not None:
+            lineas.append(f"Fraude: a {_metros(decision.fraude_m)} (informativo)")
+        if decision.score_minimo is not None:
+            lineas.append(f"Score mínimo de la zona: {decision.score_minimo}")
+    if score_valor is not None:
+        lineas.append(f"Score: {score_valor} ({rango})" if rango else f"Score: {score_valor}")
+    if cobertura_exc is not None:
+        lineas.append(f"Error de cobertura: {_error_exacto(cobertura_exc)}")
+    if score_exc is not None:
+        lineas.append(f"Error de score: {_error_exacto(score_exc)}")
+    return "\n".join(lineas)
+
+
+def resumen_vertical(hay_cobertura: bool | None, decision: geo.Decision) -> tuple[str, str]:
+    """Cobertura y zona en pocas lineas, para el panel angosto de la pagina Mapa.
+    El estilo es el de la tarjeta mas grave."""
+    tarjetas = (tarjeta_cobertura(hay_cobertura, decision), tarjeta_zona(decision))
+    lineas = []
+    for titulo, nota, _ in tarjetas:
+        lineas.append(titulo)
+        lineas.extend(f"   {n}" for n in nota.split("\n") if n)
+    orden = ("danger", "warning", "success", "info", "secondary")
+    estilo = min((t[2] for t in tarjetas), key=orden.index)
+    return "\n".join(lineas), estilo

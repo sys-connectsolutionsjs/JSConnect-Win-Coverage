@@ -8,7 +8,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 CAPA_COBERTURA = "COBERTURA"
@@ -64,6 +64,8 @@ class Decision:
     proyecto: str = ""
     avisos: tuple = ()
     capas: tuple = ()
+    en_fraude: bool = False
+    fraude_m: float | None = None
 
 
 def _local(tag: str) -> str:
@@ -354,19 +356,30 @@ def decidir_venta(
     """`hay_cobertura`: respuesta de WinForce; None si no se pudo obtener (se decide
     con los datos locales y la cobertura queda SIN_CONFIRMAR)."""
     en_capas = capas_en_punto(lat, lon, capas)
-    if CAPA_FRAUDE in en_capas or CAPA_BLOQUEADOS in en_capas:
+    if CAPA_BLOQUEADOS in en_capas:
         return Decision(
             BLOQUEADA,
             None,
-            "Zona bloqueada (fraude): no vender, no consultar el score.",
+            "Codigo bloqueado: no vender, no consultar el score.",
             capas=en_capas,
         )
+    fraude = _mas_cercano(lat, lon, capas, CAPA_FRAUDE, radio_m)
+    decision = _decidir_sin_bloqueo(lat, lon, hay_cobertura, capas, radio_m, en_capas, fraude)
+    return replace(
+        decision, en_fraude=CAPA_FRAUDE in en_capas, fraude_m=fraude[0] if fraude else None
+    )
+
+
+def _decidir_sin_bloqueo(lat, lon, hay_cobertura, capas, radio_m, en_capas, fraude) -> Decision:
+    """El fraude (dentro o cerca) solo informa desde el 2026-11-03: deciden el
+    score, la cobertura y WinForce."""
     minimo = SCORE_PREFERENTE if CAPA_PREFERENTE in en_capas else SCORE_NORMAL
 
     avisos = []
-    fraude = _mas_cercano(lat, lon, capas, CAPA_FRAUDE, radio_m)
-    if fraude:
-        avisos.append(f"Zona de fraude cercana (a {fraude[0]:.0f} m): vende con cuidado.")
+    if CAPA_FRAUDE in en_capas:
+        avisos.append("Zona de fraude: solo informativo, deciden el score y WinForce.")
+    elif fraude:
+        avisos.append(f"Zona de fraude cercana (a {fraude[0]:.0f} m): solo informativo.")
 
     if hay_cobertura:
         return Decision(

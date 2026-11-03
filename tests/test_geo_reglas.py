@@ -166,10 +166,19 @@ def capas():
     }
 
 
-def test_dentro_de_fraude_bloquea_aunque_haya_cobertura(capas):
+def test_dentro_de_fraude_solo_informa_y_se_vende_con_cobertura(capas):
+    # Regla del 2026-11-03: el fraude no bloquea; deciden score, cobertura y WinForce.
     r = geo.decidir_venta(-12.195, -77.195, True, capas)
-    assert r.estado == geo.BLOQUEADA
-    assert r.score_minimo is None
+    assert r.estado == geo.VENDER
+    assert r.score_minimo == 201
+    assert r.en_fraude is True
+    assert r.fraude_m == 0
+
+
+def test_dentro_de_fraude_sin_cobertura_es_sin_cobertura(capas):
+    r = geo.decidir_venta(-12.195, -77.195, False, capas)
+    assert r.estado == geo.SIN_COBERTURA
+    assert r.en_fraude is True
 
 
 def test_dentro_de_codigos_bloqueados_bloquea(capas):
@@ -181,11 +190,14 @@ def test_fraude_cercana_solo_avisa(capas):
     r = geo.decidir_venta(-12.2009, -77.195, True, capas)
     assert r.estado == geo.VENDER
     assert any("fraude" in a.lower() for a in r.avisos)
+    assert r.en_fraude is False
+    assert r.fraude_m == pytest.approx(100, abs=5)
 
 
 def test_fraude_lejana_no_avisa(capas):
     r = geo.decidir_venta(-12.205, -77.195, True, capas)
     assert not any("fraude" in a.lower() for a in r.avisos)
+    assert r.fraude_m is None
 
 
 def test_si_winforce_dice_no_nunca_es_vender_aunque_el_mapa_lo_cubra(capas):
@@ -269,13 +281,19 @@ def test_la_decision_no_depende_de_que_capas_se_vean(capas):
     completa = geo.decidir_venta(-12.195, -77.195, True, capas)
     solo_zona_f = geo.decidir_venta(-12.195, -77.195, True, capas)  # la decision nunca filtra
     assert completa == solo_zona_f
-    assert completa.estado == geo.BLOQUEADA
+    assert completa.en_fraude is True
 
 
 def test_sin_respuesta_de_winforce_la_zona_bloqueada_sigue_bloqueada(capas):
-    r = geo.decidir_venta(-12.195, -77.195, None, capas)
+    r = geo.decidir_venta(-12.395, -77.395, None, capas)
     assert r.estado == geo.BLOQUEADA
-    assert "FRAUDE" in r.capas
+    assert "CODIGOS BLOQUEADOS" in r.capas
+
+
+def test_sin_respuesta_de_winforce_en_fraude_queda_sin_confirmar(capas):
+    r = geo.decidir_venta(-12.195, -77.195, None, capas)
+    assert r.estado == geo.SIN_CONFIRMAR
+    assert r.en_fraude is True
 
 
 def test_sin_respuesta_de_winforce_se_dan_las_condiciones_de_venta(capas):

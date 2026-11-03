@@ -1,5 +1,6 @@
 """Ventana principal de la aplicacion."""
 
+import datetime
 import sys
 import threading
 import tkinter as tk
@@ -8,12 +9,12 @@ from tkinter import messagebox
 
 import ttkbootstrap as ttk  # drop-in del ttk de siempre + tema (bootstyle=)
 
+from validator_app import version as build_version
 from validator_app.activation import fingerprint, signer
 from validator_app.activation import state as activation_state
 from validator_app.core import api, capas_local, direccion, geo
 from validator_app.gui import ficha, fields, session_config, zonas
 from validator_app.gui.map_page import MapaPage
-from validator_app.gui.zonas import motivo_cobertura
 from validator_app.proxy.client import ProxyClient, ProxySesionCaducadaError
 from validator_app.updater import check as update_check
 from validator_app.updater import download
@@ -290,30 +291,46 @@ class App(ttk.Window):
 
         frame_res = ttk.LabelFrame(main, text="Resultado", padding=10, bootstyle="info")
         frame_res.grid(row=5, column=0, columnspan=2, sticky="we")
-        self.lbl_cobertura = ttk.Label(frame_res, text="Cobertura: \u2014")
-        self.lbl_cobertura.pack(anchor="w")
-        self.lbl_zona = ttk.Label(frame_res, text="", wraplength=440, justify="left")
-        self.lbl_zona.pack(anchor="w")
-        self.lbl_score = ttk.Label(frame_res, text="Score: \u2014")
-        self.lbl_score.pack(anchor="w")
-        # Se capturan al crear el widget para poder "resetear" la fuente del
-        # score entre validaciones (ver _mostrar_resultado): la fuente normal
-        # de la etiqueta de hoy vs. una version en negrita para destacar el numero.
-        self._font_score_normal = self.lbl_score.cget("font")
-        self._font_score_destacado = (self._font_score_normal, 11, "bold")
+        # Tres tarjetas con frases cortas (pedido de los asesores 2026-11-03: "mucho
+        # texto"); lo tecnico va a "Ver detalle", copiable para WhatsApp.
+        fila_tarjetas = ttk.Frame(frame_res)
+        fila_tarjetas.pack(fill="x")
+        self._tarjetas: dict[str, tuple] = {}
+        for columna, nombre in enumerate(("Cobertura", "Zona", "Score")):
+            fila_tarjetas.columnconfigure(columna, weight=1, uniform="tarjetas")
+            marco = ttk.LabelFrame(fila_tarjetas, text=nombre, padding=8, bootstyle="secondary")
+            marco.grid(row=0, column=columna, sticky="nsew", padx=(0 if columna == 0 else 8, 0))
+            titulo = ttk.Label(marco, text=zonas.SIN_DATO, font=("", 12, "bold"))
+            titulo.pack(anchor="w")
+            nota = ttk.Label(marco, text="", justify="left", wraplength=260)
+            nota.pack(anchor="w")
+            self._tarjetas[nombre] = (marco, titulo, nota)
+
+        fila_aviso = ttk.Frame(frame_res)
+        fila_aviso.pack(fill="x", pady=(6, 0))
+        self.lbl_aviso = ttk.Label(fila_aviso, text="", bootstyle="warning", justify="left")
+        self.lbl_aviso.pack(side="left")
+        self.btn_detalle = ttk.Button(
+            fila_aviso, text="Ver detalle", command=self._ver_detalle,
+            bootstyle="secondary-outline", state="disabled",
+        )
+        self.btn_detalle.pack(side="right")
+        self._detalle = ""
 
         fila_rango = ttk.Frame(frame_res)
         fila_rango.pack(fill="x", pady=(4, 0))
         self.lbl_rango = ttk.Label(fila_rango, text="Rango: \u2014")
         self.lbl_rango.pack(side="left")
+        # La fuente normal del rango vs. una version en negrita para destacarlo
+        # (ver _mostrar_resultado y la leyenda).
+        self._font_score_normal = self.lbl_rango.cget("font")
+        self._font_score_destacado = (self._font_score_normal, 11, "bold")
         self.btn_copiar_rango = ttk.Button(
             fila_rango, text="\U0001f4cb Copiar", command=self._copiar_rango,
             bootstyle="secondary-outline", state="disabled",
         )
         self.btn_copiar_rango.pack(side="right")
         self._rango_actual: str | None = None
-        self.lbl_veredicto = ttk.Label(frame_res, text="")
-        self.lbl_veredicto.pack(anchor="w")
 
         # Leyenda de la tabla: la categoria del cliente se resalta en su color.
         fila_leyenda = ttk.Frame(frame_res)
@@ -605,28 +622,36 @@ class App(ttk.Window):
                 except NotImplementedError:
                     raise
                 except Exception as exc:
-                    cobertura_error = motivo_cobertura(exc)
+                    cobertura_error = exc
                     decision = geo.decidir_venta(lat, lon, None, capas)
                 else:
                     decision = geo.decidir_venta(lat, lon, cobertura["hay_cobertura"], capas)
             score = None
+            score_error = None
             if tipo is not None:
-                if lat is None:
-                    # Solo documento (sin coordenadas): score directo, sin
-                    # cobertura que reportar.
-                    score = _a_dict(
-                        cliente.validar_score(tipo, numero, None, None, cobertura="NO")
-                    )
-                elif cobertura_error is None:
-                    # Ambos datos: el score cuesta una consulta de Equifax, asi
-                    # que solo se pide si la zona lo permite (ver zonas.plan_score);
-                    # en zona extensible lo confirma el asesor en la interfaz.
-                    plan = zonas.plan_score(decision)
-                    args = (tipo, numero, lat, lon, cobertura["cobertura"])
-                    if plan == "pedir":
-                        score = _a_dict(cliente.validar_score(*args))
-                    elif plan == "confirmar":
-                        score_pendiente = args
+                # Si el score falla, la cobertura y la zona se muestran igual: la
+                # tarjeta Score dice "reintenta" y el error exacto va al detalle.
+                try:
+                    if lat is None:
+                        # Solo documento (sin coordenadas): score directo, sin
+                        # cobertura que reportar.
+                        score = _a_dict(
+                            cliente.validar_score(tipo, numero, None, None, cobertura="NO")
+                        )
+                    elif cobertura_error is None:
+                        # Ambos datos: el score cuesta una consulta de Equifax, asi
+                        # que solo se pide si la zona lo permite (ver zonas.plan_score);
+                        # en zona extensible lo confirma el asesor en la interfaz.
+                        plan = zonas.plan_score(decision)
+                        args = (tipo, numero, lat, lon, cobertura["cobertura"])
+                        if plan == "pedir":
+                            score = _a_dict(cliente.validar_score(*args))
+                        elif plan == "confirmar":
+                            score_pendiente = args
+                except NotImplementedError:
+                    raise
+                except Exception as exc:
+                    score_error = exc
             if hilo_direccion is not None:
                 hilo_direccion.join()
             dir_encontrada, aviso_direccion = traida.get("d", (None, None))
@@ -639,8 +664,11 @@ class App(ttk.Window):
                 "cobertura_error": cobertura_error,
                 "decision": decision,
                 "score": score,
+                "score_error": score_error,
                 "score_pendiente": score_pendiente,
                 "se_pidio_documento": tipo is not None,
+                "lat": lat,
+                "lon": lon,
             }
         except NotImplementedError:
             self.after(
@@ -674,41 +702,58 @@ class App(ttk.Window):
             return
         self.after(0, lambda: self._mostrar_resultado(resultado))
 
+    def _pintar_tarjeta(self, nombre: str, tarjeta: tuple) -> None:
+        marco, lbl_titulo, lbl_nota = self._tarjetas[nombre]
+        titulo, nota, estilo = tarjeta
+        marco.config(bootstyle=estilo)
+        lbl_titulo.config(text=titulo, bootstyle=estilo)
+        lbl_nota.config(text=nota)
+
     def _mostrar_resultado(self, resultado):
         cobertura = resultado["cobertura"]
-        error_cobertura = resultado.get("cobertura_error")
-        if error_cobertura:
-            self.lbl_cobertura.config(text="⚠ Cobertura: no disponible", bootstyle="warning")
-        elif cobertura is None:
-            self.lbl_cobertura.config(
-                text="Cobertura: \u2014 (no se ingresaron coordenadas)", bootstyle="secondary"
-            )
-        elif cobertura["hay_cobertura"]:
-            self.lbl_cobertura.config(text="\u2713 Cobertura: SI", bootstyle="success")
-        else:
-            self.lbl_cobertura.config(text="\u2717 Cobertura: NO", bootstyle="danger")
-
         decision = resultado.get("decision")
-        if decision:
-            texto_zona, estilo_zona = zonas.resumen_decision(decision)
-            if error_cobertura:
-                aviso = zonas.mensaje_sin_cobertura(error_cobertura, decision)
-                texto_zona = f"{aviso}\n\n{texto_zona}"
-            self.lbl_zona.config(text=texto_zona, bootstyle=estilo_zona)
-        else:
-            self.lbl_zona.config(text="", bootstyle="default")
+        hay = cobertura["hay_cobertura"] if cobertura else None
+        self._pintar_tarjeta("Cobertura", zonas.tarjeta_cobertura(hay, decision))
+        self._pintar_tarjeta("Zona", zonas.tarjeta_zona(decision))
 
         score = resultado.get("score")
         clase = clasificar_score(score.get("valor")) if score else None
+        minimo = decision.score_minimo if decision else None
         if clase:
-            self.lbl_score.config(
-                text=(
-                    f"Score: {score['valor']} \u2014 Riesgo {clase['riesgo']} "
-                    f"({clase['categoria']})"
-                ),
-                foreground=clase["color"],
-                font=self._font_score_destacado,
-            )
+            tarjeta_score = zonas.tarjeta_score(score["valor"], clase["vendible"], minimo)
+        else:
+            if score:
+                motivo = "no_disponible"
+            elif not resultado.get("se_pidio_documento"):
+                motivo = "sin_documento"
+            elif decision and decision.estado == geo.BLOQUEADA:
+                motivo = "bloqueada"
+            elif resultado.get("score_error") is not None:
+                motivo = "error"
+            elif resultado.get("score_pendiente"):
+                motivo = "pendiente"
+            else:
+                motivo = "no_consultado"
+            tarjeta_score = zonas.tarjeta_score(minimo=minimo, motivo=motivo)
+        self._pintar_tarjeta("Score", tarjeta_score)
+
+        self.lbl_aviso.config(
+            text=zonas.linea_estado(resultado.get("cobertura_error"), resultado.get("score_error"))
+        )
+        self._detalle = zonas.detalle_para_copiar(
+            fecha=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            version=f"{build_version.BUILD_TAG} ({build_version.BUILD_COMMIT[:7]})",
+            lat=resultado.get("lat"), lon=resultado.get("lon"),
+            tipo_doc=resultado.get("tipo_documento"), num_doc=resultado.get("numero_documento"),
+            hay_cobertura=hay, decision=decision,
+            score_valor=score.get("valor") if score else None,
+            rango=clase["rango"] if clase else None,
+            cobertura_exc=resultado.get("cobertura_error"),
+            score_exc=resultado.get("score_error"),
+        )
+        self.btn_detalle.config(state="normal")
+
+        if clase:
             self._rango_actual = clase["rango"]
             texto_rango = f"Rango: {clase['rango']}"
             if not clase["vendible"]:
@@ -720,37 +765,11 @@ class App(ttk.Window):
             )
             self.btn_copiar_rango.config(state="normal")
         else:
-            if score:
-                texto = "Score: \u2014 (puntaje no disponible)"
-            elif not resultado.get("se_pidio_documento"):
-                texto = "Score: \u2014 (no se ingres\u00f3 documento)"
-            elif decision and decision.estado == geo.BLOQUEADA:
-                texto = "Score: \u2014 (zona bloqueada: no se consult\u00f3)"
-            elif error_cobertura:
-                texto = "Score: \u2014 (cobertura sin confirmar: no se consult\u00f3)"
-            elif resultado.get("score_pendiente"):
-                texto = "Score: \u2014 (pendiente de confirmar)"
-            else:
-                texto = "Score: \u2014 (sin cobertura)"
-            self.lbl_score.config(
-                text=texto, bootstyle="secondary", foreground="", font=self._font_score_normal
-            )
             self._rango_actual = None
             self.lbl_rango.config(
                 text="Rango: \u2014", foreground="", font=self._font_score_normal
             )
             self.btn_copiar_rango.config(state="disabled")
-        veredicto = zonas.veredicto_score(
-            score.get("valor") if score and clase else None,
-            decision.score_minimo if decision else None,
-        )
-        if veredicto:
-            texto_veredicto, alcanza = veredicto
-            self.lbl_veredicto.config(
-                text=texto_veredicto, foreground="#2B8A3E" if alcanza else "#C8102E"
-            )
-        else:
-            self.lbl_veredicto.config(text="", foreground="")
         self.ficha.mostrar(
             ficha.armar_ficha(
                 score, resultado.get("direccion"), resultado.get("tipo_documento"),
@@ -782,12 +801,38 @@ class App(ttk.Window):
         try:
             score = _a_dict(self._cliente_activo().validar_score(*resultado["score_pendiente"]))
         except Exception as exc:
-            msg = str(exc)
-            self.after(0, lambda m=msg: messagebox.showerror("Error", m))
-            self.after(0, lambda: self._fin_validar("Estado: error al consultar el score"))
+            fallido = {**resultado, "score": None, "score_pendiente": None, "score_error": exc}
+            self.after(0, lambda: self._mostrar_resultado(fallido))
             return
-        completo = {**resultado, "score": score, "score_pendiente": None}
+        completo = {**resultado, "score": score, "score_pendiente": None, "score_error": None}
         self.after(0, lambda: self._mostrar_resultado(completo))
+
+    def _ver_detalle(self) -> None:
+        """Todos los datos y el error exacto, para copiarlos y mandarlos por WhatsApp."""
+        if not self._detalle:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Detalle de la validacion")
+        dialog.geometry("620x360")
+        dialog.transient(self)
+        frame = ttk.Frame(dialog, padding=12)
+        frame.pack(fill="both", expand=True)
+        texto = tk.Text(frame, wrap="word", height=14)
+        texto.insert("1.0", self._detalle)
+        texto.config(state="disabled")
+        texto.pack(fill="both", expand=True)
+
+        def copiar():
+            self.clipboard_clear()
+            self.clipboard_append(self._detalle)
+            self.update()
+            boton.config(text="✓ Copiado")
+            dialog.after(1500, lambda: boton.config(text="\U0001f4cb Copiar para WhatsApp"))
+
+        boton = ttk.Button(
+            frame, text="\U0001f4cb Copiar para WhatsApp", command=copiar, bootstyle="success"
+        )
+        boton.pack(fill="x", pady=(8, 0))
 
     def _resaltar_leyenda(self, categoria: str | None) -> None:
         colores = {c: col for _t, _r, c, col in _TABLA_SCORE}

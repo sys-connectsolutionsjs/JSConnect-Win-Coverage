@@ -151,7 +151,7 @@ Decide la zona **antes** de gastar una consulta de score (cada una consume una p
 - **Capas** (`COBERTURA`, `FRAUDE`, `PREFERENTE 2`, `CODIGOS BLOQUEADOS`; la antigua `ZONA F` era copia de Fraude y se retiró el 2026-10-13): embebidas en el
   .exe (`validator_app/data/capas.json.gz`, generado por `tools/preparar_capas.py` desde `datos_capas/`).
   Son datos de terceros: **gitignored**, nunca en el repo público.
-- **Lógica pura** en `core/geo.py` (`decidir_venta`): bloqueada/fraude → no se vende ni se consulta;
+- **Lógica pura** en `core/geo.py` (`decidir_venta`): `CODIGOS BLOQUEADOS` → no se vende ni se consulta; `FRAUDE` (dentro o a ≤ 300 m) solo informa (`en_fraude` / `fraude_m`, 2026-11-03);
   score mínimo 401 en Preferente 2 y 201 en el resto; sin cobertura pero con cobertura a ≤ 300 m →
   `EXTENSIBLE`; `hay_cobertura=None` (WinForce no respondió) → `SIN_CONFIRMAR` con los datos locales.
   Si WinForce dice NO nunca es `VENDER`. `core/api.py` no cambia.

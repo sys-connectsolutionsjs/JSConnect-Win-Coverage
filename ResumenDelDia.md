@@ -1,6 +1,6 @@
 # ResumenDelDia.md — Historial del día
 
-Fecha: (se fija al abrir la proxima sesion)
+Fecha: 2026-11-03
 
 ## Rotación del resumen anterior
 
@@ -9,7 +9,30 @@ condensada en `HistorialResumenes.md`.
 
 ## Qué se hizo hoy
 
-- (nada todavía)
+- **Bitácora del proxy**:
+  - En horario de oficina la sesión muere cada 5-15 min: el lunes 21 muertes y ~70 min caída, casi todo por
+    las pausas del freno; hoy 12 hasta las 14:50.
+  - Noches y fin de semana: 0 muertes (la sesión del finde duró ~62 h).
+  - El owner confirma que **otra persona usa la cuenta del proxy en el día** (ping-pong). Acción pendiente del
+    owner: identificarla o darle otra cuenta. No se toca el freno.
+  - Quien consulta `/health` cada 5 min es la extensión de Chrome (alarma `estado`), y por eso descubre casi
+    todas las muertes. Se deja así.
+- **Prueba en vivo de la consulta que espera al autologin: HECHA**.
+  - 16:19: `consulta_reintentada` con detección 3.5 s, autologin 7.8 s, consulta 0.4 s y total 11.7 s. El
+    asesor recibió la cobertura.
+  - Tres muertes provocadas en 6 min (16:15, 16:19, 16:21) activaron la pausa del freno. Las consultas de
+    16:21-16:23 dieron 503, con el aviso y las reglas locales. Las pruebas se espacian más de 10 min.
+- **Recorte**: la confirmación de muerte baja de 3 s a 1 s (TDD). "No revalidar la misma cookie" quedó
+  descartado, porque ahorraba ~0.3 s.
+- **Resultado del asesor en 3 tarjetas** (los asesores decían "mucho texto"):
+  - Cobertura · Zona · Score, con frases cortas elegidas por el owner. Una línea de aviso y **Ver detalle**,
+    con el error exacto y "Copiar para WhatsApp".
+  - Un error del score ya no tumba todo el resultado.
+  - El panel del Mapa usa los mismos textos en vertical.
+- **Regla de negocio nueva**: el **fraude solo informa** (dentro o cerca); deciden el score, la cobertura y
+  WinForce. Los **códigos bloqueados siguen bloqueando**.
+  - Actualizado en `core/geo.py`, README (es/en), AGENTS, arquitectura y anotaciones.
+- Tests: 683 → 703, `ruff` limpio. Sin commit ni Release todavía.
 
 ## Pendiente al iniciar
 

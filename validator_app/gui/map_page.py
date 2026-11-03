@@ -227,7 +227,7 @@ class MapaPage(ttk.Frame):
                 )
             cobertura = self._a_dict(cliente.validar_cobertura(lat, lon))
         except Exception as exc:
-            error = zonas.motivo_cobertura(exc)
+            error = exc
         hay = None if cobertura is None else cobertura["hay_cobertura"]
         decision = geo.decidir_venta(lat, lon, hay, capas)
         hilo_direccion.join()
@@ -244,9 +244,10 @@ class MapaPage(ttk.Frame):
         dir_encontrada=None, aviso_direccion=None,
     ) -> None:
         self._capas = capas
-        texto, estilo = zonas.resumen_decision(decision)
+        hay = cobertura["hay_cobertura"] if cobertura else None
+        texto, estilo = zonas.resumen_vertical(hay, decision)
         if error:
-            texto = f"{zonas.mensaje_sin_cobertura(error, decision)}\n\n{texto}"
+            texto = f"{texto}\n\n{zonas.linea_estado(error, None)}"
         self.lbl_zona.config(text=texto, bootstyle=estilo)
         self._ultimo = {
             "lat": lat, "lon": lon, "cobertura": cobertura, "decision": decision,
@@ -391,10 +392,14 @@ class MapaPage(ttk.Frame):
             )
         else:
             self.lbl_score.config(text="Score: — (puntaje no disponible)", foreground="")
-        veredicto = zonas.veredicto_score(valor if clase else None, decision.score_minimo)
-        if veredicto:
-            texto, alcanza = veredicto
-            self.lbl_veredicto.config(text=texto, foreground="#2B8A3E" if alcanza else "#C8102E")
+        if clase:
+            titulo, nota, estilo = zonas.tarjeta_score(
+                valor, clase["vendible"], decision.score_minimo
+            )
+            self.lbl_veredicto.config(
+                text=f"{titulo} · {nota}",
+                foreground="#2B8A3E" if estilo == "success" else "#C8102E",
+            )
         else:
             self.lbl_veredicto.config(text="")
         self.btn_score.config(state="normal")

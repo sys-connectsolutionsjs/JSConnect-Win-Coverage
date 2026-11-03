@@ -69,9 +69,10 @@ KEEPALIVE_PRIMER_TICK_SEGUNDOS = 60
 
 # Antes de declarar la sesion muerta por una sola respuesta fallida de WinForce
 # (que puede ser un timeout o un error puntual, no la cookie invalida), se
-# espera este tiempo y se reintenta una vez. Los tests lo ponen en 0
+# espera este tiempo y se reintenta una vez (3 s hasta el 2026-11-03; 1 s tras
+# medirlo en vivo). Los tests lo ponen en 0
 # (ver tests/conftest.py) para no volverse lentos.
-SESSION_CONFIRM_DELAY_SECONDS = 3.0
+SESSION_CONFIRM_DELAY_SECONDS = 1.0
 
 # Bitacora persistente de eventos de sesion (renovada/muerta/etc), para poder
 # diagnosticar despues de que una cookie caduco: sin esto, todo el estado vive

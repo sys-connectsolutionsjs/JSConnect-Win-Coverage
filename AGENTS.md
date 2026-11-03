@@ -194,7 +194,7 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
 ## Implementaciones futuras
 ### 1. Mapa interactivo de cobertura — PRIMERA VERSIÓN HECHA (2026-10-09; en el Release v2026.10.13)
 Página "Mapa" (`gui/map_page.py`, `tkintermapview`) + reglas de venta por zona (`core/geo.py`):
-bloqueada/fraude → no se vende ni se consulta el score; Preferente 2 → score ≥ 401, resto ≥ 201;
+código bloqueado → no se vende ni se consulta el score (el fraude solo informa desde 2026-11-03); Preferente 2 → score ≥ 401, resto ≥ 201;
 sin cobertura pero con cobertura a ≤ 300 m → "extensible" (confirma el asesor). Las capas van
 embebidas en el .exe y solo la cobertura en vivo depende de WinForce. `core/api.py` NO cambió.
 Falta: detección automática de "no cruzar avenida de doble vía" (hoy es visual) y dibujar los
@@ -386,7 +386,8 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
    `Get-NetConnectionProfile` / la regla `JSWinProxy API`.
 3. **Muertes de la sesión de WinForce**: el log del 2026-09-29 al 2026-10-21 confirma la hipótesis del
    dueño (login ajeno con la misma cuenta; ninguna muerte fuera de horario de oficina, sesiones de
-   hasta ~69 h el fin de semana). No hay tope de 9.5 h. **2026-10-27**: con la cuenta dedicada sigue muriendo → autologin (7c).
+   hasta ~69 h el fin de semana). No hay tope de 9.5 h. **2026-11-03: confirmado por el owner** que otra
+   persona usa la cuenta del proxy en el día (lunes 21 muertes, ~70 min caídas por el freno; noches y finde 0). **2026-10-27**: con la cuenta dedicada sigue muriendo → autologin (7c).
 4. **Probar el pendrive en una PC owner limpia** ([`docs/proxy-deploy.md`](docs/proxy-deploy.md) → "Instalación con pendrive").
 5. **Firma de código** de los `.exe` (Smart App Control en Windows 11).
 6. **Pasar `W11-JSConnect-Win-Coverage` (archivado) a privado**, solo cuando sus `.exe` ya se
@@ -417,8 +418,8 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     y traza por pasos en `logs/autologin_pasos/`. **Primer login automático real: 2026-10-30, 16:11:54.**
     **2026-10-30, 19:00: prueba de muerte superada** (login en otra PC → `renovada` con `origen: autologin` en
     12 s, por SSO silencioso, sin escribir la contraseña; cobertura desde un agente 200). **No se guarda el token
-    `win-azure-oauth2`** (decidido: basta el perfil del servicio). **Pendiente 2026-11-03**: probar en vivo que la
-    consulta del asesor espera al autologin y se repite (ver el último cierre). Falta observar un día laboral; un `#passwordError` sí sería real, no repetirlo a ciegas. Luego, reevaluar
+    `win-azure-oauth2`** (decidido: basta el perfil del servicio). **2026-11-03: comprobado en vivo** que la consulta del asesor espera al
+    autologin y se repite (16:19, total 11.7 s); la confirmación de muerte baja de 3 s a 1 s. Falta observar un día laboral; un `#passwordError` sí sería real, no repetirlo a ciegas. Luego, reevaluar
     guardar el token `win-azure-oauth2` (ver
     [`PlanesAprobados.md`](PlanesAprobados.md) → "Hallazgos del ensayo sin credenciales").
     En la PC de desarrollo haciendo de owner:

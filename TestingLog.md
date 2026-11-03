@@ -61,6 +61,19 @@ validan con `ruff` e import.
 
 ## Bitácora de la sesión de hoy (TDD aplicado)
 
+### Sesión 2026-11-03 — tarjetas del resultado, fraude informativo y confirmación de 1 s (683 → 703 tests)
+- **Confirmación de muerte 3 s → 1 s** (`tests/test_proxy.py`, +1): el conftest pone la espera en 0, así que el
+  test lee el valor de `server.py` con `ast`. Rojo con 3.0; verde con 1.0. Motivo: medido en vivo, 3 de los
+  3.5 s de detección eran esa espera.
+- **El fraude solo informa** (`tests/test_geo_reglas.py`, +3 y 4 ajustados): dentro de `FRAUDE` ahora sale
+  VENDER, SIN_COBERTURA o SIN_CONFIRMAR, según WinForce, con `en_fraude`/`fraude_m`. Solo `CODIGOS BLOQUEADOS`
+  sigue `BLOQUEADA`. Rojo por `AttributeError` (faltaban los campos); verde con `_decidir_sin_bloqueo()`.
+- **Tarjetas** (`tests/test_capas_gui.py`, +34 y 13 retirados): `tarjeta_cobertura` (8 escenarios),
+  `tarjeta_zona` (7), `tarjeta_score` (11), `linea_estado`, `detalle_para_copiar` (error exacto sin recortar)
+  y `resumen_vertical` (panel del Mapa). Se retiraron los tests de `resumen_decision`, `veredicto_score`,
+  `condiciones_de_venta`, `mensaje_sin_cobertura` y `motivo_cobertura`, porque esas funciones salieron.
+- Verificación visual: ventana real con datos falsos (`_inicio` anulado) y captura de pantalla de dos casos.
+
 ### Sesión 2026-10-30 — respuesta HTML de WinForce = posible sesión muerta (679 → 683 tests)
 - **Problema** (tercera prueba, ~20:00, ya con la espera cargada): a las 19:59:43 la cookie pasó la
   validación del relogin y murió segundos después; `coordenada.php` devolvió la página de login y `_json`

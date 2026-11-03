@@ -85,8 +85,8 @@ puntual de WinForce) ya no basta para marcar `_session_dead_since`. Falso
 positivo real que motivó el fix: 2026-09-29, `/health` recibió un
 `ReadTimeout` de 30s y marcó "MUERTA" una sesión que, tras reiniciar el
 servicio, resultó seguir viva (la cookie del keyring se validó sin problema).
-- `_confirmar_muerte(php_sessid)` espera `SESSION_CONFIRM_DELAY_SECONDS` (3s
-  en producción, 0 en tests vía fixture autouse) y reintenta una vez. Solo si
+- `_confirmar_muerte(php_sessid)` espera `SESSION_CONFIRM_DELAY_SECONDS` (en producción 1 s desde el 2026-11-03, antes 3 s;
+  0 en tests vía fixture autouse) y reintenta una vez. Solo si
   el segundo intento **también** da `LoginError` se declara "MUERTA"; si pasa,
   "VIVA" (se anota `falso_positivo_evitado` en la bitácora); si da otro error
   (red/WinForce caído), "INDETERMINADO" — no se marca ni se cachea, igual que
@@ -731,7 +731,7 @@ keyring.delete_password("servicio", "usuario")
 - **Capas**: `COBERTURA` (3.361 polígonos, con el campo `PROYECTO`), `FRAUDE`, `PREFERENTE 2`,
   y `CODIGOS BLOQUEADOS` (la `ZONA F` se retiró el 2026-10-13). Viven embebidas en el .exe (`validator_app/data/capas.json.gz`,
   generado por `tools/preparar_capas.py`) y **no se suben al repo** (datos de terceros).
-- **Reglas**: bloqueada/fraude → no se vende ni se consulta el score; Preferente 2 → score ≥ 401;
+- **Reglas**: código bloqueado → no se vende ni se consulta el score (el fraude solo informa desde 2026-11-03); Preferente 2 → score ≥ 401;
   el resto → ≥ 201; sin cobertura pero con cobertura a ≤ 300 m → "extensible" (no cruzar avenidas
   grandes de doble vía, eso hoy lo juzga el asesor mirando el mapa).
 - **Solo la cobertura en vivo depende de WinForce** (`validar_cobertura`). Si falla, la decisión
