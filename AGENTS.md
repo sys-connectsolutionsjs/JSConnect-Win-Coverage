@@ -22,100 +22,8 @@ información en milisegundos, sin cargar página, sin mapa ni navegador.
   sin firma se bloquean.
 
 ## Estructura
-```
-JS-Win-Coverage/              (raíz del proyecto)
-├── main.py                   # punto de entrada de la app
-├── requirements.txt          # dependencias de producción
-├── requirements-dev.txt      # dependencias de desarrollo
-├── requirements-proxy.txt    # dependencias del proxy (fastapi, uvicorn, pydantic)
-├── build.ps1                 # embebe commit SHA + empaqueta con PyInstaller
-├── build-owner.ps1           # embebe commit SHA + empaqueta la consola privada del owner
-├── publish-release.ps1       # prepara el Release en GitHub (asset .exe + SHA-256)
-├── AGENTS.md                 # reglas del proyecto, contexto, pendientes abiertos y último cierre
-├── PlanesAprobados.md        # COLA de planes aprobados (lo implementado se saca)
-├── TestingLog.md             # metodología TDD + bitácora de pruebas
-├── README.md                 # documentación pública (español + inglés)
-├── ResumenDelDia.md          # historial del día en curso (resumen de cierre)
-├── HistorialResumenes.md     # índice cronológico condensado de sesiones pasadas
-├── Escalabilidad.md          # guía para futuros programadores (escalabilidad remota)
-├── anotaciones.md            # glosario técnico para futuros devs
-├── actualizacion-windows-11/ # adaptación de la PC owner/proxy a Windows 11 (2026-10-02)
-├── .claude/
-│   ├── settings.json         # config versionada (hook PostToolUse de doc-sync)
-│   └── hooks/historial_sync.py  # recuerda sincronizar docs al rotar un resumen
-├── tools/
-│   ├── captura.py            # herramienta Playwright para descubrir la API interna
-│   ├── probar_con_cookie.py  # diagnóstico end-to-end del core con cookie del navegador
-│   ├── probar_core.py        # prueba manual del core (cobertura + score) por CLI
-│   ├── probar_core_gui.py    # prueba manual del core con mini-GUI
-│   ├── probar_concurrencia.py # comprueba si Win bloquea el uso simultáneo de la misma cuenta (se corre en varias máquinas a la vez)
-│   ├── medir_keepalive.py    # mide cuánto sobrevive la sesión con pings reales cada N min (mide edad de sesión, clasifica la muerte)
-│   ├── medir_sesion.py       # mide la vida real de una PHPSESSID sin actividad, para calibrar el keepalive
-│   ├── coords_prueba.txt     # 49 coordenadas públicas (polígono de Lima) que medir_keepalive.py rota por ping
-│   ├── generar_iconos.py     # NUEVO 2026-09-25: dibuja con Pillow (dev-only) los .ico/.png de assets/icons/ y de la extensión
-│   └── preparar_capas.py     # NUEVO 2026-10-09: datos_capas/ (KMZ, KML de fraude, zonas.txt) -> validator_app/data/capas.json.gz
-├── assets/
-│   └── icons/                # NUEVO 2026-09-25: agent.ico/.png (--icon de build.ps1), owner.ico/.png (--icon de build-owner.ps1)
-├── generator/
-│   ├── generar.py            # generador de códigos de activación (SOLO encargado)
-│   ├── owner_app.py          # consola gráfica: códigos + estado proxy + renovación
-│   └── private_key.pem       # NUNCA se sube al repositorio (ver .gitignore)
-├── docs/                     # documentación técnica permanente (inmutable)
-│   ├── arquitectura.md
-│   ├── proxy-deploy.md
-│   ├── proxy-config.md
-│   ├── rotacion-credenciales.md
-│   ├── escalabilidad-remota.md
-│   ├── historial-agents.md   # NUEVO 2026-10-07: tareas completadas + bitácora/cierres archivados de AGENTS.md
-│   └── diagramas/            # NUEVO 2026-09-27: 8 diagramas PlantUML (.puml)
-├── resumenes/                # snapshots diarios inmutables (2026-08-19, -25, -26, -27, ...)
-│   └── <fecha>.md
-├── tests/
-│   ├── test_fields.py
-│   ├── test_captura_guard.py
-│   ├── test_api.py
-│   ├── test_prueba_core.py
-│   ├── test_medir_keepalive.py
-│   ├── test_proxy.py        # keepalive + endpoints /local/* (FastAPI TestClient)
-│   ├── test_login_asistido.py  # captura de PHPSESSID + dispatch de rotate_creds
-│   ├── test_autologin.py   # NUEVO 2026-10-28: FrenoAutologin + login_automatico (navegador falso) + CLI --probar
-│   ├── test_instalar_extension.py  # _crx_id + updates.xml
-│   ├── test_session_config.py  # cookie standalone (Fase 3)
-│   ├── test_activation.py    # verificación RSA y diagnósticos de código
-│   ├── test_generator.py     # firma y ubicación segura del PEM
-│   ├── test_owner_app.py     # lógica de la consola owner (estado, reinicio elevado, actualizaciones)
-│   ├── test_updater.py       # actualizador del agente (por commit) y descarga/reemplazo
-│   ├── test_updater_owner.py # actualizador de la consola owner (por SHA-256)
-│   ├── test_gui_activacion.py  # activacion_vigente(), normalizar_url_proxy, resumir_error
-│   ├── test_install_bat.py   # guardas estáticas de install_service.bat
-│   └── test_diagramas.py     # guardas estáticas de docs/diagramas/*.puml
-└── validator_app/
-    ├── __init__.py
-    ├── version.py            # SHA + tag embebidos (autogenerado en build)
-    ├── core/                 # api.py (login, score, cobertura) + session.py · geo.py (reglas de venta por zona: KML/KMZ, distancias, decidir_venta) · capas_local.py (carga de capas con garantia) · direccion.py (direccion de unas coordenadas: parsers Geofinder/OSM y respaldo con aviso)
-    ├── data/                 # capas.json.gz embebido en el .exe (GITIGNORED: datos de terceros)
-    ├── gui/                  # main_window.py, fields.py, session_config.py (cookie standalone) · map_page.py (pagina Mapa) · limites_mapa.py (encierra el mapa en Peru: zoom minimo 5 + bbox) · tiles.py (tiles de OSM con el User-Agent del proyecto: OSM bloquea "TkinterMapView") · ficha.py (ficha del cliente copiable: dato por dato o todo junto) · zonas.py (textos de las tarjetas, detalle y plan del score) · tarjetas.py (tarjeta del resultado + dialogo "Ver detalle")
-    ├── activation/           # fingerprint.py, signer.py, state.py
-    ├── updater/              # check.py, download.py (agente por commit; owner por SHA-256)
-    └── proxy/                # proxy local para los agentes de la LAN (25 hoy, 41 previstos)
-        ├── __init__.py
-        ├── config.py         # Pydantic Settings (lee config.yaml + env)
-        ├── config.yaml       # GITIGNORED (secretos reales)
-        ├── config.yaml.example  # plantilla en repo
-        ├── server.py         # FastAPI app + endpoints (incl. GET /api/capas) + ValidatorAPI wrapper + keepalive
-        ├── geofinder.py      # token OAuth de Equifax + direccion de coordenadas (GET /api/direccion); credencial geofinder_basic solo en config.yaml
-        ├── capas.py          # CapasCache: reglas de venta (My Maps -> KML) con copia en disco; la URL va solo en config.yaml
-        ├── client.py         # ProxyClient para agentes .exe
-        ├── winsw.xml         # config servicio Windows
-        ├── install_service.bat   # instala servicio (winsw, tokens, Chromium, icono Escritorio)
-        ├── uninstall_service.bat # desinstala servicio
-        ├── rotate_creds.py   # CLI renovar sesión (fallback): asistido / --manual / --preview / --guardar-login (credencial del autologin)
-        ├── login_asistido.py # captura la PHPSESSID con navegador (Playwright, HttpOnly)
-        ├── autologin.py      # NUEVO 2026-10-28: autologin desatendido (Chromium sin ventana) + FrenoAutologin + CLI --probar
-        ├── _instalar_extension.py  # empaqueta + fuerza-instala la extensión de Chrome
-        ├── extension/        # extensión MV3 "Renovar sesion WinForce" (vía principal de renovación)
-        └── .browser_profile/ · .browser_profile_servicio/ · .ms-playwright/ · .extension_build/ · *.pem · *.crx · updates.xml  # GITIGNORED
-```
+La estructura se ve con `ls` / el árbol del repo; componentes y flujos en
+[`docs/arquitectura.md`](docs/arquitectura.md); lo que nunca va al repo, en «Notas de seguridad».
 
 **Informes diarios:** las reglas de creación y la estética de la plantilla están
 consolidadas en `C:\Users\Angel\Documents\JSCONECTSOLUTIONS\Informe de avanzes\Reportes-Diarios-JS-Connect\GUIA_INFORMES.md`.
@@ -192,35 +100,7 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
   código de compatibilidad con activaciones antiguas.
 
 ## Implementaciones futuras
-### 1. Mapa interactivo de cobertura — PRIMERA VERSIÓN HECHA (2026-10-09; en el Release v2026.10.13)
-Página "Mapa" (`gui/map_page.py`, `tkintermapview`) + reglas de venta por zona (`core/geo.py`):
-código bloqueado → no se vende ni se consulta el score (el fraude solo informa desde 2026-11-03); Preferente 2 → score ≥ 401, resto ≥ 201;
-sin cobertura pero con cobertura a ≤ 300 m → "extensible" (confirma el asesor). Las capas van
-embebidas en el .exe y solo la cobertura en vivo depende de WinForce. `core/api.py` NO cambió.
-Falta: detección automática de "no cruzar avenida de doble vía" (hoy es visual) y dibujar los
-huecos de los polígonos. La capa "Zona F" (copia de Fraude) se retiró el 2026-10-13; el mapa solo
-muestra Perú y la barra del panel lateral es fija.
-
-### 2. Ofertas / catálogo de venta
-Al confirmar cobertura + score, sugerir planes por zona. Debe mantenerse separado
-del núcleo (`core/`) para no acoplarlo a datos comerciales.
-
-### 3. Instalador + auto-actualizador (bootstrap)
-Cuando la app crezca (mapa + ofertas), un ejecutable pequeño que descargue/instale
-la app y permita actualizaciones automáticas. El módulo `updater/` ya es la base.
-NO necesario hoy: un .exe portable se ancla igual a la barra de tareas.
-
-### 4. Servidor de activación en línea
-Para revocar activaciones y controlar instalaciones a distancia. Requiere hosting.
-La activación offline (RSA) actual ya es extensible a un modo online.
-
-### 5. Validación por lotes (CSV/Excel)
-Procesar varios clientes desde un archivo. Debe respetar el retardo configurable
-entre validaciones para no saturar la API ni levantar sospechas de automatización.
-
-### 6. Historial / CRM básico
-Guardar validaciones pasadas (local, SQLite) para consulta rápida sin re-validar.
-SQLite ya viene en Python; no añade dependencias.
+Ver [`Roadmap.md`](Roadmap.md) → «Implementaciones futuras» (movido el 2026-11-06).
 
 ## Reglas de trabajo (flujo del día)
 - **[`ResumenDelDia.md`](ResumenDelDia.md)** = historial del DÍA. Lleva la fecha dentro y se va
@@ -342,6 +222,9 @@ está en `.gitignore`):
     proxy rápido entre dos PC.
 15. **[SkillsPropuestas.md](SkillsPropuestas.md)**: cola de tareas repetitivas que podrían volverse
     skills personalizadas.
+16. **[vpn.md](vpn.md)**: documento de decisión (2026-11-06, sin implementar) con todas las formas de
+    llevar el proxy a los asesores remotos (NetBird/Headscale en Oracle Free, Cloudflare Tunnel, etc.),
+    costos, riesgos y la recomendación del owner (NetBird propio).
 
 Convención para MD futuros: cuando una fase o plan genere un documento nuevo (ej:
 DecisionesArquitectura.md, ManualOperador.md), se registra AQUÍ su existencia, propósito
@@ -408,7 +291,7 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     consola owner); **falta la verificación en vivo** (tarea 7f).
 7d. **Mini PC como host 24/7 del proxy**: instalar con `install_service.bat`, encendido tras corte de
     luz (BIOS), sin suspensión, idealmente UPS; para lo "online", túnel (Tailscale) en vez de abrir
-    puertos. **Diseñado 2026-10-27** en el mismo plan (Tailscale `--unattended`, sin abrir el 8080);
+    puertos (**2026-11-06**: Tailscale gratis ya no aplica; ver 7i). **Diseñado 2026-10-27** en el mismo plan (Tailscale `--unattended`, sin abrir el 8080);
     runbook escrito el 2026-10-28 en [`docs/escalabilidad-remota.md`](docs/escalabilidad-remota.md). Falta la
     migración al host ([`PlanesAprobados.md`](PlanesAprobados.md) → "Migración al host definitivo").
 7f. **Verificación en vivo del autologin** (NUEVA 2026-10-28). **2026-10-30**: WinForce responde HTTP 410 a
@@ -431,6 +314,10 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     y, si no cabe, compactar o hacer desplazable.
 7h. **Tarjetas del resultado** (NUEVA 2026-11-03, en `v2026.11.03`): recoger la opinión de los asesores
     sobre las tarjetas y los textos; ajustar frases en `gui/zonas.py` (tests en `tests/test_capas_gui.py`).
+7i. **VPN para los asesores remotos** (NUEVA 2026-11-06): elegir entre las opciones de [`vpn.md`](vpn.md)
+    (preferencia del owner: NetBird propio en Oracle Cloud Always Free). Antes de abrir a los remotos,
+    **tokens del proxy por asesor y revocables**, límite de consultas y registro (plan TDD propio). Reemplaza
+    al Tailscale de 7d para lo "online".
 7e. **Cobertura observada** (TDD): el proxy registra cada `validar_cobertura` real (SQLite,
     gitignored), marca discrepancias con la capa local y las sirve como capa en `/api/capas`;
     sondeos extra acotados, apagados por defecto; exportar a KML desde la consola owner. Fraude /
@@ -444,38 +331,31 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
     tarea con pasos.
 
 ## Historial (bitácora del proyecto)
-> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-10-30) están en
+> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-11-03) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-11-03 [CONTEXTO PARA LA SIGUIENTE — consulta que espera al autologin verificada, resultado en tarjetas, fraude informativo, Release v2026.11.03]
+### Cierre de la sesión 2026-11-06 [CONTEXTO PARA LA SIGUIENTE — elegir la VPN para los asesores remotos (`vpn.md`), AGENTS.md recortado]
 
-- **Hecho** (TDD 683 → 704 tests, `ruff` limpio; commits `c1e2e05`, `1b98a80` y docs, **con push**):
-  - **Bitácora de sesiones** (lun 11-02 y mar 11-03): en horario de oficina la sesión muere cada 5-15 min
-    (lunes 21 muertes, ~70 min caída casi toda por pausas del freno); noches y finde, 0. **El owner confirma
-    que otra persona usa la cuenta del proxy** (ping-pong). La extensión de Chrome pide `/health` cada 5 min
-    y descubre casi todas las muertes; se deja así.
-  - **Verificado en vivo** que la consulta del asesor espera al autologin y se repite: 16:19, detección 3.5 s,
-    autologin 7.8 s, consulta 0.4 s, total 11.7 s. Tres muertes provocadas en 6 min activaron la pausa del
-    freno (lo diseñado): **las pruebas se espacian más de 10 min**.
-  - **Recorte**: `SESSION_CONFIRM_DELAY_SECONDS` 3 → 1 s (`proxy/server.py`). "No revalidar la misma cookie"
-    descartado (ahorraba ~0.3 s).
-  - **Resultado en tarjetas** (los asesores decían "mucho texto"): Cobertura · Zona · Score, con frases elegidas
-    por el owner (`gui/zonas.py::tarjeta_*`). Debajo, una línea de aviso y **Ver detalle**, con el error exacto y
-    "Copiar para WhatsApp". El widget está en `gui/tarjetas.py`.
-    - En el Mapa, Cobertura y Zona van lado a lado (títulos a 10 pt) y Score debajo.
-    - El contenido va centrado de arriba abajo.
-    - Un error del score ya no tumba el resultado.
-  - **Regla de negocio nueva**: el **fraude solo informa** (`Decision.en_fraude` / `fraude_m`); solo
-    `CODIGOS BLOQUEADOS` bloquea. Actualizado en README (es/en), arquitectura y anotaciones.
-  - **Release `v2026.11.03`** (tag en `1b98a80`): agente + consola owner regenerada, con los checksums leídos
-    bien por `extraer_checksum`.
-- **Sin probar**: el proxy con la confirmación de 1 s (falta "Reiniciar servicio") y la concurrencia real con
-  varios asesores durante una muerte.
+- **Hecho** (sin cambios de código; 704 tests en verde, `ruff` limpio; **sin commit**):
+  - **VPN para remotos**: hoy hay más de 25 remotos con **PC personal** y se esperan 100-200 usuarios, con
+    presupuesto US$0. El plan gratis de Tailscale ya no sirve (6 usuarios, no comercial) y los planes por
+    usuario costarían US$300-1,600 al mes. Se escribió [`vpn.md`](vpn.md) como base del Word de decisión:
+    glosario, todas las alternativas, costos con 50 y 200 remotos, riesgos y fuentes.
+  - **Preferencia del owner: NetBird propio en Oracle Cloud Always Free** (panel oficial, sin cobro por
+    usuario). Condiciones: cuenta en Pay As You Go (la VM gratuita "inactiva" puede ser reclamada), alerta de
+    presupuesto en US$1 y copias semanales fuera de Oracle. Plan B: un VPS de ~US$5 al mes. Alternativas
+    documentadas: Headscale en Oracle y Cloudflare Tunnel (no se instala nada en la PC del asesor, pero el
+    proxy queda en internet).
+  - **Requisito para cualquier opción**: tokens del proxy **por asesor y revocables**, límite de consultas y
+    registro (hoy hay un solo `proxy_token`). Queda como tarea 7i; no se implementó.
+  - `docs/escalabilidad-remota.md`: nota de **desactualizado** (decía "Tailscale gratis ≤100").
+  - `/doctor`: se sacó de AGENTS.md el árbol de Estructura y "Implementaciones futuras" pasó a
+    [`Roadmap.md`](Roadmap.md) (37,981 → ~28k caracteres). Modo de permisos por defecto del usuario: `plan`.
+- **Sin probar / sin hacer**: nada del proxy se tocó; siguen abiertos los pasos del cierre 2026-11-03
+  ("Reiniciar servicio" con la confirmación de 1 s, quién usa la cuenta del proxy, opinión sobre las tarjetas).
 - **Siguiente paso**:
-  1. "Reiniciar servicio" y, en la próxima muerte, comprobar en `consulta_reintentada` que la detección baja a
-     ~1.5 s.
-  2. Owner: identificar a quien usa la cuenta del proxy (o darle otra) y medir un día laboral; lo esperado es
-     ~0 muertes diurnas.
-  3. Confirmar que los asesores se actualizan a `v2026.11.03` y opinan sobre las tarjetas.
-  4. Luego la mini PC (7d) y Tailscale; alto de la consola owner (7g).
+  1. El owner arma el Word desde `vpn.md` y elige (preguntas en su sección 12).
+  2. Con la opción elegida: plan TDD de **tokens por asesor** (7i) y prueba piloto (PC del proxy + 2 remotos).
+  3. Pendientes del 2026-11-03: "Reiniciar servicio" y medir la detección en `consulta_reintentada`; un día
+     laboral sin el otro usuario de la cuenta; opinión de los asesores (7h).

@@ -1180,3 +1180,35 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
      `muerta` → `renovada` (autologin) → `consulta_reintentada` con las cuatro fases.
   3. Con 2-3 muertes medidas, decidir recortes (confirmación de 3 s → 1 s, no revalidar la misma cookie).
   4. Observar un día laboral; regenerar `JSConnect-Win-Owner.exe` (consola cerrada); luego la mini PC (7d).
+
+### Cierre de la sesión 2026-11-03 [CONTEXTO PARA LA SIGUIENTE — consulta que espera al autologin verificada, resultado en tarjetas, fraude informativo, Release v2026.11.03]
+
+- **Hecho** (TDD 683 → 704 tests, `ruff` limpio; commits `c1e2e05`, `1b98a80` y docs, **con push**):
+  - **Bitácora de sesiones** (lun 11-02 y mar 11-03): en horario de oficina la sesión muere cada 5-15 min
+    (lunes 21 muertes, ~70 min caída casi toda por pausas del freno); noches y finde, 0. **El owner confirma
+    que otra persona usa la cuenta del proxy** (ping-pong). La extensión de Chrome pide `/health` cada 5 min
+    y descubre casi todas las muertes; se deja así.
+  - **Verificado en vivo** que la consulta del asesor espera al autologin y se repite: 16:19, detección 3.5 s,
+    autologin 7.8 s, consulta 0.4 s, total 11.7 s. Tres muertes provocadas en 6 min activaron la pausa del
+    freno (lo diseñado): **las pruebas se espacian más de 10 min**.
+  - **Recorte**: `SESSION_CONFIRM_DELAY_SECONDS` 3 → 1 s (`proxy/server.py`). "No revalidar la misma cookie"
+    descartado (ahorraba ~0.3 s).
+  - **Resultado en tarjetas** (los asesores decían "mucho texto"): Cobertura · Zona · Score, con frases elegidas
+    por el owner (`gui/zonas.py::tarjeta_*`). Debajo, una línea de aviso y **Ver detalle**, con el error exacto y
+    "Copiar para WhatsApp". El widget está en `gui/tarjetas.py`.
+    - En el Mapa, Cobertura y Zona van lado a lado (títulos a 10 pt) y Score debajo.
+    - El contenido va centrado de arriba abajo.
+    - Un error del score ya no tumba el resultado.
+  - **Regla de negocio nueva**: el **fraude solo informa** (`Decision.en_fraude` / `fraude_m`); solo
+    `CODIGOS BLOQUEADOS` bloquea. Actualizado en README (es/en), arquitectura y anotaciones.
+  - **Release `v2026.11.03`** (tag en `1b98a80`): agente + consola owner regenerada, con los checksums leídos
+    bien por `extraer_checksum`.
+- **Sin probar**: el proxy con la confirmación de 1 s (falta "Reiniciar servicio") y la concurrencia real con
+  varios asesores durante una muerte.
+- **Siguiente paso**:
+  1. "Reiniciar servicio" y, en la próxima muerte, comprobar en `consulta_reintentada` que la detección baja a
+     ~1.5 s.
+  2. Owner: identificar a quien usa la cuenta del proxy (o darle otra) y medir un día laboral; lo esperado es
+     ~0 muertes diurnas.
+  3. Confirmar que los asesores se actualizan a `v2026.11.03` y opinan sobre las tarjetas.
+  4. Luego la mini PC (7d) y Tailscale; alto de la consola owner (7g).

@@ -22,6 +22,17 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-11-06 — Sesión — VPN para asesores remotos: documento de decisión (`vpn.md`)
+Snapshot completo: [resumenes/2026-11-06.md](resumenes/2026-11-06.md)
+- **Qué**: más de 25 asesores remotos con PC personal (100-200 a futuro) y presupuesto US$0. Se escribió [vpn.md](vpn.md) con todas las alternativas, glosario, costos con 50 y 200 remotos, riesgos y fuentes, como base del Word de decisión.
+- **Por qué cambia el plan**: el plan gratis de Tailscale es de 6 usuarios y no comercial. Los planes por usuario costarían US$300-1,600 al mes.
+- **Decisión (owner)**: preferencia por **NetBird propio en Oracle Cloud Always Free**, por su panel oficial. Condiciones: Pay As You Go, alerta de US$1 y copias semanales. Plan B: un VPS de ~US$5 al mes. Alternativas documentadas: Headscale y Cloudflare Tunnel.
+- **Requisito común**: tokens del proxy por asesor y revocables, límite y registro (AGENTS tarea 7i, sin implementar).
+- `docs/escalabilidad-remota.md` marcado como desactualizado. En PlanesAprobados, el Tailscale del plan Proxy 24/7 queda en revisión.
+- `/doctor`: AGENTS.md recortado (37,981 → ~28k caracteres; "Implementaciones futuras" pasó a Roadmap.md). Modo por defecto del usuario: `plan`.
+- Sin cambios de código: 704 tests en verde, `ruff` limpio. Sin commit al rotar.
+
 ### 2026-11-03 — Sesión — Consulta que espera al autologin verificada, resultado en tarjetas y Release v2026.11.03
 
 Detalle completo: [resumenes/2026-11-03.md](resumenes/2026-11-03.md)

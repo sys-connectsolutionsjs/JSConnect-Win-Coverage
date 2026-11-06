@@ -30,6 +30,12 @@ secundarios ni repositorios.
 
 ### Por qué VPN (no AnyDesk, no Tunnels manuales, no API pública)
 
+> **Desactualizado (2026-11-06).** El plan gratuito de Tailscale hoy es de 6 usuarios y solo para
+> uso no comercial, así que la tabla y la "Decisión" de abajo ya no aplican a 25+ remotos. Las
+> alternativas vigentes (NetBird/Headscale propios, Cloudflare Tunnel...) y la recomendación están
+> en [`../vpn.md`](../vpn.md). El runbook de Tailscale se deja como referencia: los pasos son
+> análogos con Headscale.
+
 | Opción | Escalabilidad | Seguridad | Mantenimiento | Costo |
 |--------|---------------|-----------|---------------|-------|
 | **Tailscale / WireGuard (VPN mesh)** | ✅ 100+ devices gratis | ✅ Cifrado E2E, zero-trust | ✅ 1-click install, auto-mesh | $0 (Tailscale gratis ≤100) |

@@ -555,6 +555,8 @@ Aprobado por el usuario y sacado de la cola; detalle en `ResumenDelDia`/[`resume
   (El Release salió como `v2026.10.13`, 2026-10-13.)
 
 ## Plan aprobado — Proxy 24/7: autologin desatendido + Tailscale (2026-10-27) — CÓDIGO IMPLEMENTADO 2026-10-28; pendiente verificación en vivo y migración
+
+> **2026-11-06**: la parte de **Tailscale** de este plan queda en revisión: su plan gratis es de 6 usuarios y no comercial, y hay más de 25 remotos. Las alternativas y la preferencia del owner (NetBird propio) están en [`vpn.md`](vpn.md); AGENTS tarea 7i.
 Aprobado por el usuario el 2026-10-27. **Se retoma el 2026-10-28.** Es el paso siguiente de los puntos 1 y 2
 de "Aprobado 2026-10-21 — Cuenta dedicada, host 24/7 y cobertura observada" (cola activa, arriba). La
 condición del punto 1 ya se cumplió: con cuenta dedicada la sesión **sigue muriendo** a horas aleatorias.

@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en [`HistorialResumenes.md`](HistorialResumenes.md) y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-11-03.
+Última actualización: 2026-11-06.
 
 ---
 
@@ -67,6 +67,7 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | 2026-10-28 | **Autologin desatendido del proxy (sin verificar en vivo)** — si la sesión de WinForce muere, el proxy vuelve a entrar solo (`proxy/autologin.py`, Chromium sin ventana, SSO silencioso primero) con la credencial de la cuenta dedicada en el keyring del servicio; frenado configurable desde la consola owner (perfiles, recomendado 0-1-2-3 min y luego cada 5, o personalizado), pausa si otra persona usa la cuenta, aviso al owner solo si falla; credencial desde la consola owner o el instalador; Chromium compartido con SYSTEM; botón "Instalar extensión" arreglado (el instalador no creaba `.extension_build` sin Chrome). Consola owner regenerada, sin Release. 500 → 637 tests | `0231cc2` |
 | 2026-10-30 | **Autologin verificado en vivo + consulta que espera al autologin** — WinForce rechaza Chromium headless (410): Chromium normal como LocalSystem; puerta "Iniciar con Microsoft" y campo de contraseña oculto corregidos; imagen y traza por fallo. Primer login real 16:11; tres muertes provocadas renovadas en 6-12 s por SSO silencioso (no se guarda `win-azure-oauth2`). La consulta del asesor espera al autologin (15 s) y se repite, con medición por fases (sin probar en vivo); endpoints ya no congelan el proxy; clave vacía en `config.yaml` no lo tumba; instalador sin suspensión (`[ENERGIA]`); capas por KML 200. 637 → 683 tests | `0a44e2d` |
 | 2026-11-03 | **Consulta que espera al autologin verificada en vivo + resultado en tarjetas** — la consulta del asesor esperó al autologin y respondió en 11.7 s; confirmación de muerte 3 → 1 s. El log confirma (y el owner lo admite) que otra persona usa la cuenta del proxy en el día: muertes cada 5-15 min en oficina, 0 de noche. Resultado del asesor en tarjetas (Cobertura · Zona · Score) con "Ver detalle" copiable para WhatsApp, también en el Mapa. **El fraude pasa a ser solo informativo** (los códigos bloqueados siguen bloqueando). **Release v2026.11.03** (agente + owner). 683 → 704 tests | `c1e2e05` `1b98a80` |
+| 2026-11-06 | **VPN para asesores remotos: documento de decisión** — más de 25 remotos con PC personal (100-200 a futuro) y presupuesto US$0; el plan gratis de Tailscale ya no sirve. [`vpn.md`](vpn.md) reúne todas las alternativas; preferencia del owner: **NetBird propio en Oracle Cloud Always Free**. Requisito: tokens del proxy por asesor. AGENTS.md recortado (`/doctor`). Sin cambios de código (704 tests) | — |
 
 ---
 
@@ -154,3 +155,35 @@ dividió [`AGENTS.md`](AGENTS.md) (historial en [`docs/historial-agents.md`](doc
 | Etapa | Bloqueada por |
 |---|---|
 | — | Ninguno (la Etapa E se completó el 2026-10-07) |
+
+## Implementaciones futuras (movido de AGENTS.md, 2026-11-06)
+
+### 1. Mapa interactivo de cobertura — PRIMERA VERSIÓN HECHA (2026-10-09; en el Release v2026.10.13)
+Página "Mapa" (`gui/map_page.py`, `tkintermapview`) + reglas de venta por zona (`core/geo.py`):
+código bloqueado → no se vende ni se consulta el score (el fraude solo informa desde 2026-11-03); Preferente 2 → score ≥ 401, resto ≥ 201;
+sin cobertura pero con cobertura a ≤ 300 m → "extensible" (confirma el asesor). Las capas van
+embebidas en el .exe y solo la cobertura en vivo depende de WinForce. `core/api.py` NO cambió.
+Falta: detección automática de "no cruzar avenida de doble vía" (hoy es visual) y dibujar los
+huecos de los polígonos. La capa "Zona F" (copia de Fraude) se retiró el 2026-10-13; el mapa solo
+muestra Perú y la barra del panel lateral es fija.
+
+### 2. Ofertas / catálogo de venta
+Al confirmar cobertura + score, sugerir planes por zona. Debe mantenerse separado
+del núcleo (`core/`) para no acoplarlo a datos comerciales.
+
+### 3. Instalador + auto-actualizador (bootstrap)
+Cuando la app crezca (mapa + ofertas), un ejecutable pequeño que descargue/instale
+la app y permita actualizaciones automáticas. El módulo `updater/` ya es la base.
+NO necesario hoy: un .exe portable se ancla igual a la barra de tareas.
+
+### 4. Servidor de activación en línea
+Para revocar activaciones y controlar instalaciones a distancia. Requiere hosting.
+La activación offline (RSA) actual ya es extensible a un modo online.
+
+### 5. Validación por lotes (CSV/Excel)
+Procesar varios clientes desde un archivo. Debe respetar el retardo configurable
+entre validaciones para no saturar la API ni levantar sospechas de automatización.
+
+### 6. Historial / CRM básico
+Guardar validaciones pasadas (local, SQLite) para consulta rápida sin re-validar.
+SQLite ya viene en Python; no añade dependencias.
