@@ -1,0 +1,290 @@
+/* Variante 1 · Bento: bloques de tamaños distintos que se reacomodan según el ancho disponible. */
+
+main.pagina {
+  container: pagina / inline-size;
+}
+
+.bento-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3) var(--sp-5);
+  margin-block-end: var(--sp-5);
+}
+
+/* ---- formulario como bloque ancho ---- */
+
+.bento-formulario {
+  grid-template-areas:
+    "coord"
+    "doc"
+    "boton"
+    "error";
+  gap: var(--sp-4);
+  margin-block-end: var(--sp-4);
+  padding: var(--sp-5);
+  border: 1.5px solid var(--borde);
+  border-radius: var(--r-xl);
+  background: var(--superficie);
+  box-shadow: var(--sombra-1);
+}
+
+.f-coord {
+  grid-area: coord;
+}
+
+.f-doc {
+  grid-area: doc;
+}
+
+.f-boton {
+  grid-area: boton;
+}
+
+.f-error {
+  grid-area: error;
+}
+
+@container pagina (min-width: 44rem) {
+  .bento-formulario {
+    grid-template-columns: 1.3fr 1fr auto;
+    grid-template-areas:
+      "coord doc boton"
+      "error error error";
+    align-items: start;
+  }
+
+  .f-boton {
+    align-self: start;
+    margin-block-start: 1.75rem;
+  }
+}
+
+/* ---- cuadrícula bento ---- */
+
+.bento {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "veredicto"
+    "cobertura"
+    "zona"
+    "score"
+    "ficha"
+    "acciones";
+}
+
+@container pagina (min-width: 36rem) {
+  .bento {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-areas:
+      "veredicto veredicto"
+      "cobertura zona"
+      "score score"
+      "ficha ficha"
+      "acciones acciones";
+  }
+}
+
+@container pagina (min-width: 56rem) {
+  .bento {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-areas:
+      "veredicto veredicto cobertura zona"
+      "score score ficha ficha"
+      "score score ficha ficha"
+      "acciones acciones ficha ficha";
+  }
+}
+
+.bloque--veredicto {
+  grid-area: veredicto;
+}
+
+.bloque--cobertura {
+  grid-area: cobertura;
+}
+
+.bloque--zona {
+  grid-area: zona;
+}
+
+.bloque--score {
+  grid-area: score;
+}
+
+.bloque--ficha {
+  grid-area: ficha;
+}
+
+.bloque--acciones {
+  grid-area: acciones;
+}
+
+.bloque {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  border-radius: var(--r-l);
+  box-shadow: var(--sombra-1);
+  container-type: inline-size;
+  view-transition-class: bloque;
+  opacity: 1;
+  translate: 0;
+  transition:
+    opacity var(--dur-larga) var(--ease-salida),
+    translate var(--dur-larga) var(--ease-salida),
+    background-color var(--dur-media),
+    border-color var(--dur-media),
+    color var(--dur-media);
+}
+
+.bloque:not([data-estilo]) {
+  border: 1.5px solid var(--borde);
+  background: var(--superficie);
+}
+
+.bloque--cobertura {
+  view-transition-name: b-cobertura;
+}
+
+.bloque--zona {
+  view-transition-name: b-zona;
+}
+
+.bloque--score {
+  view-transition-name: b-score;
+}
+
+.bloque--ficha {
+  view-transition-name: b-ficha;
+}
+
+.bloque--acciones {
+  view-transition-name: b-acciones;
+}
+
+.bloque--veredicto {
+  view-transition-name: b-veredicto;
+  align-content: center;
+  min-block-size: 11rem;
+  border: 1.5px solid var(--t-borde);
+  background-color: var(--t-bg);
+  background-image: radial-gradient(
+    circle at 100% 0,
+    color-mix(in oklab, var(--t-fuerte) 26%, transparent),
+    transparent 58%
+  );
+  color: var(--t-fg);
+}
+
+.veredicto__texto {
+  font: 800 clamp(2rem, 13cqi, 3.75rem) / 1 var(--fuente-titulo);
+  letter-spacing: -0.02em;
+}
+
+.veredicto__nota {
+  min-block-size: 1.4em;
+  font-weight: 600;
+}
+
+/* brillo que sigue al puntero (solo con mouse y sin preferencia de movimiento reducido) */
+
+.bloque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    16rem circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in oklab, var(--marca) 13%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-media);
+}
+
+@media (hover: hover) {
+  .bloque:hover::before {
+    opacity: 1;
+  }
+}
+
+.bloque--cobertura .tarjeta__titulo,
+.bloque--zona .tarjeta__titulo {
+  font-size: clamp(1.1rem, 8cqi, 1.6rem);
+}
+
+.bloque--score .tarjeta__titulo {
+  font-size: clamp(1.75rem, 9cqi, 2.75rem);
+  line-height: 1.1;
+}
+
+.score__escala {
+  display: grid;
+  gap: var(--sp-2);
+  margin-block-start: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-m);
+  background: var(--superficie);
+}
+
+.ficha__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+@container (min-width: 34rem) {
+  .bloque--ficha .ficha {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--sp-5);
+  }
+}
+
+.bloque--acciones {
+  align-content: center;
+  gap: var(--sp-3);
+}
+
+/* ---- entrada escalonada al cargar la página ---- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .bloque {
+    transition-delay:
+      calc(var(--i, 0) * 70ms),
+      calc(var(--i, 0) * 70ms),
+      0s,
+      0s,
+      0s;
+
+    @starting-style {
+      opacity: 0;
+      translate: 0 1.25rem;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloque {
+    transition-duration: 0.1s, 0.1s, var(--dur-media), var(--dur-media), var(--dur-media);
+  }
+}
+
+/* ---- transiciones de vista: los bloques se reubican y se funden ---- */
+
+::view-transition-group(.bloque) {
+  animation-duration: 0.5s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(.bloque),
+::view-transition-new(.bloque) {
+  animation-duration: 0.32s;
+}

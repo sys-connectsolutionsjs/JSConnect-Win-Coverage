@@ -1,0 +1,186 @@
+/* Variante 2 · Panel dividido: entrada fija a la izquierda, resultado como lectura vertical a la derecha. */
+
+.panel {
+  container: panel / inline-size;
+  display: grid;
+  grid-template-columns: 1fr;
+  min-block-size: calc(100dvb - 3.25rem);
+}
+
+.panel__entrada {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-5);
+  padding: var(--sp-5);
+  border-block-end: 1px solid var(--borde);
+  background: var(--superficie);
+}
+
+.panel__estado {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.panel__resultado {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-5);
+  padding: var(--sp-5);
+  view-transition-name: panel-resultado;
+}
+
+@container panel (min-width: 52rem) {
+  .panel {
+    grid-template-columns: minmax(19rem, 25rem) 1fr;
+  }
+
+  .panel__entrada {
+    position: sticky;
+    inset-block-start: 3.25rem;
+    align-self: start;
+    min-block-size: calc(100dvb - 3.25rem);
+    padding: var(--sp-6) var(--sp-5);
+    border-block-end: 0;
+    border-inline-end: 1px solid var(--borde);
+  }
+
+  .panel__resultado {
+    padding: var(--sp-6);
+    max-inline-size: 48rem;
+  }
+}
+
+/* ---- veredicto como franja ---- */
+
+.veredicto {
+  display: grid;
+  gap: 0.1rem;
+  padding: var(--sp-4) var(--sp-5);
+  border-inline-start: 0.5rem solid var(--t-fuerte);
+  border-radius: var(--r-m);
+  background: var(--t-bg);
+  color: var(--t-fg);
+  transition:
+    background-color var(--dur-media),
+    border-color var(--dur-media),
+    color var(--dur-media);
+}
+
+.veredicto__etiqueta {
+  font: 700 0.72rem/1.2 var(--fuente);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.veredicto__texto {
+  font: 800 clamp(1.75rem, 1.2rem + 2vw, 2.5rem) / 1.1 var(--fuente-titulo);
+  letter-spacing: -0.01em;
+}
+
+.veredicto__nota {
+  min-block-size: 1.4em;
+  font-weight: 600;
+}
+
+/* ---- tarjetas como filas de una lista ---- */
+
+.lista {
+  display: grid;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-m);
+  overflow: clip;
+}
+
+.lista > li + li {
+  border-block-start: 1px solid var(--borde);
+}
+
+.fila {
+  grid-template-columns: 7rem 1fr;
+  grid-template-areas:
+    "etiqueta titulo"
+    ".        nota"
+    ".        accion";
+  column-gap: var(--sp-4);
+  align-items: baseline;
+  padding: var(--sp-4) var(--sp-5);
+  border: 0;
+  border-inline-start: 0.35rem solid var(--t-fuerte, var(--borde));
+  border-radius: 0;
+}
+
+.fila .tarjeta__etiqueta {
+  grid-area: etiqueta;
+}
+
+.fila .tarjeta__titulo {
+  grid-area: titulo;
+}
+
+.fila .tarjeta__nota {
+  grid-area: nota;
+}
+
+.fila__accion {
+  grid-area: accion;
+  justify-self: start;
+  margin-block-start: var(--sp-2);
+}
+
+/* ---- escala y ficha ---- */
+
+.escala,
+.datos {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.datos__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+@container panel (min-width: 52rem) {
+  .ficha {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--sp-6);
+  }
+}
+
+/* ---- transición del panel: sale hacia un lado y el nuevo entra desde el otro ---- */
+
+::view-transition-old(panel-resultado),
+::view-transition-new(panel-resultado) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(panel-resultado) {
+  animation: 0.2s ease-in both panel-sale;
+}
+
+::view-transition-new(panel-resultado) {
+  animation: 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) 0.08s both panel-entra;
+}
+
+@keyframes panel-sale {
+  to {
+    opacity: 0;
+    translate: -1.5rem 0;
+  }
+}
+
+@keyframes panel-entra {
+  from {
+    opacity: 0;
+    translate: 1.5rem 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(panel-resultado),
+  ::view-transition-new(panel-resultado) {
+    animation: none;
+  }
+}

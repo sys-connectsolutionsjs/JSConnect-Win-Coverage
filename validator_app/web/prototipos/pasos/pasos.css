@@ -1,0 +1,264 @@
+/* Variante 3 · Pasos: una pregunta por pantalla, con transiciones direccionales (adelante/atrás). */
+
+.pasos {
+  container: pasos / inline-size;
+  inline-size: min(100% - 2rem, 58rem);
+  margin-inline: auto;
+  padding-block: var(--sp-5) var(--sp-7);
+}
+
+.pasos__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3) var(--sp-5);
+}
+
+/* ---- indicador de pasos ---- */
+
+.indicador {
+  display: flex;
+  align-items: center;
+  margin-block: var(--sp-6) var(--sp-5);
+}
+
+.indicador li {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--texto-suave);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color var(--dur-media);
+}
+
+.indicador li:last-child {
+  flex: 0 0 auto;
+}
+
+.indicador li:not(:last-child)::after {
+  content: "";
+  flex: 1;
+  block-size: 2px;
+  margin-inline: 0.75rem;
+  background: var(--borde);
+  transition: background-color var(--dur-larga);
+}
+
+.indicador li[data-avance="hecho"]:not(:last-child)::after {
+  background: var(--marca);
+}
+
+.indicador__num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 2.1rem;
+  block-size: 2.1rem;
+  border: 2px solid var(--borde-control);
+  border-radius: 50%;
+  font-weight: 800;
+  transition:
+    background-color var(--dur-media),
+    border-color var(--dur-media),
+    color var(--dur-media);
+}
+
+.indicador li[data-avance="actual"] {
+  color: var(--texto);
+}
+
+.indicador li[data-avance="actual"] .indicador__num {
+  border-color: transparent;
+  background: var(--marca);
+  color: var(--sobre-marca);
+}
+
+.indicador li[data-avance="hecho"] .indicador__num {
+  border-color: var(--marca);
+  color: var(--marca);
+  font-size: 0;
+}
+
+.indicador li[data-avance="hecho"] .indicador__num::before {
+  content: "✓";
+  font-size: 1rem;
+}
+
+@container pasos (max-width: 34rem) {
+  .indicador li:not([data-avance="actual"]) .indicador__texto {
+    display: none;
+  }
+}
+
+/* ---- contenedor del paso (es lo que se desliza) ---- */
+
+.paso-contenedor {
+  view-transition-name: paso;
+  padding: var(--sp-6);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-xl);
+  background: var(--superficie);
+  box-shadow: var(--sombra-2);
+}
+
+.paso {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.paso__titulo {
+  font: 700 clamp(1.3rem, 1rem + 1vw, 1.7rem) / 1.25 var(--fuente-titulo);
+}
+
+.paso__titulo:focus {
+  outline: none;
+}
+
+.paso__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+}
+
+.paso .campo__control input {
+  min-block-size: 3.5rem;
+  font-size: 1.2rem;
+}
+
+/* ---- resultado ---- */
+
+.veredicto {
+  display: grid;
+  gap: 0.1rem;
+  padding: var(--sp-4) var(--sp-5);
+  border-inline-start: 0.5rem solid var(--t-fuerte);
+  border-radius: var(--r-m);
+  background: var(--t-bg);
+  color: var(--t-fg);
+  transition:
+    background-color var(--dur-media),
+    border-color var(--dur-media),
+    color var(--dur-media);
+}
+
+.veredicto__etiqueta {
+  font: 700 0.72rem/1.2 var(--fuente);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.veredicto__texto {
+  font: 800 clamp(1.75rem, 1.2rem + 2vw, 2.5rem) / 1.1 var(--fuente-titulo);
+}
+
+.veredicto__nota {
+  min-block-size: 1.4em;
+  font-weight: 600;
+}
+
+.resultado-grid {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+@container pasos (min-width: 40rem) {
+  .resultado-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.escala,
+.datos {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.datos__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+@container pasos (min-width: 40rem) {
+  .ficha {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--sp-6);
+  }
+}
+
+.pasos > .estado {
+  margin-block-start: var(--sp-4);
+}
+
+.pasos > .aviso {
+  margin-block-start: var(--sp-2);
+}
+
+/* ---- transiciones direccionales: adelante entra desde la derecha, atrás desde la izquierda ---- */
+
+::view-transition-group(paso) {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(paso),
+::view-transition-new(paso) {
+  mix-blend-mode: normal;
+}
+
+html:active-view-transition-type(forward)::view-transition-old(paso) {
+  animation: 0.26s ease-in both paso-sale-izquierda;
+}
+
+html:active-view-transition-type(forward)::view-transition-new(paso) {
+  animation: 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 0.06s both paso-entra-derecha;
+}
+
+html:active-view-transition-type(backward)::view-transition-old(paso) {
+  animation: 0.26s ease-in both paso-sale-derecha;
+}
+
+html:active-view-transition-type(backward)::view-transition-new(paso) {
+  animation: 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 0.06s both paso-entra-izquierda;
+}
+
+@keyframes paso-sale-izquierda {
+  to {
+    opacity: 0;
+    translate: -3rem 0;
+  }
+}
+
+@keyframes paso-entra-derecha {
+  from {
+    opacity: 0;
+    translate: 3rem 0;
+  }
+}
+
+@keyframes paso-sale-derecha {
+  to {
+    opacity: 0;
+    translate: 3rem 0;
+  }
+}
+
+@keyframes paso-entra-izquierda {
+  from {
+    opacity: 0;
+    translate: -3rem 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:active-view-transition-type(forward, backward)::view-transition-old(paso),
+  html:active-view-transition-type(forward, backward)::view-transition-new(paso) {
+    animation: none;
+  }
+}

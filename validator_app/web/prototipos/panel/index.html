@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Panel dividido · JSConnect Win Coverage</title>
+  <link rel="stylesheet" href="../comun/tokens.css">
+  <link rel="stylesheet" href="../comun/base.css">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="barra-prueba"></div>
+
+  <main class="panel">
+    <section class="panel__entrada" aria-labelledby="h-entrada">
+      <div class="marca">
+        <span class="marca__logo" aria-hidden="true">JS</span>
+        <div>
+          <p class="marca__nombre">JSConnect Win Coverage</p>
+          <p class="marca__sub">Variante 2 · Panel dividido</p>
+        </div>
+      </div>
+
+      <h1 id="h-entrada" class="titulo">Cobertura y Score</h1>
+
+      <form id="formulario" class="formulario" novalidate>
+        <div class="campo">
+          <label for="coordenadas">Coordenadas (latitud, longitud):</label>
+          <div class="campo__control">
+            <input id="coordenadas" name="coordenadas" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="-11.956037, -77.040653">
+            <button type="button" class="boton boton--icono" data-limpiar="coordenadas" aria-label="Borrar coordenadas">✕</button>
+          </div>
+          <p class="error" id="error-coordenadas" role="alert" hidden></p>
+        </div>
+        <div class="campo">
+          <label for="documento">Documento (DNI/RUC/CE):</label>
+          <div class="campo__control">
+            <input id="documento" name="documento" type="text" autocomplete="off" spellcheck="false" placeholder="8, 9 u 11 caracteres">
+            <button type="button" class="boton boton--icono" data-limpiar="documento" aria-label="Borrar documento">✕</button>
+          </div>
+          <p class="campo__ayuda" data-tipo-documento>Tipo: —</p>
+          <p class="error" id="error-documento" role="alert" hidden></p>
+        </div>
+        <p class="error" id="error-general" role="alert" hidden></p>
+        <button id="validar" type="submit" class="boton boton--primario boton--grande">VALIDAR</button>
+      </form>
+
+      <div class="panel__estado">
+        <p class="estado" role="status" data-estado>Estado: listo</p>
+        <p class="aviso animable" data-aviso hidden></p>
+        <button type="button" class="boton" data-accion="ver-detalle" command="show-modal" commandfor="detalle" disabled>Ver detalle</button>
+      </div>
+    </section>
+
+    <section class="panel__resultado" aria-labelledby="h-resultado" data-ocupado>
+      <h2 id="h-resultado" class="sr-only">Resultado</h2>
+
+      <div class="veredicto" data-veredicto data-estilo="secondary">
+        <p class="veredicto__etiqueta">Veredicto</p>
+        <p class="veredicto__texto" data-veredicto-texto>—</p>
+        <p class="veredicto__nota" data-veredicto-nota></p>
+      </div>
+
+      <ul class="lista" aria-label="Cobertura, zona y score">
+        <li>
+          <article class="tarjeta fila" data-tarjeta="cobertura" data-estilo="secondary" aria-labelledby="t-cobertura">
+            <h3 id="t-cobertura" class="tarjeta__etiqueta">Cobertura</h3>
+            <p class="tarjeta__titulo" data-titulo>—</p>
+            <p class="tarjeta__nota" data-nota></p>
+          </article>
+        </li>
+        <li>
+          <article class="tarjeta fila" data-tarjeta="zona" data-estilo="secondary" aria-labelledby="t-zona">
+            <h3 id="t-zona" class="tarjeta__etiqueta">Zona</h3>
+            <p class="tarjeta__titulo" data-titulo>—</p>
+            <p class="tarjeta__nota" data-nota></p>
+          </article>
+        </li>
+        <li>
+          <article class="tarjeta fila" data-tarjeta="score" data-estilo="secondary" aria-labelledby="t-score">
+            <h3 id="t-score" class="tarjeta__etiqueta">Score</h3>
+            <p class="tarjeta__titulo" data-titulo>—</p>
+            <p class="tarjeta__nota" data-nota></p>
+            <button type="button" class="boton boton--primario animable fila__accion" data-accion="consultar-score" command="show-modal" commandfor="confirmar-score" hidden>Consultar score</button>
+          </article>
+        </li>
+      </ul>
+
+      <section class="escala" aria-label="Rango del score">
+        <p class="rango" data-rango-linea>Rango: —</p>
+        <div class="medidor" data-medidor></div>
+        <ul class="leyenda" data-leyenda aria-label="Escala del score"></ul>
+      </section>
+
+      <section class="datos" aria-labelledby="h-ficha">
+        <div class="datos__cabecera">
+          <h3 id="h-ficha" class="subtitulo">Datos del cliente</h3>
+          <span class="copiar">
+            <button type="button" class="boton boton--sutil" command="--copy-all" commandfor="ficha-lista">📋 Copiar todo</button>
+            <span class="tip" role="status"></span>
+          </span>
+        </div>
+        <dl class="ficha" id="ficha-lista" data-ficha data-ocupado></dl>
+      </section>
+    </section>
+  </main>
+
+  <script src="../comun/datos.js" defer></script>
+  <script src="../comun/nucleo.js" defer></script>
+  <script src="panel.js" defer></script>
+</body>
+</html>

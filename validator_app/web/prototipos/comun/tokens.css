@@ -1,0 +1,101 @@
+/* Tokens de diseño de los prototipos. Claro/oscuro con light-dark(); solo Chromium/WebView2 reciente. */
+
+:root {
+  color-scheme: light dark;
+
+  /* tipografía */
+  --fuente: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fuente-titulo: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fuente-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* espacios y formas */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --r-s: 0.5rem;
+  --r-m: 0.875rem;
+  --r-l: 1.25rem;
+  --r-xl: 1.75rem;
+
+  /* movimiento */
+  --dur-corta: 160ms;
+  --dur-media: 320ms;
+  --dur-larga: 520ms;
+  --ease-salida: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-suave: cubic-bezier(0.45, 0, 0.2, 1);
+
+  /* superficies y texto */
+  --fondo: light-dark(oklch(97.5% 0.006 250), oklch(19% 0.012 255));
+  --superficie: light-dark(oklch(100% 0 0), oklch(24% 0.014 255));
+  --superficie-2: light-dark(oklch(95.5% 0.008 250), oklch(28% 0.016 255));
+  --borde: light-dark(oklch(88% 0.012 255), oklch(36% 0.016 255));
+  --borde-control: light-dark(oklch(60% 0.02 255), oklch(64% 0.02 255));
+  --texto: light-dark(oklch(24% 0.02 255), oklch(94% 0.008 255));
+  --texto-suave: light-dark(oklch(44% 0.02 255), oklch(76% 0.015 255));
+  --foco: light-dark(oklch(52% 0.17 255), oklch(78% 0.13 255));
+  --esqueleto: light-dark(oklch(91% 0.01 255), oklch(33% 0.016 255));
+  --esqueleto-brillo: light-dark(oklch(96% 0.008 255), oklch(40% 0.018 255));
+  --sombra-1: 0 1px 2px light-dark(oklch(0% 0 0 / 0.08), oklch(0% 0 0 / 0.4)),
+    0 2px 8px light-dark(oklch(0% 0 0 / 0.05), oklch(0% 0 0 / 0.25));
+  --sombra-2: 0 2px 4px light-dark(oklch(0% 0 0 / 0.07), oklch(0% 0 0 / 0.4)),
+    0 12px 28px light-dark(oklch(0% 0 0 / 0.1), oklch(0% 0 0 / 0.45));
+  --sombra-3: 0 8px 20px light-dark(oklch(0% 0 0 / 0.15), oklch(0% 0 0 / 0.5)),
+    0 32px 64px light-dark(oklch(0% 0 0 / 0.18), oklch(0% 0 0 / 0.55));
+  --velo: light-dark(oklch(20% 0.02 255 / 0.45), oklch(5% 0.01 255 / 0.65));
+
+  /* marca */
+  --marca: light-dark(oklch(52% 0.17 255), oklch(75% 0.13 255));
+  --marca-suave: light-dark(oklch(94% 0.03 255), oklch(31% 0.06 255));
+  --sobre-marca: light-dark(oklch(100% 0 0), oklch(20% 0.05 255));
+
+  /* tonos (estilos de las tarjetas de la app): fondo, texto, borde y relleno fuerte */
+  --success-bg: light-dark(oklch(95% 0.05 150), oklch(30% 0.06 150));
+  --success-fg: light-dark(oklch(34% 0.09 150), oklch(90% 0.09 150));
+  --success-borde: light-dark(oklch(75% 0.12 150), oklch(55% 0.12 150));
+  --success-fuerte: light-dark(oklch(52% 0.14 150), oklch(68% 0.16 150));
+
+  --warning-bg: light-dark(oklch(95% 0.07 90), oklch(31% 0.06 80));
+  --warning-fg: light-dark(oklch(38% 0.09 70), oklch(91% 0.1 90));
+  --warning-borde: light-dark(oklch(78% 0.14 85), oklch(62% 0.12 80));
+  --warning-fuerte: light-dark(oklch(72% 0.16 80), oklch(80% 0.15 85));
+
+  --danger-bg: light-dark(oklch(95% 0.03 20), oklch(30% 0.08 25));
+  --danger-fg: light-dark(oklch(38% 0.15 25), oklch(90% 0.07 25));
+  --danger-borde: light-dark(oklch(75% 0.12 25), oklch(58% 0.16 27));
+  --danger-fuerte: light-dark(oklch(52% 0.2 27), oklch(68% 0.19 27));
+
+  --info-bg: light-dark(oklch(95% 0.03 240), oklch(30% 0.06 245));
+  --info-fg: light-dark(oklch(36% 0.1 245), oklch(90% 0.06 240));
+  --info-borde: light-dark(oklch(76% 0.09 240), oklch(58% 0.12 245));
+  --info-fuerte: light-dark(oklch(52% 0.15 250), oklch(70% 0.13 245));
+
+  --secondary-bg: light-dark(oklch(95.5% 0.008 255), oklch(29% 0.014 255));
+  --secondary-fg: light-dark(oklch(38% 0.02 255), oklch(86% 0.01 255));
+  --secondary-borde: light-dark(oklch(80% 0.012 255), oklch(48% 0.016 255));
+  --secondary-fuerte: light-dark(oklch(60% 0.02 255), oklch(68% 0.02 255));
+
+  /* escala del score: los valores claros son los de la tabla comercial de la app */
+  --score-1: light-dark(#c8102e, oklch(70% 0.19 22));
+  --score-2: light-dark(#d9480f, oklch(72% 0.17 45));
+  --score-3: light-dark(#b8860b, oklch(78% 0.14 85));
+  --score-4: light-dark(#2b8a3e, oklch(74% 0.17 150));
+  --score-5: light-dark(#1a237e, oklch(72% 0.14 275));
+  --score-inactivo: light-dark(#9aa0a6, oklch(55% 0.01 255));
+}
+
+@media (forced-colors: active) {
+  :root {
+    --borde: CanvasText;
+    --borde-control: CanvasText;
+    --foco: Highlight;
+    --success-borde: CanvasText;
+    --warning-borde: CanvasText;
+    --danger-borde: CanvasText;
+    --info-borde: CanvasText;
+    --secondary-borde: CanvasText;
+  }
+}
