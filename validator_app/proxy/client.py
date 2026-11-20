@@ -249,6 +249,14 @@ class ProxyClient:
             capas=geo.capas_de_json(capas) if capas is not None else None,
         )
 
+    def obtener_version(self, timeout: float = 5.0) -> dict | None:
+        """Cuerpo de /api/version ({"release": ...}); None ante cualquier fallo, sin reintentos."""
+        try:
+            resp = self._request_with_retry("GET", "/api/version", max_retries=1, timeout=timeout)
+            return resp.json()
+        except Exception:
+            return None
+
     def validar_score(
         self,
         tipo_doc: str,

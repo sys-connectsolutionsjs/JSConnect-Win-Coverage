@@ -117,7 +117,11 @@ def aplicar_actualizacion(info: dict) -> bool:
     descargar(url, nuevo)
 
     checksum = extraer_checksum(info.get("notes", ""), nombre_archivo=nombre)
-    if checksum and sha256_de(nuevo) != checksum:
+    if not checksum:
+        nuevo.unlink(missing_ok=True)
+        raise ValueError(f"El release no publica el checksum SHA-256 de {nombre}.")
+    if sha256_de(nuevo).lower() != checksum.lower():
+        nuevo.unlink(missing_ok=True)
         raise ValueError("Checksum no coincide: el archivo esta corrupto o fue manipulado.")
 
     exe_actual = Path(sys.executable)

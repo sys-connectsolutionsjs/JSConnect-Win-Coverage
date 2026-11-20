@@ -131,6 +131,13 @@ Ver [`actualizacion-windows-11/README.md`](actualizacion-windows-11/README.md) p
 del Release. El owner ya instalado (`v2026.10.07`) se reemplaza a mano una sola vez.
 El Release se publica con el .exe y su checksum SHA-256. La app detecta la nueva versión resolviendo el commit real al que apunta el tag del Release (vía `GET /commits/{tag}`, no `target_commitish` — ese campo trae la rama, no un SHA) y comparándolo con el embebido en el ejecutable.
 
+**El agente se actualiza al abrir, como Steam** (desde 2026-11-20): antes de la activación busca la
+última versión y, si hay una, la descarga, verifica su SHA-256 y se reinstala sola, sin preguntar. Primero
+consulta al proxy (`GET /api/version`, que cachea GitHub 10 min para no agotar los 60 consultas/hora por IP)
+y, si no responde, a GitHub directo. Sin conexión no bloquea: avisa y deja entrar. Un Release sin checksum
+SHA-256 de su `.exe` no se instala. En desarrollo (sin compilar) no hace nada. Los agentes anteriores a esta
+versión se actualizan una sola vez a mano desde ⚙ → "Buscar actualizaciones".
+
 ### Instalación del Proxy (PC Oficina — una sola vez)
 ```powershell
 # 1. Clonar repo en PC oficina
@@ -304,6 +311,13 @@ See [`actualizacion-windows-11/README.md`](actualizacion-windows-11/README.md) f
 button plus a notice on startup. It compares its `.exe`'s SHA-256 with the one in the
 release. An already-installed owner (`v2026.10.07`) must be replaced by hand once.
 The release includes the .exe and its SHA-256 checksum. The app detects a new version by resolving the actual commit the release's tag points to (via `GET /commits/{tag}`, not `target_commitish` — that field holds the branch, not a SHA) and comparing it with the one embedded in the executable.
+
+**The agent updates itself on startup, Steam-style** (since 2026-11-20): before activation it looks for
+the latest version and, if there is one, downloads it, verifies its SHA-256 and reinstalls itself without
+asking. It asks the proxy first (`GET /api/version`, which caches GitHub for 10 min so the 60 requests/hour
+per IP limit is not exhausted) and falls back to GitHub directly. With no connection it does not block: it
+shows a notice and lets the user in. A release without the `.exe`'s SHA-256 checksum is not installed. Source
+(uncompiled) runs do nothing. Agents older than this version update once by hand from ⚙ → "Buscar actualizaciones".
 
 ### Proxy Installation (Office PC — one time)
 ```powershell

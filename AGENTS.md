@@ -88,6 +88,16 @@ plantilla `18_08_26_informe_avance_proyecto_winforce.docx` y no copiar hechos de
   `private_key.pem` junto al `.exe` no se toca. `build-owner.ps1` ahora también graba
   `validator_app/version.py`. **El owner `v2026.10.07` ya instalado no trae este
   actualizador: hay que reemplazar su `.exe` a mano una sola vez.**
+- **Actualización obligatoria al abrir el agente** (2026-11-20, estilo Steam): `App._inicio` llama a
+  `updater/check.py::chequeo_inicio(proxy)` ANTES de `_verificar_activacion`. Estados: `dev` (no es .exe
+  compilado o `BUILD_COMMIT == "unknown"`, no hace nada), `actualizar` (instala sin preguntar), `al_dia`,
+  `sin_conexion` (avisa y deja entrar). Pregunta primero al proxy (`GET /api/version`, caché 10 min en
+  `proxy/version_cache.py`, para no agotar los 60/h por IP) y luego a GitHub con timeout de 5 s. Una
+  descarga del proxy fuera de `github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/` se descarta.
+  `download.aplicar_actualizacion` ahora **exige** el checksum SHA-256 en las notas (sin él no instala) y lo
+  compara sin distinguir mayúsculas. Si la instalación del inicio falla, avisa y deja entrar. Los agentes
+  anteriores se actualizan una vez a mano (⚙ → "Buscar actualizaciones"). El proxy debe actualizarse para
+  servir `/api/version`; mientras tanto los agentes caen a GitHub directo.
 - **El agente salta directo al último Release**, sin pasar por los intermedios (el
   actualizador solo mira `releases/latest`). Un agente en el Release 1 que ve el 3
   descarga el 3; no instala el 2.

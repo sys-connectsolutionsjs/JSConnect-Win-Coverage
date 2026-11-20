@@ -4,6 +4,7 @@ Endpoints:
 - POST /api/cobertura  {lat, lon} -> CoberturaResponse
 - POST /api/score      {tipo_doc, num_doc, lat, lon, cobertura?} -> ScoreResponse
 - GET  /api/capas       ?version= -> reglas de venta por zona (poligonos) + version
+- GET  /api/version     -> ultimo Release del agente (cache 10 min; evita agotar la API de GitHub)
 - GET  /health        -> {status, version, session_age, logged_in, session_alive}
 - GET  /admin/config   -> {proxy_url, token, timeouts} (auto-discovery)
 - POST /admin/login    {php_sessid} -> inyecta y valida cookie de sesion WinForce
@@ -50,6 +51,7 @@ from validator_app.proxy import autologin
 from validator_app.proxy.capas import CapasCache, CapasNoDisponiblesError
 from validator_app.proxy.config import ProxyConfig, get_config, reset_config
 from validator_app.proxy.geofinder import GeofinderEquifax
+from validator_app.proxy.version_cache import VersionCache
 
 log = logging.getLogger(__name__)
 
@@ -1257,6 +1259,18 @@ def get_capas_cache() -> CapasCache:
     return _capas_cache
 
 
+_version_cache: VersionCache | None = None
+
+
+def get_version_cache() -> VersionCache:
+    global _version_cache
+    if _version_cache is None:
+        from validator_app.updater import check
+
+        _version_cache = VersionCache(lambda: check.ultimo_release_agente(timeout=10))
+    return _version_cache
+
+
 def _es_local(request: Request) -> None:
     host = request.client.host if request.client else ""
     if host not in ("127.0.0.1", "::1"):
@@ -1427,6 +1441,16 @@ async def api_capas(version: str | None = None):
         "actualizado": True,
         "capas": geo.capas_a_json(disponibles.capas),
     }
+
+
+@app.get("/api/version", dependencies=[Depends(verify_proxy_token)])
+async def api_version():
+    """Ultimo Release del agente (cacheado): evita que cada agente consulte GitHub."""
+    try:
+        release = await asyncio.to_thread(get_version_cache().obtener)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Version no disponible") from None
+    return {"release": release}
 
 
 @app.get("/health", response_model=HealthResponse)

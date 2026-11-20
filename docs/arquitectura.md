@@ -161,6 +161,11 @@ Decide la zona **antes** de gastar una consulta de score (cada una consume una p
   exportado como KML; la URL (`capas_kml_url`) va solo en `config.yaml`. El agente las mezcla con las
   embebidas (`core/capas_local.py`, `CapasCargadas`): lo local queda listo al instante y el proxy solo
   actualiza después (caché en `%APPDATA%\JSConnectWinCoverage\capas_reglas.json`).
+- **Versión al abrir el agente** (2026-11-20): `GET /api/version` (token como el resto de `/api/*`)
+  devuelve `{"release": ...}` con el último Release del agente; el proxy lo consulta a GitHub y lo cachea
+  10 min (`proxy/version_cache.py`; si GitHub falla sirve el último dato bueno, y sin dato responde 503).
+  El agente (`updater/check.py::chequeo_inicio`) pregunta primero al proxy y, si no responde, a GitHub
+  directo; ignora una descarga del proxy que no sea de los Releases de este repo.
 - **GUI**: página Mapa (`gui/map_page.py`, `tkintermapview`); compuerta del score también en la
   pantalla principal (`gui/zonas.py`: `plan_score`, `condiciones_de_venta`).
 

@@ -109,6 +109,13 @@ def activacion_vigente(huella: str, legacy=None) -> str | None:
     return None
 
 
+def accion_inicio(estado: str) -> str:
+    """Que hace la ventana con el resultado del chequeo de version al abrir:
+    "instalar" (hay una version nueva), "avisar" (no se pudo comprobar, se deja
+    entrar con un aviso) o "continuar"."""
+    return {"actualizar": "instalar", "sin_conexion": "avisar"}.get(estado, "continuar")
+
+
 def normalizar_url_proxy(texto: str) -> str:
     """URL lista para ProxyClient: sin espacios ni '/' final y con `http://` si se
     escribio solo IP:puerto (el cliente exige esquema)."""
@@ -452,6 +459,32 @@ class App(ttk.Window):
             )
 
     def _inicio(self):
+        """Como Steam: antes de activar/usar la app busca la ultima version y, si
+        hay una, la instala sola (solo en el .exe compilado)."""
+        if not update_check.es_build_real():
+            self._verificar_activacion()
+            return
+        self._abrir_progreso_actualizacion("Buscando actualizaciones...", "Iniciando")
+        threading.Thread(target=self._chequeo_inicio_hilo, daemon=True).start()
+
+    def _chequeo_inicio_hilo(self):
+        try:
+            estado, info = update_check.chequeo_inicio(self._proxy_client)
+        except Exception:
+            estado, info = "sin_conexion", None
+        self.after(0, lambda: self._resultado_chequeo_inicio(estado, info))
+
+    def _resultado_chequeo_inicio(self, estado, info):
+        self._cerrar_progreso_actualizacion()
+        accion = accion_inicio(estado)
+        if accion == "instalar":
+            self._abrir_progreso_actualizacion(f"Instalando la versión {info['tag']}...")
+            threading.Thread(
+                target=self._aplicar_update_hilo, args=(info, True), daemon=True
+            ).start()
+            return
+        if accion == "avisar":
+            self.lbl_estado.config(text="Estado: no se pudo comprobar la versión")
         self._verificar_activacion()
 
     def _verificar_activacion(self):
@@ -1081,13 +1114,17 @@ class App(ttk.Window):
             self._abrir_progreso_actualizacion()
             threading.Thread(target=self._aplicar_update_hilo, args=(info,), daemon=True).start()
 
-    def _abrir_progreso_actualizacion(self) -> None:
+    def _abrir_progreso_actualizacion(
+        self,
+        texto: str = "Descargando e instalando la actualización...",
+        titulo: str = "Actualizando",
+    ) -> None:
         """Dialogo modal con una barra indeterminada mientras se descarga e
         instala la actualizacion (mismo patron que los demas dialogos:
         Toplevel + transient + grab_set). No se puede cerrar a mano -- se
         cierra sola cuando termina la instalacion (exito o error)."""
         dialog = tk.Toplevel(self)
-        dialog.title("Actualizando")
+        dialog.title(titulo)
         dialog.geometry("340x110")
         dialog.resizable(False, False)
         dialog.transient(self)
@@ -1096,7 +1133,7 @@ class App(ttk.Window):
 
         frame = ttk.Frame(dialog, padding=16)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="Descargando e instalando la actualización...").pack(pady=(0, 10))
+        ttk.Label(frame, text=texto).pack(pady=(0, 10))
         barra = ttk.Progressbar(frame, mode="indeterminate", bootstyle="info-striped")
         barra.pack(fill="x")
         barra.start(12)
@@ -1110,7 +1147,9 @@ class App(ttk.Window):
             dialog.destroy()
             self._dialogo_actualizacion = None
 
-    def _aplicar_update_hilo(self, info):
+    def _aplicar_update_hilo(self, info, continuar_al_fallar=False):
+        """`continuar_al_fallar`: en la actualizacion del inicio, si falla se avisa y
+        se deja entrar (se sigue con la activacion) en vez de dejar la app a medias."""
         try:
             download.aplicar_actualizacion(info)
         except Exception as exc:
@@ -1118,6 +1157,8 @@ class App(ttk.Window):
             self.after(0, self._cerrar_progreso_actualizacion)
             self.after(0, lambda m=msg: messagebox.showerror("Actualizacion", m))
             self.after(0, lambda: self.lbl_estado.config(text="Estado: error al actualizar"))
+            if continuar_al_fallar:
+                self.after(0, self._verificar_activacion)
             return
         self.after(0, self._actualizacion_lista)
 

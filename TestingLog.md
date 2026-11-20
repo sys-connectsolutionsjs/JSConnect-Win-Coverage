@@ -954,6 +954,17 @@ Proceso seguido para cada caso:
 - Puntaje en `ns3ResumenScoreRP3.Puntaje` (ej: 423), `NivelRiesgo`, y deuda en
   `ResumenDeuda.DeudaTotal`. El parser usa una búsqueda recursiva robusta.
 
+### Sesión 2026-11-20 — actualización obligatoria al abrir el agente (704 → 754 tests)
+- [TDD] Rojo primero, luego el código: `test_updater_inicio.py` (`ultimo_release_agente`,
+  `es_build_real`, `chequeo_inicio` con proxy/GitHub/sin conexión/descarga hostil, checksum en minúsculas y
+  Release sin checksum), `test_version_proxy.py` (`VersionCache`, `GET /api/version`,
+  `ProxyClient.obtener_version`), `test_gui_inicio_update.py` (`accion_inicio`, `_inicio`,
+  `_resultado_chequeo_inicio`, `_aplicar_update_hilo(continuar_al_fallar)` sin Tk, con `_AppFalsa`).
+- Los tests viejos de `consultar_ultimo_release`/`_commit_de_tag` parchean con `lambda:` sin argumentos:
+  `ultimo_release_agente` solo pasa `timeout` cuando se pide, para no romperlos.
+- **No verificado en vivo**: instalar de verdad desde un `.exe` compilado contra un Release más nuevo
+  (ver el plan de verificación manual en `ResumenDelDia.md`).
+
 ## Cómo probar manualmente contra la API real
 - `python tools/probar_core.py` → pide usuario/contraseña, coordenadas y documento;
   ejecuta login → cobertura → score. NO muestra la contraseña (getpass).
