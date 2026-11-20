@@ -3,7 +3,7 @@
 Vista única de **qué se hizo**, **qué falta** y **en qué orden**. El detalle de
 cada hito vive en [`HistorialResumenes.md`](HistorialResumenes.md) y en `resumenes/<fecha>.md`.
 
-Última actualización: 2026-11-06.
+Última actualización: 2026-11-20.
 
 ---
 
@@ -20,7 +20,7 @@ actualizaciones propias), el runbook de la Etapa E está escrito (instalación c
 pendrive) y la Fase 5 (barrido de documentación) terminó. Lo que sigue: reactivar
 los agentes con la huella nueva, reemplazar a mano el `.exe` del owner una vez,
 probar un agente W10 contra el owner W11 y monitorear la primera semana en
-producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de venta por zona** (publicado en el Release v2026.10.13 junto con la dirección y la ficha copiable): falta probarlo con asesores. **El 2026-11-03** quedó verificado en vivo el autologin con la consulta que lo espera, y salió el Release `v2026.11.03`: resultado en tarjetas y fraude solo informativo. Las muertes diurnas de la sesión vienen de otra persona que usa la cuenta del proxy.
+producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de venta por zona** (publicado en el Release v2026.10.13 junto con la dirección y la ficha copiable): falta probarlo con asesores. **El 2026-11-03** quedó verificado en vivo el autologin con la consulta que lo espera, y salió el Release `v2026.11.03`: resultado en tarjetas y fraude solo informativo. Las muertes diurnas de la sesión vienen de otra persona que usa la cuenta del proxy. **El 2026-11-20** el agente pasó a actualizarse solo al abrir (Release `v2026.11.20`, falta verlo en vivo) y se empezó, en una rama aparte y en pausa, un prototipo de interfaz web con cinco variantes para elegir.
 
 ---
 
@@ -68,6 +68,7 @@ producción. **El 2026-10-09 se construyó el mapa de cobertura con reglas de ve
 | 2026-10-30 | **Autologin verificado en vivo + consulta que espera al autologin** — WinForce rechaza Chromium headless (410): Chromium normal como LocalSystem; puerta "Iniciar con Microsoft" y campo de contraseña oculto corregidos; imagen y traza por fallo. Primer login real 16:11; tres muertes provocadas renovadas en 6-12 s por SSO silencioso (no se guarda `win-azure-oauth2`). La consulta del asesor espera al autologin (15 s) y se repite, con medición por fases (sin probar en vivo); endpoints ya no congelan el proxy; clave vacía en `config.yaml` no lo tumba; instalador sin suspensión (`[ENERGIA]`); capas por KML 200. 637 → 683 tests | `0a44e2d` |
 | 2026-11-03 | **Consulta que espera al autologin verificada en vivo + resultado en tarjetas** — la consulta del asesor esperó al autologin y respondió en 11.7 s; confirmación de muerte 3 → 1 s. El log confirma (y el owner lo admite) que otra persona usa la cuenta del proxy en el día: muertes cada 5-15 min en oficina, 0 de noche. Resultado del asesor en tarjetas (Cobertura · Zona · Score) con "Ver detalle" copiable para WhatsApp, también en el Mapa. **El fraude pasa a ser solo informativo** (los códigos bloqueados siguen bloqueando). **Release v2026.11.03** (agente + owner). 683 → 704 tests | `c1e2e05` `1b98a80` |
 | 2026-11-06 | **VPN para asesores remotos: documento de decisión** — más de 25 remotos con PC personal (100-200 a futuro) y presupuesto US$0; el plan gratis de Tailscale ya no sirve. [`vpn.md`](vpn.md) reúne todas las alternativas; preferencia del owner: **NetBird propio en Oracle Cloud Always Free**. Requisito: tokens del proxy por asesor. AGENTS.md recortado (`/doctor`). Sin cambios de código (704 tests) | — |
+| 2026-11-20 | **El agente se actualiza al abrir (estilo Steam) + prototipo de interfaz web en pausa** — antes de la activación busca la última versión y la instala sola; consulta primero al proxy (`GET /api/version`, caché de 10 min) y luego a GitHub; sin conexión avisa y deja entrar; el instalador exige el checksum SHA-256 del Release. **Release v2026.11.20** (agente nuevo, owner reutilizado). Skill `modern-web-guidance` instalada sin telemetría. En la rama `worktree-prototipo-web`, galería de 5 variantes HTML/CSS/JS a medias (9 tests en rojo, sin abrir en un navegador). 704 → 754 tests en `main` | `290d8bd` (Release v2026.11.20) · rama `19a5fa3` (sin push) |
 
 ---
 

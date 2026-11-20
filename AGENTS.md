@@ -339,33 +339,55 @@ ResumenDelDia.md -> `resumenes/`) hay que ajustar las rutas relativas; en
 10. Etapa C.12 (modo standalone con `PHPSESSID`, opcional) — para otro momento.
 11. Monitorear la primera semana de producción (sesión del proxy, RUC/CE) — observación, no una
     tarea con pasos.
+12. **Verificar en vivo la actualización obligatoria al abrir el agente** (NUEVA 2026-11-20, Release `v2026.11.20`):
+    el código y los tests están (754 en verde en `main`); falta ver el `.exe` real: abrir uno más viejo con un
+    Release más nuevo (debe buscar, instalar solo y reabrir), probar sin red (avisa y deja entrar) y con el proxy
+    apagado (cae a GitHub). Antes, **actualizar el proxy** para que exista `/api/version`
+    (ver [`docs/proxy-deploy.md`](docs/proxy-deploy.md)). Los agentes en `v2026.11.03` se actualizan una vez a mano.
+13. **Prototipo de interfaz web (HTML/CSS/JS con pywebview)** (NUEVA 2026-11-20, **en pausa**, rama
+    `worktree-prototipo-web`): Fase A a medias (5 variantes en `validator_app/web/prototipos/`, ninguna abierta aún en
+    un navegador), con 9 tests fallando y 17 errores de `ruff`. El orden para retomar está en
+    [`ResumenDelDia.md`](ResumenDelDia.md) y el plan en [`PlanesAprobados.md`](PlanesAprobados.md). El owner elegirá
+    la variante antes de la Fase B (conectar con Python).
 
 ## Historial (bitácora del proyecto)
-> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-11-03) están en
+> El historial por fases y los cierres de sesión anteriores (2026-08-18 → 2026-11-06) están en
 > [`docs/historial-agents.md`](docs/historial-agents.md). Aquí queda **solo el último cierre**;
 > al escribir el siguiente, este se mueve a ese archivo (ver su cabecera).
 
-### Cierre de la sesión 2026-11-06 [CONTEXTO PARA LA SIGUIENTE — elegir la VPN para los asesores remotos (`vpn.md`), AGENTS.md recortado]
+### Cierre de la sesión 2026-11-20 [CONTEXTO PARA LA SIGUIENTE — el agente se actualiza al abrir (Release v2026.11.20); prototipo de interfaz web a medias en la rama `worktree-prototipo-web`]
 
-- **Hecho** (sin cambios de código; 704 tests en verde, `ruff` limpio; **sin commit**):
-  - **VPN para remotos**: hoy hay más de 25 remotos con **PC personal** y se esperan 100-200 usuarios, con
-    presupuesto US$0. El plan gratis de Tailscale ya no sirve (6 usuarios, no comercial) y los planes por
-    usuario costarían US$300-1,600 al mes. Se escribió [`vpn.md`](vpn.md) como base del Word de decisión:
-    glosario, todas las alternativas, costos con 50 y 200 remotos, riesgos y fuentes.
-  - **Preferencia del owner: NetBird propio en Oracle Cloud Always Free** (panel oficial, sin cobro por
-    usuario). Condiciones: cuenta en Pay As You Go (la VM gratuita "inactiva" puede ser reclamada), alerta de
-    presupuesto en US$1 y copias semanales fuera de Oracle. Plan B: un VPS de ~US$5 al mes. Alternativas
-    documentadas: Headscale en Oracle y Cloudflare Tunnel (no se instala nada en la PC del asesor, pero el
-    proxy queda en internet).
-  - **Requisito para cualquier opción**: tokens del proxy **por asesor y revocables**, límite de consultas y
-    registro (hoy hay un solo `proxy_token`). Queda como tarea 7i; no se implementó.
-  - `docs/escalabilidad-remota.md`: nota de **desactualizado** (decía "Tailscale gratis ≤100").
-  - `/doctor`: se sacó de AGENTS.md el árbol de Estructura y "Implementaciones futuras" pasó a
-    [`Roadmap.md`](Roadmap.md) (37,981 → ~28k caracteres). Modo de permisos por defecto del usuario: `plan`.
-- **Sin probar / sin hacer**: nada del proxy se tocó; siguen abiertos los pasos del cierre 2026-11-03
-  ("Reiniciar servicio" con la confirmación de 1 s, quién usa la cuenta del proxy, opinión sobre las tarjetas).
+- **Hecho en `main`** (TDD 704 → 754 tests, `ruff` limpio; commit `290d8bd` **con push**; `444972f` solo local):
+  - **El agente se actualiza al abrir, como Steam** (`updater/check.py::chequeo_inicio`, `gui/main_window.py::_inicio`):
+    antes de la activación busca la última versión y, si hay una, la instala sola; sin conexión avisa y deja entrar
+    (decisión del owner). Pregunta primero al proxy y luego a GitHub (timeout 5 s); en desarrollo no hace nada.
+  - **Proxy**: `GET /api/version` con caché de 10 min (`proxy/version_cache.py`, `ProxyClient.obtener_version`),
+    para que 25+ agentes no agoten los 60 consultas/hora de GitHub. Una descarga del proxy fuera de los Releases
+    de este repo se descarta.
+  - **`updater/download.py` endurecido**: exige el checksum SHA-256 del Release (antes, sin hash se instalaba sin
+    verificar) y lo compara sin distinguir mayúsculas (antes un hash en minúsculas fallaba siempre).
+  - **Release `v2026.11.20`** (tag en `290d8bd`): agente nuevo (SHA-256 `22369FAA…EF9E8068`) y consola owner reutilizada
+    (mismo hash que `v2026.11.03`, así no se reinstala en bucle).
+  - **Skill `modern-web-guidance`** instalada por el owner (plugin del marketplace `googlechrome`) con la telemetría
+    desactivada (`DISABLE_TELEMETRY=1` en `.claude/settings.json`, commit `444972f`).
+- **Hecho en la rama `worktree-prototipo-web`** (commit `19a5fa3`, **sin push**; trabajo en pausa a pedido del owner):
+  - Primer paso de un rediseño de la interfaz en HTML/CSS/JS (la app seguiría en Python y la ventana sería pywebview
+    sobre WebView2): galería de 5 variantes para elegir antes de decidir (bento, panel dividido, pasos, compacta,
+    tarjeta protagonista) en `validator_app/web/prototipos/`, con tokens, base y núcleo JS compartidos.
+  - Los datos de ejemplo (todos ficticios) se comparan en los tests con `zonas.py`, `ficha.py` y `main_window.py`, y la
+    lógica del núcleo JS se ejecuta con node y se compara con Python (score, coordenadas, tipo de documento, sesión).
+  - Hallazgo: el `.exe` publicado de Data_Processor_Pro es CustomTkinter, no HTML; su HTML está en una versión Tauri que
+    nunca se compiló. No hay empaquetado web previo que reutilizar.
+- **Estado de las pruebas (auditoría del cierre)**: en la rama, `pytest` 869 pasan y **9 fallan** (todos de
+  `tests/test_web_prototipos.py`: faltan `index.html`, `galeria.css` y `README.md` de la galería, más 2 fallas reales)
+  y `ruff check .` da **17 errores** (`tests/test_web_nucleo_js.py`). En `main`: 754 en verde. **El cierre se hizo sobre
+  ese estado por decisión del owner**; nada del prototipo se da por completado.
+- **Sin probar**: la actualización obligatoria con un `.exe` real; ninguna de las 5 páginas del prototipo se ha abierto en
+  un navegador (layout, contraste, transiciones de vista, `<details>` animado, copiado, diálogos).
 - **Siguiente paso**:
-  1. El owner arma el Word desde `vpn.md` y elige (preguntas en su sección 12).
-  2. Con la opción elegida: plan TDD de **tokens por asesor** (7i) y prueba piloto (PC del proxy + 2 remotos).
-  3. Pendientes del 2026-11-03: "Reiniciar servicio" y medir la detección en `consulta_reintentada`; un día
-     laboral sin el otro usuario de la cuenta; opinión de los asesores (7h).
+  1. Subir la rama: `git push -u origin worktree-prototipo-web` (y `main`, que tiene `444972f` sin subir).
+  2. Actualizar el proxy (`/api/version`) y probar la actualización al abrir con un `.exe` real (tarea 12).
+  3. Retomar el prototipo (tarea 13): crear los 3 archivos de la galería, dejar los tests y `ruff` en verde, revisar las
+     5 variantes en un Chromium real con Playwright y elegir una (o una mezcla) con el owner.
+  4. Pendientes de cierres anteriores: "Reiniciar servicio" (confirmación de 1 s), quién usa la cuenta del proxy,
+     opinión de los asesores sobre las tarjetas (7h), elegir la VPN (7i).

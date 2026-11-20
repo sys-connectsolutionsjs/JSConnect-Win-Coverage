@@ -1212,3 +1212,28 @@ las 3 etapas del rediseño visual.** 219 tests, ruff limpio.
      ~0 muertes diurnas.
   3. Confirmar que los asesores se actualizan a `v2026.11.03` y opinan sobre las tarjetas.
   4. Luego la mini PC (7d) y Tailscale; alto de la consola owner (7g).
+
+### Cierre de la sesión 2026-11-06 [CONTEXTO PARA LA SIGUIENTE — elegir la VPN para los asesores remotos (`vpn.md`), AGENTS.md recortado]
+
+- **Hecho** (sin cambios de código; 704 tests en verde, `ruff` limpio; **sin commit**):
+  - **VPN para remotos**: hoy hay más de 25 remotos con **PC personal** y se esperan 100-200 usuarios, con
+    presupuesto US$0. El plan gratis de Tailscale ya no sirve (6 usuarios, no comercial) y los planes por
+    usuario costarían US$300-1,600 al mes. Se escribió [`vpn.md`](../vpn.md) como base del Word de decisión:
+    glosario, todas las alternativas, costos con 50 y 200 remotos, riesgos y fuentes.
+  - **Preferencia del owner: NetBird propio en Oracle Cloud Always Free** (panel oficial, sin cobro por
+    usuario). Condiciones: cuenta en Pay As You Go (la VM gratuita "inactiva" puede ser reclamada), alerta de
+    presupuesto en US$1 y copias semanales fuera de Oracle. Plan B: un VPS de ~US$5 al mes. Alternativas
+    documentadas: Headscale en Oracle y Cloudflare Tunnel (no se instala nada en la PC del asesor, pero el
+    proxy queda en internet).
+  - **Requisito para cualquier opción**: tokens del proxy **por asesor y revocables**, límite de consultas y
+    registro (hoy hay un solo `proxy_token`). Queda como tarea 7i; no se implementó.
+  - `docs/escalabilidad-remota.md`: nota de **desactualizado** (decía "Tailscale gratis ≤100").
+  - `/doctor`: se sacó de AGENTS.md el árbol de Estructura y "Implementaciones futuras" pasó a
+    [`Roadmap.md`](../Roadmap.md) (37,981 → ~28k caracteres). Modo de permisos por defecto del usuario: `plan`.
+- **Sin probar / sin hacer**: nada del proxy se tocó; siguen abiertos los pasos del cierre 2026-11-03
+  ("Reiniciar servicio" con la confirmación de 1 s, quién usa la cuenta del proxy, opinión sobre las tarjetas).
+- **Siguiente paso**:
+  1. El owner arma el Word desde `vpn.md` y elige (preguntas en su sección 12).
+  2. Con la opción elegida: plan TDD de **tokens por asesor** (7i) y prueba piloto (PC del proxy + 2 remotos).
+  3. Pendientes del 2026-11-03: "Reiniciar servicio" y medir la detección en `consulta_reintentada`; un día
+     laboral sin el otro usuario de la cuenta; opinión de los asesores (7h).

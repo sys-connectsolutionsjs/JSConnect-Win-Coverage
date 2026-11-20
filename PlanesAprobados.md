@@ -699,6 +699,26 @@ Se abrió `/login` con Playwright sin llenar ni enviar nada, y salieron dos cosa
    - sin probar: Chromium sin monitor conectado (aquí funcionó en sesión 0); lo dirá la verificación.
 6. Repetir la "Verificación en vivo" en el host.
 
+## Plan aprobado — Prototipo de interfaz web con la skill `modern-web-guidance` (2026-11-20) — FASE A A MEDIAS, EN PAUSA
+
+Rama `worktree-prototipo-web` (el `.exe` de los asesores no cambia hasta que el owner elija). Tk no entiende
+HTML/CSS: la interfaz web se mostraría con pywebview sobre Edge WebView2 (ya viene en Windows 10/11) y la lógica
+seguiría en Python. Decisiones del owner: prototipo en una rama aparte, skill instalada sin telemetría y **probar varias
+pantallas con transiciones animadas (bento grid y otras distribuciones) antes de decidir**.
+
+- **Fase A — galería de 5 variantes con datos de ejemplo** (`validator_app/web/prototipos/`): bento grid, panel
+  dividido, pasos guiados, compacta para call center y tarjeta protagonista. **Hecho**: `comun/` (tokens, base, datos,
+  núcleo) y las 5 variantes, con tests que las comparan con `zonas.py`, `ficha.py` y `main_window.py`.
+  **Falta**: `index.html`, `galeria.css` y `README.md` de la galería (con la política "Browser Support: solo
+  Chromium/WebView2 reciente"), dejar los tests y `ruff` en verde, abrir las 5 páginas en un Chromium real (Playwright
+  ya está en la venv) y que el owner elija una variante o una mezcla.
+- **Fase B — conectar la variante elegida (no empezada)**: `validator_app/web/consulta.py` (la lógica de
+  `_validar_en_hilo`, de `gui/main_window.py`, sin Tk), `puente.py` (clase `js_api` que nunca lanza), `main_web.py`
+  (activación en solo lectura, cliente del keyring y capas), `build-web.ps1` → `JSConnect-Win-Coverage-Web.exe` (otro
+  nombre: el actualizador no lo toca y no va a Releases) y `requirements-web.txt` con `pywebview`. Fuera de alcance:
+  Mapa, configuración, activación y actualizador (siguen en la app Tk).
+- El detalle de lo que queda, en orden, está en `ResumenDelDia.md` y en la tarea 13 de `AGENTS.md`.
+
 ## Notas de seguridad
 - Las capas del mapa (`datos_capas/`, `validator_app/data/*.json.gz`) y la URL `capas_kml_url` NO van al repo (público).
 - Credenciales de Win rotan cada 1-2 meses; nunca hardcodear; en proxy solo viven en keyring PC proxy.

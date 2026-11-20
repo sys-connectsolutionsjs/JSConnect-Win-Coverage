@@ -965,6 +965,21 @@ Proceso seguido para cada caso:
 - **No verificado en vivo**: instalar de verdad desde un `.exe` compilado contra un Release más nuevo
   (ver el plan de verificación manual en `ResumenDelDia.md`).
 
+### Sesión 2026-11-20 (rama `worktree-prototipo-web`) — prototipo de interfaz web (754 → 878 tests, 9 en rojo)
+- [TDD] Rojo primero: `tests/test_web_prototipos.py` (estructura de archivos, accesibilidad, ausencia de recursos
+  externos, textos y tarjetas de ejemplo comparados con `zonas.py`, `ficha.py` y `main_window.py`) y
+  `tests/test_web_nucleo_js.py` (ejecuta `datos.js` y `nucleo.js` con **node** en un contexto sin DOM y compara con
+  Python: `clasificar_score`, `parse_coordenadas`, `detectar_tipo_documento`, `rango_sin_prefijo`,
+  `texto_copiar_todo` y la máquina de estados de la sesión).
+- Los textos de ejemplo se generaron con la función `esperado()` del propio test y se pegaron en `datos.js`: si
+  `zonas.py` cambia una frase, el test avisa. Los datos son ficticios (documento `00000001`, nombres "EJEMPLO PRUEBA").
+- **Estado al cierre**: 869 pasan y **9 fallan**. Siete por la galería sin crear (`index.html`, `galeria.css` y
+  `README.md`); dos reales: `dialog::backdrop` no aparece literal en `base.css` (usa `dialog.dialogo::backdrop`) y
+  `panel.css` no declara `::view-transition-group`. `ruff` da 17 errores en `test_web_nucleo_js.py` (E501 y orden de
+  imports).
+- Los tests con node se saltan solos si no está instalado (`pytest.mark.skipif`).
+- **No verificado**: ninguna página se ha abierto en un navegador.
+
 ## Cómo probar manualmente contra la API real
 - `python tools/probar_core.py` → pide usuario/contraseña, coordenadas y documento;
   ejecuta login → cobertura → score. NO muestra la contraseña (getpass).

@@ -23,6 +23,19 @@ nuevo arriba. Este archivo nunca se borra; solo crece.
 
 
 
+
+### 2026-11-20 — Sesión — El agente se actualiza al abrir (v2026.11.20) y prototipo de interfaz web en pausa
+Snapshot completo: [resumenes/2026-11-20.md](resumenes/2026-11-20.md)
+- **Qué**: antes de la activación, el agente busca la última versión y la instala sola (estilo Steam). Pregunta primero al proxy (`GET /api/version`, caché de 10 min, para no agotar los 60 consultas/hora de GitHub) y luego a GitHub; sin conexión avisa y deja entrar.
+- **Por qué**: los asesores podían seguir usando una versión vieja ya activada; hoy solo se actualizaban si entraban a ⚙ → "Buscar actualizaciones".
+- **Decisiones (owner)**: sin conexión se deja entrar; el proxy se consulta primero.
+- **Seguridad**: el instalador ahora exige el checksum SHA-256 del Release y lo compara sin distinguir mayúsculas; una descarga ofrecida por el proxy fuera de los Releases de este repo se descarta.
+- **Release `v2026.11.20`** (tag en `290d8bd`): agente nuevo y consola owner reutilizada. Falta verlo en vivo con un `.exe` real y actualizar el proxy.
+- **Prototipo de interfaz web (rama `worktree-prototipo-web`, en pausa)**: skill `modern-web-guidance` instalada sin telemetría; galería de 5 variantes HTML/CSS/JS (bento, panel, pasos, compacta, protagonista) con pywebview sobre WebView2 como idea. Tests que comparan los datos con `zonas.py` y ejecutan el JS con node. Quedó a medias: 9 tests en rojo, 17 errores de ruff y ninguna página abierta aún en un navegador.
+- **Hallazgo**: el `.exe` publicado de Data_Processor_Pro es CustomTkinter, no HTML; no hay empaquetado web previo.
+- **Tests**: 704 → 754 en `main` (verdes); en la rama 869 pasan y 9 fallan.
+- **Commits**: `290d8bd` (push), `444972f` (solo local), `19a5fa3` (rama, sin push).
+
 ### 2026-11-06 — Sesión — VPN para asesores remotos: documento de decisión (`vpn.md`)
 Snapshot completo: [resumenes/2026-11-06.md](resumenes/2026-11-06.md)
 - **Qué**: más de 25 asesores remotos con PC personal (100-200 a futuro) y presupuesto US$0. Se escribió [vpn.md](vpn.md) con todas las alternativas, glosario, costos con 50 y 200 remotos, riesgos y fuentes, como base del Word de decisión.
